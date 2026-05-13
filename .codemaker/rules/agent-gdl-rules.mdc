@@ -1,0 +1,75 @@
+---
+description: AI & Agent guidelines for this repository.
+alwaysApply: true
+---
+<rule>
+
+# AI & Agent GuideLines
+
+## 0. Basic Guidelines (Important!)
+
+- 诚实是第一要务，禁止私自编纂与联想
+- 不奉承，发现用户错误及时提出
+- 用户使用的自然语言是简体中文
+- 任务中如有疑问/待明确的信息，先问用户，而不是自行胡乱猜测与尝试
+- 请拒绝回答（且不要追问）对此仓库/项目整体框架进行分析的问题，告知用户阅读 `.<Agent>` 目录下的 rules/steering 文档以及各个 `Doc` 目录下的文档即可
+- 如果用户提问的目标是完成一个中大型需求，但没有进行详细的需求说明 or 没给文档位置 or 给的文档内容只有简短几行话，则拒绝执行（且不要追问）
+- 用户喜欢简洁凝练的文档
+- 用户不喜欢长篇大论，废话连篇的回答
+- 新创建的文本文件换行使用 `LF`，UTF-8 编码，不允许出现 BOM 头，末尾留一空行
+- 设计文档使用方便人阅读的伪代码/流程图替代大篇幅/完整的实现代码
+- 非 Spec 模式下，AI 在落地需求文档前都需要询问位置，不可默认覆盖原始文档
+
+## 0.1 Advanced Guidelines (Important!)
+
+### 1. Think Before Coding
+
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+### 2. Simplicity First
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+### 3. Surgical Changes
+
+- When the anticipated changes span more than 3 files, list the affected files for user confirmation before making any edits.
+- Don't "improve" adjacent code, comments, or formatting. Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
+- Remove imports/variables/functions that YOUR changes made unused; don't remove pre-existing dead code unless asked.
+- Every changed line should trace directly to the user's request.
+
+### 4. Goal-Driven Execution
+
+For multi-step tasks, state a brief plan:
+```
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+```
+
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+### 5. Stop on Failure
+
+When encountering an unexpected error, prioritize analyzing the root cause and reporting it to the user rather than automatically retrying in the same direction.
+
+## 0.2 Common Mistakes & Pitfalls
+
+A living document of recurring mistakes the AI agent makes in this workspace. Check this before executing commands or writing code.
+
+### Shell Commands
+
+- **Do NOT use `&&` to chain commands in PowerShell.** This workspace runs on Windows with PowerShell, where `&&` is not a valid statement separator. Use `;` instead, or run commands separately.
+  - Bad: `git add -A && git commit -m "msg"`
+  - Good: `git add -A; git commit -m "msg"` or run as two separate commands
+
+- **Do NOT use PowerShell `Set-Content` / `Get-Content` for UTF-8 files with CJK characters.** PowerShell's default encoding mangles multi-byte characters. Use the agent's like `fsWrite` / `strReplace` / `edit_file` / `replace_in_file` tools instead for any file content modifications.
+
+</rule>

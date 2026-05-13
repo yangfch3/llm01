@@ -1,0 +1,41 @@
+{
+  "skill_name": "tech-doc-review",
+  "evals": [
+    {
+      "id": 1,
+      "name": "high-quality-cache-doc",
+      "prompt": "技术评审 docs/cache-system-design.md",
+      "expected_output": "评审报告以 Markdown 文件生成到 .ai_review/ 目录，Checklist 大部分为 ✅，少量 ⚠️，无 ❌；自由评审意见应肯定文档整体质量；改进建议以 🟡 和 🟢 为主",
+      "files": [
+        {
+          "path": "docs/cache-system-design.md",
+          "content": "# 分布式缓存系统技术需求\n\n## 1. 背景与目标\n\n当前系统的数据库查询延迟在高峰期达到 500ms+，严重影响用户体验。本需求旨在引入分布式缓存层（Redis Cluster），将热点数据的读取延迟降低到 10ms 以内，同时减少数据库 60% 以上的读压力。\n\n## 2. 功能范围（Scope）\n\n- 搭建 Redis Cluster（3 主 3 从）\n- 实现缓存读写中间件，支持 Cache-Aside 模式\n- 对用户信息、商品详情、配置数据三类热点数据进行缓存\n- 缓存失效策略：TTL + 主动失效（写后删除）\n- 提供缓存命中率监控面板\n\n## 3. Out of Scope\n\n- 不涉及数据库本身的优化（如索引调整、分库分表）\n- 不涉及 CDN 层缓存\n- 暂不考虑多级缓存（本地缓存 + 分布式缓存）\n\n## 4. 技术方案\n\n### 4.1 架构设计\n\n应用层 → 缓存中间件 → Redis Cluster → 数据库（回源）\n\n### 4.2 缓存策略\n\n| 数据类型 | TTL | 失效方式 | 预计命中率 |\n|---------|-----|---------|----------|\n| 用户信息 | 30min | 写后删除 | 85% |\n| 商品详情 | 1h | 写后删除 + 定时刷新 | 90% |\n| 配置数据 | 24h | 主动推送失效 | 99% |\n\n### 4.3 异常处理\n\n- 缓存穿透：布隆过滤器拦截不存在的 key\n- 缓存雪崩：TTL 加随机偏移量\n- 缓存击穿：热点 key 使用互斥锁\n- Redis 不可用：降级直连数据库，触发告警\n\n## 5. 性能要求\n\n- 缓存读取 P99 延迟 < 10ms\n- 缓存写入 P99 延迟 < 20ms\n- 缓存命中率 > 80%\n- Redis 集群可用性 > 99.9%\n\n## 6. 依赖与风险\n\n- 依赖运维团队提供 Redis Cluster 基础设施\n- 风险：缓存一致性问题（通过写后删除 + 延迟双删降低风险）\n- 风险：Redis 内存不足（设置 maxmemory + LRU 淘汰策略）\n\n## 7. 验收标准\n\n1. 缓存中间件通过单元测试和集成测试\n2. 热点接口延迟降低到 10ms 以内（P99）\n3. 数据库读 QPS 下降 60% 以上\n4. 缓存命中率达到预期值"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "low-quality-permission-doc",
+      "prompt": "需求文档评审 docs/user-permission.md",
+      "expected_output": "评审报告以 Markdown 文件生成到 .ai_review/ 目录，Checklist 大量 ❌ 和 ⚠️；自由评审意见应指出文档过于简略；改进建议以 🔴 关键问题为主，给出具体补充方向",
+      "files": [
+        {
+          "path": "docs/user-permission.md",
+          "content": "# 用户权限改造\n\n把现在的权限系统改成 RBAC 模式。\n\n需要支持：\n- 角色管理\n- 权限分配\n- 多租户\n\n技术栈用 Spring Security。\n\n尽快完成。"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "medium-quality-api-refactor-doc",
+      "prompt": "帮我评审一下这个技术需求 docs/api-refactor.md",
+      "expected_output": "评审报告以 Markdown 文件生成到 .ai_review/ 目录，Checklist 应有混合评分（✅/⚠️/❌ 都有）；应能准确指出哪些模块描述较好、哪些不足；改进建议三个等级都应出现",
+      "files": [
+        {
+          "path": "docs/api-refactor.md",
+          "content": "# API 网关重构技术需求\n\n## 背景\n\n目前系统有 30+ 个微服务，每个服务自行暴露 REST API，缺乏统一的入口管理。导致以下问题：\n- 鉴权逻辑在每个服务中重复实现\n- 没有统一的限流和熔断机制\n- API 版本管理混乱\n- 缺少统一的请求日志和链路追踪\n\n## 目标\n\n引入 API 网关作为统一入口，收敛公共能力。\n\n## 功能描述\n\n### 路由转发\n\n网关根据 URL path 前缀将请求转发到对应的微服务。路由配置支持动态更新（通过配置中心），无需重启网关。\n\n**路由规则示例：**\n- `/api/user/**` → user-service\n- `/api/order/**` → order-service\n- `/api/payment/**` → payment-service\n\n**输入：** HTTP 请求（method + path + headers + body）\n**输出：** 转发后的响应（透传）\n**异常：** 目标服务不可达时返回 503 + 标准错误体\n\n### 统一鉴权\n\n从各服务抽出鉴权逻辑，在网关层统一处理。支持 JWT Token 校验。\n\n### 限流熔断\n\n接入限流和熔断能力。具体策略待定。\n\n### API 版本管理\n\n支持 URL 路径版本（/v1/, /v2/）。\n\n## 技术选型\n\n使用 Spring Cloud Gateway。理由：\n- 团队已有 Spring 技术栈经验\n- 性能满足当前规模（预计 5000 QPS）\n- 社区活跃，文档完善\n\n## 依赖\n\n- 配置中心（Nacos，已有）\n- 注册中心（Nacos，已有）\n- 需要 DevOps 配合调整 Nginx 转发规则\n\n## 验收标准\n\n1. 所有外部请求通过网关转发\n2. 鉴权逻辑从各服务中移除\n3. 限流熔断功能可用"
+        }
+      ]
+    }
+  ]
+}

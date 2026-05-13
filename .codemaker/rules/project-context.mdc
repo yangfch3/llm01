@@ -1,0 +1,68 @@
+---
+description: Project context for the llm01 LLM learning repository.
+alwaysApply: true
+---
+<rule>
+
+# Project Context · llm01
+
+本仓库是一份「LLM 学习 + Echo 模型训练」项目。对话启动时加载，供 AI 快速建立上下文。
+
+## 一、仓库定位（一句话）
+
+双线产出：**LLM 入门课件 + 练习代码** 与 **Echo 对话模型**（双产物：`echo-mini` 从零全链路 / `echo` 微调开源底座）。
+
+## 二、文档去哪里找
+
+| 要找什么 | 去哪 |
+|---|---|
+| 项目愿景、决策、目录结构、风险 | `Doc/DesignDoc/00-startup-proposal.md`（**根基文档，最高权威**） |
+| 里程碑与任务拆分 | `Doc/DesignDoc/01-project-plan.md` |
+| 用户原始想法（历史输入，只读） | `Doc/UserDraft/` |
+| 课程大纲与章节 | `Doc/Courseware/outline.md` → `Doc/Courseware/chNN-xxx/` |
+| 章节练习代码 | `Playground/chNN-xxx/`（与课件一一对应） |
+| Echo 代码 | `Echo/echo-mini/`、`Echo/echo/`、共用工具 `Echo/shared/` |
+| 设计变更、专题讨论 | `Doc/DesignDoc/` 下新增 `NN-xxx.md` |
+| 里程碑复盘 | `Doc/DesignDoc/retro-MX.md`（每个里程碑结束产出） |
+
+**信息冲突时以 `00-startup-proposal.md` 为准。**
+
+## 三、铁律（不要问、直接遵守）
+
+### 平台
+
+- 开发双平台：Windows (RTX 3060 12GB) + Mac (Apple Silicon)
+- **训练生产配置锁 Windows**，Mac 只跑 tiny 配置做代码验证
+- 其余活动（学习/编码/推理/量化/部署/demo）两端等价
+
+### 代码
+
+- Python 3.12.10；依赖管理 **uv**（禁用 pip/conda）
+- 格式化与 lint：**ruff**；类型注解建议但不强制
+- 禁止硬编码 `cuda` / `mps` / `cpu`，一律走 `Echo/shared/device.py::get_device()`
+- 路径一律 `pathlib.Path`，不做字符串拼接
+- 训练脚本必须提供 `config-full.yaml`（Win 生产）+ `config-tiny.yaml`（Mac 验证）两套配置
+
+### 仓库卫生
+
+- `.gitignore` 范围：`checkpoints/` `data/` `.venv/` `__pycache__/` 及其它产物
+- 大文件（数据 / 权重）**不入 Git**：数据走脚本化下载，权重走 HuggingFace Hub
+- `Doc/UserDraft/` 下文件**只追加不修改**
+- `Doc/DesignDoc/` 下文件按 `NN-xxx.md` 两位数字排序
+
+## 四、协作铁律
+
+- 大的设计变更**先落文档再动代码**（专题文档入 `Doc/DesignDoc/`）
+- 课件/练习成对产出：写完一章 md 就配套 `Playground/chNN-xxx/` 练习
+- 里程碑严格顺序推进，未到 M4 不写训练代码
+- 用户切换机器前后必须 `git push` / `git pull` + `scripts/doctor.py`
+
+## 五、整体性问题导流
+
+遇到整体性问题，按下表导流文档（通用拒答原则见 `agent-gdl-rules.mdc`）：
+
+- "仓库整体架构 / 愿景 / 决策" → `Doc/DesignDoc/00-startup-proposal.md`
+- "接下来要做什么 / 里程碑 / 任务" → `Doc/DesignDoc/01-project-plan.md`
+- "为什么选 XX 方案" → 先查 `Doc/DesignDoc/` 相关专题，无记录再讨论
+
+</rule>
