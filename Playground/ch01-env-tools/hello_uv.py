@@ -10,9 +10,9 @@ from __future__ import annotations
 
 # === 安装 / 同步依赖 ===
 # Win:
-#     uv sync --extra dev --extra echo-mini --extra train-cuda
+#     uv sync --extra dev --extra courseware --extra echo-mini --extra train-cuda
 # Mac:
-#     uv sync --extra dev --extra echo-mini --extra train-mps
+#     uv sync --extra dev --extra courseware --extra echo-mini --extra train-mps
 #
 # `uv sync` 读 pyproject.toml + uv.lock，确保锁文件一致。
 # 改了依赖后，uv.lock 也会变，记得一起 commit。

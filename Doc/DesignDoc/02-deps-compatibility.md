@@ -153,10 +153,10 @@ dev = [
 安装命令：
 ```bash
 # Win
-uv sync --extra dev --extra echo-mini --extra train-cuda
+uv sync --extra dev --extra courseware --extra echo-mini --extra train-cuda
 
 # Mac
-uv sync --extra dev --extra echo-mini --extra train-mps
+uv sync --extra dev --extra courseware --extra echo-mini --extra train-mps
 
 # M6 部署阶段（任一平台）按需追加：
 uv sync --extra deploy-llamacpp

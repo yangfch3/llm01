@@ -176,7 +176,7 @@ git push
 
 ```bash
 git pull
-uv sync --extra dev --extra echo-mini --extra train-{cuda|mps}
+uv sync --extra dev --extra courseware --extra echo-mini --extra train-{cuda|mps}
 uv run python scripts/doctor.py      # 必跑
 # 数据：按需 uv run python scripts/download_*.py
 # 权重：按需 huggingface-cli download ...

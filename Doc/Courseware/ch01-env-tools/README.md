@@ -19,7 +19,7 @@
 
 | 场景 | 命令 |
 |---|---|
-| 同步当前项目所有依赖 | `uv sync --extra dev --extra echo-mini --extra train-cuda`（Win） |
+| 同步当前项目所有依赖 | `uv sync --extra dev --extra courseware --extra echo-mini --extra train-cuda`（Win） |
 | 运行脚本（自动用项目 venv） | `uv run python xxx.py` |
 | 进入交互式 Python | `uv run python` |
 | 临时跑一个工具（不污染项目） | `uvx ruff check .` |

@@ -162,10 +162,10 @@ llm01/
 
 ```bash
 # Windows (3060)
-uv sync --extra dev --extra echo-mini --extra train-cuda
+uv sync --extra dev --extra courseware --extra echo-mini --extra train-cuda
 
 # Mac (Apple Silicon)
-uv sync --extra dev --extra echo-mini --extra train-mps
+uv sync --extra dev --extra courseware --extra echo-mini --extra train-mps
 
 # 验证（两端都应通过 scripts/doctor.py）
 uv run python scripts/doctor.py
