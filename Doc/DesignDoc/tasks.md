@@ -24,8 +24,8 @@
 <!-- M1 START -->
 ## M1 · 前置知识
 
-- [ ] T1.1 ch01 课件 + Playground/ch01 环境与工具
-- [ ] T1.2 ch02 课件 + Playground/ch02 必要数学
+- [x] T1.1 ch01 课件 + Playground/ch01 环境与工具
+- [x] T1.2 ch02 课件 + Playground/ch02 必要数学
 - [ ] T1.3 ch03 课件 + Playground/ch03 PyTorch 入门
 - [ ] T1.4 ch04 课件 + Playground/ch04 神经网络与训练要素
 <!-- M1 END -->
