@@ -110,10 +110,22 @@ uv run jupyter lab
 
 跑通标准：每个脚本独立执行不报错，且看到设备名（Win 上应是 `cuda`，Mac 上 `mps`）。
 
-## 思考题
+## 自检
 
 1. 为什么 `get_device()` 默认优先级是 `cuda > mps > cpu` 而不是反过来？反过来会怎样？
 2. `uv run python xxx.py` 和 `python xxx.py` 在已激活 venv 后表现一致吗？不一致时差在哪？
+3. `Playground/ch01-env-tools/hello_torch.py` 里写了 `sys.path.insert(0, str(REPO_ROOT))`，为什么需要这行？删掉会怎样？
+
+<details markdown="1">
+<summary>答案速查</summary>
+
+1. 优先级反过来训练时永远只用 CPU，速度慢几十到几百倍；当前顺序确保有 GPU 就用 GPU。`prefer=` 参数留了手动降级的口子，调试时强制 CPU 复现 bug 用得上
+
+2. 大体一致。差异：`uv run` 会先校验 `uv.lock` 与 `pyproject.toml` 同步、必要时自动补依赖，更稳。已激活 venv 直接 `python` 更快但不会自检环境漂移
+
+3. `Echo` 是大写驼峰，**不是合法的 Python 包名**，import 机制默认找不到。把仓库根加到 `sys.path` 让 Python 把 `Echo/` 当作命名空间包扫描。删掉的话 `from Echo.shared.device import ...` 会 `ModuleNotFoundError`。VSCode 调试通过 `launch.json` 的 `PYTHONPATH` 解决同一问题
+
+</details>
 
 ## 参考资料
 

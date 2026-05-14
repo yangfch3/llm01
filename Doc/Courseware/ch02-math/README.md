@@ -120,11 +120,13 @@ AB = [[19, 22],
 - $A$ 是 $(5, 8)$，$B$ 是 $(8, 3)$，$AB$ 形状是？$BA$ 能算吗？
 - 点积 $a \cdot b = 0$ 说明 $a$ 和 $b$ 啥关系？
 
-<details>
+<details markdown="1">
 <summary>答案速查</summary>
 
 - $AB$ 形状是 $(5, 3)$（外维保留）；$BA$ 不能算，内维 $3 \neq 5$
+
 - $a$ 和 $b$ 互相**正交**（夹角 90°）。注意零向量也满足 $a \cdot b = 0$，是边界情况
+
 </details>
 
 ---
@@ -291,12 +293,15 @@ PyTorch 的 `loss.backward()` + `optimizer.step()` 自动做的就是这件事�
 - 链式法则告诉我们：如果 $\partial L / \partial a$ 已知，要算 $\partial L / \partial w_1$，还需要知道什么？
 - 上面手算例子里，如果 $h = -1$（ReLU 把它截成 0），$\partial L / \partial w_1$ 等于多少？这意味着什么？
 
-<details>
+<details markdown="1">
 <summary>答案速查</summary>
 
 - 我们要**最小化** loss，梯度指向上山方向，所以减号往下山方向走。加号会让 loss 越来越大
+
 - 还需要 $\partial a / \partial h$（这里 ReLU 的导数）和 $\partial h / \partial w_1$（这里是 $x$）
+
 - $\partial L / \partial w_1 = 0$。意味着 ReLU 把 $h$ 截成 0 后，这条路径"梯度断了"——$w_1$ 这次更新拿不到梯度信号。这就是 **dying ReLU** 问题的根源
+
 </details>
 
 ---
@@ -450,7 +455,7 @@ onehot 情况下只剩**正确类**那一项有贡献：
 
 **梯度形式简洁到不可思议**：预测概率减真实 onehot。
 
-<details>
+<details markdown="1">
 <summary>为什么是 $p_i - y_i$？最小推导（点开看）</summary>
 
 设真值类别是 $k$（即 $y_k = 1$，其它 $y_j = 0$）。CE 此时退化为：
@@ -499,12 +504,15 @@ loss = F.cross_entropy(logits, target)  # 直接吃 logits
 - 真值 onehot = [0, 1, 0]，预测 p = [0.3, 0.4, 0.3]，CE 是多少？
 - $\partial\mathrm{CE} / \partial z_i = p_i - y_i$ 这个梯度告诉优化器"该往哪走"——具体怎么走？
 
-<details>
+<details markdown="1">
 <summary>答案速查</summary>
 
 - $\frac{e^{z_i - c}}{\sum_j e^{z_j - c}} = \frac{e^{z_i}/e^c}{\sum_j e^{z_j}/e^c} = \frac{e^{z_i}}{\sum_j e^{z_j}}$，分子分母同乘 $e^c$ 抵消
+
 - $\mathrm{CE} = -\log(0.4) \approx 0.916$（只有正确类那一项贡献）
+
 - $z_{\text{正确类}}$ 加（梯度为负，按 $w \leftarrow w - \eta \nabla L$ 是加），所有错误类的 $z$ 减。**等价于"把概率从错的类挪到对的类"**
+
 </details>
 
 ---
