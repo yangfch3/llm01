@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# 虚拟环境
+.venv/
+venv/
+env/
+
+# uv
+# uv.lock 入仓，但临时构建产物忽略
+.uv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# 项目产物（大文件不入 Git，走 HF Hub / 脚本下载）
+checkpoints/
+data/
+*.bin
+*.pt
+*.pth
+*.safetensors
+*.gguf
+*.onnx
+
+# 训练日志（细粒度产物）
+runs/
+wandb/
+tb_logs/
+*.log
+
+# 临时
+tmp/
+.cache/

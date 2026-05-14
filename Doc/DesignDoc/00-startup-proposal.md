@@ -75,7 +75,7 @@ echo-mini 的训练过程中会沉淀大量"配方"（数据清洗参数、超�
 
 - 通用基础设施（设备工具、数据加载、日志、评测）一律下沉到 `Echo/shared/`
 - 训练配方差异写入各自 README（`echo-mini/README.md` / `echo/README.md`）
-- 跨产物的踩坑统一追加到 `Doc/DesignDoc/02-deps-compatibility.md` §5
+- 跨产物的踩坑统一追加到 `Doc/DesignDoc/troubleshooting.md`（活文档，按日期倒序）
 - 每个产物里程碑结束（M4、M5、M6）时，强制做一次 retro，遵循 `Doc/DesignDoc/templates/retro-template.md`
 
 ### 4.5 Echo 验收标准

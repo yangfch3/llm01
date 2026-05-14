@@ -3,7 +3,7 @@
 > 本文记录本项目对 Python 3.12 + 双平台（Win 3060 / Mac Apple Silicon）下的依赖兼容性评估，
 > 以及由此推导出的部署路线选型。M0 选定依赖版本、M5/M6 部署阶段需对照本文。
 >
-> 本文是 **持续追加** 的活文档，踩坑后请追加到 §5。
+> **决策性文档，改动频率低**。具体踩坑细节迁到 [`troubleshooting.md`](troubleshooting.md)。
 
 ## 1. Python 3.12 主流依赖兼容性总览
 
@@ -24,7 +24,7 @@
 | `sentencepiece` | ≥0.2.0 | 部分底座的分词器依赖 |
 | `ruff` / `pyyaml` / `tqdm` / `rich` | 最新 | 通用工具 |
 | `evaluate` | 最新 | 评测 |
-| `llama-cpp-python` | 最新 | 跨平台量化推理 |
+| `llama-cpp-python` | 最新 | 跨平台量化推理（Win 可能要编译，见 §1.2） |
 
 ### 1.2 有坑但可控
 
@@ -45,6 +45,16 @@
   - **不强依赖**，全部代码走 PyTorch 2.x 自带的 `scaled_dot_product_attention`
   - 性能差距对 echo-mini（~30M）和 0.5B 底座可忽略
   - 真碰到瓶颈再单独评估
+
+#### `llama-cpp-python`（量化推理）
+
+- **状态**：跨平台支持，但 Win + Python 3.12 经常没现成 wheel，触发本地编译
+- **本地编译要求**：MSVC、CMake、（CUDA 加速时）CUDA toolkit 多方版本对齐，新 VS 版本下踩坑率高
+- **应对**：
+  - 拆到独立 extras `deploy-llamacpp`，主流程默认不装
+  - M6 部署阶段再 `uv sync --extra deploy-llamacpp`
+  - 编译失败时回退到预编译 wheel：<https://github.com/abetlen/llama-cpp-python/releases>
+  - 实在装不上：跳过 `llama-cpp-python`，部署只走 Ollama（本项目主路径）
 
 ### 1.3 不用（明确避开）
 
@@ -128,8 +138,9 @@ train-mps = [
 ]
 
 # 部署（跨平台）
-deploy = [
-  "llama-cpp-python",
+deploy = []  # 占位，预留轻量跨平台依赖
+deploy-llamacpp = [
+  "llama-cpp-python",  # Win 下可能要编译，M6 再按需
 ]
 
 # 开发工具
@@ -142,10 +153,13 @@ dev = [
 安装命令：
 ```bash
 # Win
-uv sync --extra dev --extra echo-mini --extra train-cuda --extra deploy
+uv sync --extra dev --extra echo-mini --extra train-cuda
 
 # Mac
-uv sync --extra dev --extra echo-mini --extra train-mps --extra deploy
+uv sync --extra dev --extra echo-mini --extra train-mps
+
+# M6 部署阶段（任一平台）按需追加：
+uv sync --extra deploy-llamacpp
 ```
 
 Ollama 不通过 pip 装，是独立 CLI 工具，README 单独说明安装方法。
@@ -156,8 +170,8 @@ Ollama 不通过 pip 装，是独立 CLI 工具，README 单独说明安装方�
 - 不选 3.11 的代价：遇到边缘库（极个别）不支持时要 fallback
 - 真碰到 3.12 不兼容的库，单独建子 venv 隔离，不动主环境
 
-## 5. 踩坑记录（持续追加）
+## 5. 踩坑记录
 
-> 格式：日期 · 平台 · 现象 · 根因 · 解决
+踩坑记录已迁出本文档，集中维护在 [`troubleshooting.md`](troubleshooting.md)（活文档，按日期倒序追加）。
 
-（M0 启动后补充）
+本文只保留**决策性**内容（兼容性表、部署选型、依赖分组建议）。具体踩坑细节请去 troubleshooting 查。

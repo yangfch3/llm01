@@ -18,7 +18,8 @@ alwaysApply: true
 |---|---|
 | 项目愿景、决策、目录结构、风险 | `Doc/DesignDoc/00-startup-proposal.md`（**根基文档，最高权威**） |
 | 里程碑与任务拆分 | `Doc/DesignDoc/01-project-plan.md`（描述）+ `tasks.md`（勾选清单） |
-| 依赖兼容性、部署选型、踩坑记录 | `Doc/DesignDoc/02-deps-compatibility.md` |
+| 依赖兼容性、部署选型 | `Doc/DesignDoc/02-deps-compatibility.md` |
+| 踩坑记录（活文档） | `Doc/DesignDoc/troubleshooting.md` |
 | 用户原始想法（历史输入，只读） | `Doc/UserDraft/` |
 | 课程大纲与章节 | `Doc/Courseware/outline.md` → `Doc/Courseware/chNN-xxx/` |
 | 章节练习代码 | `Playground/chNN-xxx/`（与课件一一对应） |

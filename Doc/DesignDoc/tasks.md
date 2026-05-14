@@ -7,18 +7,18 @@
 <!-- M0 START -->
 ## M0 · 仓库基建
 
-- [ ] T0.1 初始化 `pyproject.toml`，配置 optional-dependencies（模块分组 + 平台分组 `train-cuda` / `train-mps`）
-- [ ] T0.2 `.python-version` 锁到 minor 3.12（Win 3.12.10 / Mac 3.12.13 各自 patch）
-- [ ] T0.3 配置 `.gitignore`（checkpoints/ data/ .venv/ __pycache__/ 等）
-- [ ] T0.4 配置 `.gitattributes`：强制 LF、标注二进制类型
-- [ ] T0.5 编写根 `README.md`：项目简介、快速开始（Win/Mac 两套命令）、目录导览
-- [ ] T0.6 配置 ruff（`pyproject.toml` 内）
-- [ ] T0.7 创建 `Doc/Courseware/outline.md` 骨架（章节列表先空着）
-- [ ] T0.8 创建 `Echo/echo-mini` `Echo/echo` `Echo/shared` 目录与各自 README 占位
-- [ ] T0.9 `Echo/shared/device.py::get_device()`：统一设备选择（cuda→mps→cpu），含 op fallback 工具
-- [ ] T0.10 `scripts/doctor.py`：双平台自检脚本（见策划案 §7.5）
-- [ ] T0.11 编写大文件同步 SOP 文档（`Doc/DesignDoc/03-sync-strategy.md`）：策略已在策划案 §7.4 确定，本文档只补操作层（HF Hub 仓库命名规则、`huggingface-cli` 上传/下载常用命令、断点续传、数据下载脚本骨架）
-- [ ] T0.12 在 Win/Mac 各自 `uv sync` + `python scripts/doctor.py` 通过
+- [x] T0.1 初始化 `pyproject.toml`，配置 optional-dependencies（模块分组 + 平台分组 `train-cuda` / `train-mps`）
+- [x] T0.2 `.python-version` 锁到 minor 3.12（patch 由本地 pyenv/uv 选）
+- [x] T0.3 配置 `.gitignore`（checkpoints/ data/ .venv/ __pycache__/ 等）
+- [x] T0.4 配置 `.gitattributes`：强制 LF、标注二进制类型
+- [x] T0.5 编写根 `README.md`：项目简介、快速开始（Win/Mac 两套命令）、目录导览
+- [x] T0.6 配置 ruff（`pyproject.toml` 内）
+- [x] T0.7 创建 `Doc/Courseware/outline.md` 骨架（章节列表先空着）
+- [x] T0.8 创建 `Echo/echo-mini` `Echo/echo` `Echo/shared` 目录与各自 README 占位
+- [x] T0.9 `Echo/shared/device.py::get_device()`：统一设备选择（cuda→mps→cpu），含 op fallback 工具
+- [x] T0.10 `scripts/doctor.py`：双平台自检脚本（见策划案 §7.5）
+- [x] T0.11 编写大文件同步 SOP 文档（`Doc/DesignDoc/03-sync-strategy.md`）：策略已在策划案 §7.4 确定，本文档只补操作层（HF Hub 仓库命名规则、`huggingface-cli` 上传/下载常用命令、断点续传、数据下载脚本骨架）
+- [ ] T0.12 在 Win/Mac 各自 `uv sync` + `python scripts/doctor.py` 通过（in progress）
 <!-- M0 END -->
 
 <!-- M1 START -->
@@ -119,4 +119,4 @@
 - [x] 项目计划书：`Doc/DesignDoc/01-project-plan.md`
 - [x] 依赖兼容性与部署选型：`Doc/DesignDoc/02-deps-compatibility.md`
 - [x] Git 仓库初始化
-- [ ] M0 仓库基建：**下一步**
+- [ ] M0 仓库基建（in progress · T0.1–T0.11 完成，T0.12 待双端验证）

@@ -60,6 +60,13 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 When encountering an unexpected error, prioritize analyzing the root cause and reporting it to the user rather than automatically retrying in the same direction.
 
+### 6. Concise Commit Messages
+
+- 默认单行短句（≤60 字符），格式：`<里程碑或范围>: <核心动作>`
+- 例：`M0: 仓库脚手架 + Win 端 doctor 通过`、`fix: doctor 处理 pyarrow 段错误`
+- 不堆叠 bullet 列表、不复述每个改动文件——改动详情靠 `git diff` 看
+- 仅当涉及破坏性变更或重要上下文时才追加 body（空一行后写）
+
 ## 0.2 Common Mistakes & Pitfalls
 
 A living document of recurring mistakes the AI agent makes in this workspace. Check this before executing commands or writing code.
