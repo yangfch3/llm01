@@ -26,6 +26,12 @@ Thumbs.db
 
 # Jupyter
 .ipynb_checkpoints/
+*.ipynb
+ipynb/
+
+# 个人探索脚本（不入仓库）
+scratch_*.py
+**/scratch/
 
 # 项目产物（大文件不入 Git，走 HF Hub / 脚本下载）
 checkpoints/
