@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import importlib
 import os
 import platform
@@ -33,10 +34,8 @@ if str(REPO_ROOT) not in sys.path:
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 
 # 行缓冲：避免 native crash 时 stdout 截断丢日志
-try:
+with contextlib.suppress(AttributeError, OSError):
     sys.stdout.reconfigure(line_buffering=True)  # type: ignore[attr-defined]
-except (AttributeError, OSError):
-    pass
 
 # 关键依赖列表（import 名 → 是否必需）
 CORE_DEPS: list[tuple[str, bool]] = [
