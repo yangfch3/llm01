@@ -42,6 +42,16 @@ uv sync --extra dev --extra courseware --extra echo-mini --extra train-mps
 uv run python scripts/doctor.py
 ```
 
+### 文档站（MkDocs）
+
+本地预览 `Doc/` 目录下所有文档（课件、设计文档等），支持 LaTeX 公式渲染：
+
+```bash
+uv run mkdocs serve -f Misc/mkdocs/mkdocs.yml
+```
+
+浏览器打开 `http://127.0.0.1:8000` 即可。
+
 ## 目录导览
 
 ```
