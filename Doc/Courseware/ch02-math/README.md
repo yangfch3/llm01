@@ -59,12 +59,14 @@ a · b = 1·4 + 2·5 + 3·6 = 4 + 10 + 18 = 32
 - 反向 $\theta = 180°$ → $\cos\theta = -1$ → 点积最小（负）
 
 ```
-b
-↑
-│   .a       ← a 和 b 都在第一象限，θ 小，点积大
-│  /
-│ /
-└─────→
+ y
+ ↑
+ │     ↗ a       ← 向量 a 从原点斜向上
+ │   ↗
+ │ ↗ ────→ b    ← 向量 b 从原点向右
+ O────────→ x
+                  ← a, b 都从原点 O 出发，θ 是它们之间的夹角
+                    θ 小（方向接近）→ cos θ 接近 1 → 点积大
 ```
 
 **这就是 attention 的本质**：算 query 和每个 key 的方向相似度。LLM 里反复出现的 $QK^\top$，每一项就是某个 token 的 query 向量和某个 token 的 key 向量的点积——值大表示"应该多关注这个位置"。
@@ -106,11 +108,24 @@ AB = [[19, 22],
 **Linear 层就是矩阵乘**：`nn.Linear(in_features=3, out_features=4)` 概念上等价于乘一个 $(3, 4)$ 矩阵，输入 $(N, 3)$ 出来 $(N, 4)$。
 
 > 注：PyTorch 实际把权重存为 $(\text{out}, \text{in}) = (4, 3)$，前向算的是 $y = x W^\top + b$。`print(linear.weight.shape)` 看到的是 $(4, 3)$，别慌——和上面"概念形状"互为转置，乘出来结果一样。这个存储约定是为了行优先访存友好。
+>
+> ```python
+> linear = nn.Linear(3, 4)
+> linear.weight.shape   # torch.Size([4, 3])  ← out 在前
+> linear.bias.shape     # torch.Size([4])
+> ```
 
 ### 自检
 
 - $A$ 是 $(5, 8)$，$B$ 是 $(8, 3)$，$AB$ 形状是？$BA$ 能算吗？
 - 点积 $a \cdot b = 0$ 说明 $a$ 和 $b$ 啥关系？
+
+<details>
+<summary>答案速查</summary>
+
+- $AB$ 形状是 $(5, 3)$（外维保留）；$BA$ 不能算，内维 $3 \neq 5$
+- $a$ 和 $b$ 互相**正交**（夹角 90°）。注意零向量也满足 $a \cdot b = 0$，是边界情况
+</details>
 
 ---
 
@@ -248,6 +263,13 @@ L = \tfrac{1}{2}(y - t)^2
 
 PyTorch 的 `loss.backward()` + `optimizer.step()` 自动做的就是这件事。但**至少手算一次**，你才会真懂"梯度是什么、它怎么传"。
 
+> **从标量到向量**：练习 `gradient_chain_rule.py` 把上面的标量版推广到**向量版**——$x$ 是向量、$w_1$ 是矩阵 $(h, d_{in})$、$h$ 是向量。推导思路完全一样，只是每一步的"乘"变成了矩阵运算：
+>
+> - 标量版 $\partial L / \partial w_1 = (\partial L / \partial h) \cdot x$
+> - 向量版 $\partial L / \partial W_1 = (\partial L / \partial h) \otimes x$（外积，`np.outer(dh, x)`）
+>
+> 形状对一下就明白：$\partial L / \partial W_1$ 必须和 $W_1$ 同形 $(h, d_{in})$，而 $dh$ 是 $(h,)$、$x$ 是 $(d_{in},)$ → 唯一能凑出 $(h, d_{in})$ 的就是外积。这个"形状反推"是大多数人手推矩阵反向传播的实战技巧。
+
 ### 2.4 数值梯度：调试的救命稻草
 
 自己写反向传播容易出错。**用数值梯度做 sanity check**：
@@ -258,7 +280,7 @@ PyTorch 的 `loss.backward()` + `optimizer.step()` 自动做的就是这件事�
 
 意思：把 $w_i$ 微微抬一点（加 $\epsilon$）算 $L$，再微微压一点算 $L$，差除以 $2\epsilon$ 就是斜率近似。
 
-- $\epsilon$ 取 $10^{-5}$ 量级（太小被浮点精度吞掉，太大近似不准）
+- $\epsilon$ 取 $10^{-5}$ 量级（太小被浮点精度吞掉——`float32` 精度约 $10^{-7}$，$\epsilon < 10^{-6}$ 时 $L(w+\epsilon)$ 和 $L(w)$ 的差被舍入误差淹没；太大则一阶近似不准）
 - 和你手算的解析梯度比较，最大绝对差 $< 10^{-6}$ → 实现正确
 
 练习里 `gradient_chain_rule.py` 就跑这个对照。
@@ -269,9 +291,70 @@ PyTorch 的 `loss.backward()` + `optimizer.step()` 自动做的就是这件事�
 - 链式法则告诉我们：如果 $\partial L / \partial a$ 已知，要算 $\partial L / \partial w_1$，还需要知道什么？
 - 上面手算例子里，如果 $h = -1$（ReLU 把它截成 0），$\partial L / \partial w_1$ 等于多少？这意味着什么？
 
+<details>
+<summary>答案速查</summary>
+
+- 我们要**最小化** loss，梯度指向上山方向，所以减号往下山方向走。加号会让 loss 越来越大
+- 还需要 $\partial a / \partial h$（这里 ReLU 的导数）和 $\partial h / \partial w_1$（这里是 $x$）
+- $\partial L / \partial w_1 = 0$。意味着 ReLU 把 $h$ 截成 0 后，这条路径"梯度断了"——$w_1$ 这次更新拿不到梯度信号。这就是 **dying ReLU** 问题的根源
+</details>
+
 ---
 
 ## 3. softmax 与交叉熵
+
+> §1 §2 给的是**通用工具**（线代 + 微分）。§3 把它们用在第一个**具体场景**——分类。
+> 这套组合是 LLM 训练的核心算子：每个 token 位置都在做"下一词分类"，词表多大就是几万分类。
+>
+> **"几万分类"怎么理解**：LLM 的输出层是一个长度 = 词表大小 $V$ 的向量（logits）。常见 $V$ 在 3–15 万（GPT-2 是 5 万、LLaMA-2 是 3.2 万、Qwen2.5 是 15 万）。每次预测下一词 = 从 $V$ 个候选里挑 1 个 = 一道 $V$ 类的选择题，走的就是 §3 这套 softmax → 概率 → CE。训练时一个 batch 几万个位置同时做这种选择题，所以 softmax+CE 不是边角料工具，是主战场算子。词表怎么造留到 ch08 详讲。
+
+### 3.0 为什么需要新概念
+
+来看一个 3 类分类任务的网络：
+
+```
+        前两节的工具                  ← 本节要补的两块 →
+input ─[Linear/MLP]─→ logits ─[softmax]─→ probs ─[CE with label]─→ loss
+                       (3 个                (3 个               (1 个
+                        实数)                概率)               标量)
+```
+
+到 logits 这步用的全是 §1 §2 的东西（矩阵乘 + 链式法则）。但**还差两块**：
+
+**缺口 1：logits 不是概率**
+
+Linear 出来的是任意实数，可能是 `[2.3, -1.5, 0.8]`。我们想要的是"模型认为各类别的概率"，即 3 个**正数 + 总和为 1** 的数。需要一个函数把任意实数挤进 $[0, 1]$ 还要总和归一——这就是 softmax 的活。
+
+**缺口 2：分类问题用 MSE 不友好**
+
+回归题（房价预测之类）用 MSE loss $\tfrac{1}{2}(y - t)^2$ 没问题。但分类如果硬套 MSE，会出毛病。
+
+设 3 类，真值是第 1 类（onehot $[0, 1, 0]$，即 `probs[1]` 该接近 1）。看两个错法不同的预测：
+
+```
+              类0    类1   类2
+模型 A：probs = [0.49, 0.49, 0.02]   ← 在"类0"和"类1（正确）"之间纠结
+模型 B：probs = [0.02, 0.49, 0.49]   ← 在"类1（正确）"和"类2"之间纠结
+
+MSE_A = ((0.49-0)² + (0.49-1)² + (0.02-0)²) / 3 ≈ 0.167
+MSE_B = ((0.02-0)² + (0.49-1)² + (0.49-0)²) / 3 ≈ 0.167
+```
+
+两个 loss 一样——MSE **看不出两种错法的差异**。
+
+> 这两个数严格相等是因为 A 和 B 只是把类0、类2 的概率互换了，对 onehot $[0,1,0]$ 来说 MSE 天然对称。但即使换成不对称的反例（比如 A 把概率分散在 5 个类、B 集中错给 1 个类），MSE 也常常给不出"哪种错更糟"的合理排序——它把分类问题**当回归对待**，对"错得不对称"这件事不敏感。
+
+我们想要一种 loss 满足：
+
+- **正确答案概率高 → loss 小**
+- **正确答案概率低 → loss 大**（且越自信地错惩罚越重）
+- 梯度形式优雅，方便和 softmax 串在一起求导
+
+这就是**交叉熵**的活。
+
+**§3 接下来**：3.1 讲 softmax 怎么补缺口 1，3.2 讲数值稳定 trick，3.3 讲交叉熵怎么补缺口 2，3.4 揭示 softmax+CE 合并求导后梯度优雅到不可思议——而这个优雅的推导，**就是 §2 链式法则在这个具体复合函数上的应用**。
+
+---
 
 ### 3.1 softmax：实数 → 概率分布
 
@@ -300,7 +383,7 @@ softmax = [7.39/11.11, 2.72/11.11, 1.00/11.11]
         ≈ [0.665, 0.245, 0.090]   ← 总和 = 1.0 ✓
 ```
 
-观察：logits 差 1 的时候，softmax 概率差大概是 $e \approx 2.7$ 倍。**logits 的差距决定概率的比例**。
+观察：logits 相邻位置差 1 的时候，softmax 概率的**比值**是 $e \approx 2.7$ 倍（如 $0.665 / 0.245 \approx 2.71$）。**logits 的差距决定概率的比例**。
 
 ### 3.2 数值稳定 trick：减最大值
 
@@ -367,6 +450,29 @@ onehot 情况下只剩**正确类**那一项有贡献：
 
 **梯度形式简洁到不可思议**：预测概率减真实 onehot。
 
+<details>
+<summary>为什么是 $p_i - y_i$？最小推导（点开看）</summary>
+
+设真值类别是 $k$（即 $y_k = 1$，其它 $y_j = 0$）。CE 此时退化为：
+
+\[
+\mathrm{CE} = -\log p_k = -\log \frac{e^{z_k}}{\sum_j e^{z_j}} = -z_k + \log \sum_j e^{z_j}
+\]
+
+对任意 $z_i$ 求偏导：
+
+- $-z_k$ 这一项：$i = k$ 时贡献 $-1$，否则 $0$ → 合起来就是 $-y_i$
+- $\log \sum_j e^{z_j}$ 这一项：$\frac{\partial}{\partial z_i} \log \sum_j e^{z_j} = \frac{e^{z_i}}{\sum_j e^{z_j}} = p_i$
+
+合并：
+
+\[
+\frac{\partial \mathrm{CE}}{\partial z_i} = -y_i + p_i = p_i - y_i
+\]
+
+CE 的 $-\log$ 和 softmax 的 $e^{z}/\sum$ 在求导时**互相抵消**，只剩下"预测减真实"。
+</details>
+
 直觉：
 
 - 正确类（$y_i = 1$）：梯度 $p_i - 1$ 是负数 → 增大对应 $z_i$ → 让模型下次更确信这是对的
@@ -385,11 +491,21 @@ loss = F.cross_entropy(probs, target)   # 形状对，但语义错
 loss = F.cross_entropy(logits, target)  # 直接吃 logits
 ```
 
+**和 §2 链式法则的呼应**：上面那个简洁梯度不是天上掉的，正是 $\partial L / \partial z = (\partial L / \partial p) \cdot (\partial p / \partial z)$ 在这个特定复合函数上算出来的结果。这种"复杂前向 + 简洁梯度"的优雅结构在深度学习里随处可见——**不是巧合，是有人精心选了组合**。
+
 ### 自检
 
 - softmax 减最大值为什么不改变结果？用一行算式说明。
 - 真值 onehot = [0, 1, 0]，预测 p = [0.3, 0.4, 0.3]，CE 是多少？
 - $\partial\mathrm{CE} / \partial z_i = p_i - y_i$ 这个梯度告诉优化器"该往哪走"——具体怎么走？
+
+<details>
+<summary>答案速查</summary>
+
+- $\frac{e^{z_i - c}}{\sum_j e^{z_j - c}} = \frac{e^{z_i}/e^c}{\sum_j e^{z_j}/e^c} = \frac{e^{z_i}}{\sum_j e^{z_j}}$，分子分母同乘 $e^c$ 抵消
+- $\mathrm{CE} = -\log(0.4) \approx 0.916$（只有正确类那一项贡献）
+- $z_{\text{正确类}}$ 加（梯度为负，按 $w \leftarrow w - \eta \nabla L$ 是加），所有错误类的 $z$ 减。**等价于"把概率从错的类挪到对的类"**
+</details>
 
 ---
 
@@ -402,7 +518,7 @@ loss = F.cross_entropy(logits, target)  # 直接吃 logits
 | `vector_matrix.py` | 点积、矩阵乘、形状练习；与 NumPy 内置对照 |
 | `softmax_cross_entropy.py` | 数值稳定版 softmax + CE，验证梯度 = $p - y$ |
 | `gradient_chain_rule.py` | 两层网络解析梯度 vs 数值梯度对照 |
-| `mlp_numpy.py` | 完整两层 MLP 在小合成数据集上训练（ch03 PyTorch 版的对照） |
+| `mlp_numpy.py` | **综合 §1–§3 全部内容**：把手算版扩展成可训练的完整分类网络（ch03 PyTorch 版的对照） |
 
 通过标准：每个脚本独立跑通，最后一行打印 `PASS`。
 
@@ -417,4 +533,4 @@ loss = F.cross_entropy(logits, target)  # 直接吃 logits
 - **3Blue1Brown** 神经网络系列 4 集（YouTube / B 站）：梯度、链式法则的几何直觉，**强烈推荐先看再回来读这章**
 - **CS231n notes** "Backpropagation, Intuitions"：<https://cs231n.github.io/optimization-2/>
 - **PyTorch 文档** `nn.CrossEntropyLoss`：<https://pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html>
-- **Distill** "Visualizing the Hessian"（进阶可读）：<https://distill.pub/>
+- **Distill.pub**：<https://distill.pub/>（深度学习概念可视化解读，进阶选读，可跳过）

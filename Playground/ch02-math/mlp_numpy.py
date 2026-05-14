@@ -5,6 +5,14 @@
 优化：SGD。
 
 目的：作为 ch03 PyTorch 版的对照组，看清楚每一步在做什么。
+
+矩阵约定（重要）：
+    本脚本用 `x @ W` 习惯，batch 在第一维：
+        x: (N, in_dim)  W1: (in_dim, hidden)  ->  h: (N, hidden)
+    这是 PyTorch / 业界主流写法。
+    `gradient_chain_rule.py` 用的是 `W @ x` 习惯（W 在左、x 在右、单样本），
+    两种写法**数学等价**，只是行列互为转置，别弄混。
+
 跑法：
     uv run python Playground/ch02-math/mlp_numpy.py
 """
