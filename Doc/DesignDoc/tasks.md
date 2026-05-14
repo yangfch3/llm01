@@ -17,7 +17,7 @@
 - [ ] T0.8 创建 `Echo/echo-mini` `Echo/echo` `Echo/shared` 目录与各自 README 占位
 - [ ] T0.9 `Echo/shared/device.py::get_device()`：统一设备选择（cuda→mps→cpu），含 op fallback 工具
 - [ ] T0.10 `scripts/doctor.py`：双平台自检脚本（见策划案 §7.5）
-- [ ] T0.11 设计大文件同步方案文档（`Doc/DesignDoc/03-sync-strategy.md`），选定 HF Hub 作为 checkpoint 分发通道
+- [ ] T0.11 编写大文件同步 SOP 文档（`Doc/DesignDoc/03-sync-strategy.md`）：策略已在策划案 §7.4 确定，本文档只补操作层（HF Hub 仓库命名规则、`huggingface-cli` 上传/下载常用命令、断点续传、数据下载脚本骨架）
 - [ ] T0.12 在 Win/Mac 各自 `uv sync` + `python scripts/doctor.py` 通过
 <!-- M0 END -->
 
@@ -94,8 +94,8 @@
 <!-- M6.5 START -->
 ## M6.5 · 跨平台复现验收
 
-- [ ] T6.5.1 在一台干净 Win 机上从零 bootstrap，跑完 M1–M3 所有练习
-- [ ] T6.5.2 在一台干净 Mac 上同样跑通 M1–M3
+- [ ] T6.5.1 在 Win 端用全新 venv（或 WSL/Docker 容器）从零 bootstrap，跑完 M1–M3 所有练习
+- [ ] T6.5.2 在 Mac 端用全新 venv 同样跑通 M1–M3
 - [ ] T6.5.3 Mac 端用 tiny 配置跑通 echo-mini Pretrain / SFT 脚本（不要求收敛）
 - [ ] T6.5.4 Mac 端成功加载并推理 echo final（量化版）
 - [ ] T6.5.5 记录"跨平台已知差异与陷阱"到 `Doc/DesignDoc/cross-platform-notes.md`

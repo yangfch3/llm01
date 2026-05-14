@@ -69,6 +69,38 @@ echo-mini (全链路自建) ──学习经验──▶ echo (微调开源底座
     弱模型 demo                     Echo 对话体验
 ```
 
+### 4.4 经验流转机制
+
+echo-mini 的训练过程中会沉淀大量"配方"（数据清洗参数、超参组合、踩坑解法）。流转规则：
+
+- 通用基础设施（设备工具、数据加载、日志、评测）一律下沉到 `Echo/shared/`
+- 训练配方差异写入各自 README（`echo-mini/README.md` / `echo/README.md`）
+- 跨产物的踩坑统一追加到 `Doc/DesignDoc/02-deps-compatibility.md` §5
+- 每个产物里程碑结束（M4、M5、M6）时，强制做一次 retro，遵循 `Doc/DesignDoc/templates/retro-template.md`
+
+### 4.5 Echo 验收标准
+
+愿景里"初中生水平 + 基础对话"是定性目标，落地需有可操作的验收。下面只定 **echo（实用产物）** 的验收，echo-mini 不要求达成对话质量。
+
+#### echo SFT 版（M5 完）
+
+- **能力底线**：
+  - 中英双语都能进行 ≥3 轮的连贯对话不跑题
+  - 能正确回答常识题（人物、地理、基础科学）≥60%
+  - 能进行简单算术（两位数加减）和字符级任务（数字符串里的 "a"）
+- **量化方法**：
+  - PPL：在留出 SFT 验证集上 ≤ 基线（底座 zero-shot）的 80%
+  - 自建 50 题中英常识/算术评测集（一次性投入，复用到后续版本）
+  - 人工对话 30 轮检查跑题率、人设一致性
+
+#### echo final（M6 完，量化后）
+
+- 上述指标量化后衰减不超过 5%
+- 在 3060 上推理 ≥ 20 tokens/s（int4）；在 Mac M 系列 ≥ 15 tokens/s（GGUF Q4_K_M）
+- Ollama `ollama run echo` 一行命令可启动对话
+
+> 评测集落到 `Echo/echo/eval/` 下，详细方案在 M5 启动时落 `Doc/DesignDoc/04-eval-spec.md`（届时按需新建，不强求 M0 产出）。
+
 ## 5. 仓库目录结构
 
 ```
@@ -223,5 +255,7 @@ uv run python scripts/doctor.py
 
 - `01-project-plan.md`：项目计划书（任务拆分 & 里程碑）
 - `02-deps-compatibility.md`：依赖兼容性与部署选型说明
+- `tasks.md`：任务勾选清单（高频改动）
+- `templates/retro-template.md`：里程碑复盘模板
 - `Doc/Courseware/outline.md`：课程大纲（计划书推进后产出）
 - `Doc/UserDraft/repo-target-idea.md`：原始需求来源

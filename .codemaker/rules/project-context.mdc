@@ -24,7 +24,7 @@ alwaysApply: true
 | 章节练习代码 | `Playground/chNN-xxx/`（与课件一一对应） |
 | Echo 代码 | `Echo/echo-mini/`、`Echo/echo/`、共用工具 `Echo/shared/` |
 | 设计变更、专题讨论 | `Doc/DesignDoc/` 下新增 `NN-xxx.md` |
-| 里程碑复盘 | `Doc/DesignDoc/retro-MX.md`（每个里程碑结束产出） |
+| 里程碑复盘 | `Doc/DesignDoc/retro-MX.md`（每个里程碑结束产出，模板 `templates/retro-template.md`） |
 
 **信息冲突时以 `00-startup-proposal.md` 为准。**
 
