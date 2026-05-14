@@ -1,6 +1,8 @@
 site_name: LLM 0-1
 site_description: LLM 0-1 — 从数学基础到部署
 
+dev_addr: '0.0.0.0:8000'
+
 docs_dir: ../../Doc
 
 theme:

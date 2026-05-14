@@ -129,6 +129,7 @@ import argparse
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+# 按目标产物切换：echo-mini 数据放 echo-mini/data，echo 数据放 echo/data
 DEFAULT_OUTPUT = REPO_ROOT / "Echo" / "echo-mini" / "data" / "<dataset>"
 
 

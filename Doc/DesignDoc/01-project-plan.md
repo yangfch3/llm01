@@ -35,12 +35,7 @@
 
 **跨平台约定**：本里程碑起，**所有练习代码必须 device 无关**（通过 `get_device()`），提交前 Win/Mac 两端都要能跑过。
 
-### 课程章节（Doc/Courseware/ch01~ch04）
-
-- **ch01 · 环境与工具** — uv 使用、PyTorch 安装（CUDA / MPS 差异）、Jupyter / VSCode 调试。练习：环境自检脚本
-- **ch02 · 必要数学（浅层）** — 向量/矩阵/点积、梯度与链式法则直觉、softmax / 交叉熵的几何意义。练习：纯 NumPy 实现 softmax / 交叉熵
-- **ch03 · PyTorch 入门** — Tensor / autograd / nn.Module、DataLoader、训练循环模板。练习：MLP 分类 MNIST
-- **ch04 · 神经网络与训练要素** — 反向传播工程视角、优化器（SGD/Adam/AdamW）、LR 调度、初始化、Dropout、BN/LN。练习：对比不同优化器/初始化的收敛曲线
+**章节列表**：见 [`Doc/Courseware/outline.md` → M1](../Courseware/outline.md#m1--前置知识)（ch01–ch04）。
 
 **交付物**：4 章课件 markdown + 对应 Playground/ch01~ch04 练习代码；所有练习在 3060 上 1 分钟内可跑完。
 
@@ -52,11 +47,7 @@
 
 **目标**：从注意力机制到完整 Decoder-only 架构，手撕一遍。
 
-### 课程章节
-
-- **ch05 · 注意力机制** — seq2seq → attention 动机、Q/K/V、缩放点积、多头。练习：纯 PyTorch 实现单/多头注意力
-- **ch06 · Transformer 架构** — Encoder/Decoder/Decoder-only、位置编码（绝对/RoPE）、Pre-LN vs Post-LN、残差/FFN/掩码。练习：~1M 参数 Decoder-only 在 tiny shakespeare 上过拟合
-- **ch07 · 生成策略** — 贪心/beam/top-k/top-p/temperature、KV cache 原理与实现。练习：为 ch06 的模型加 KV cache
+**章节列表**：见 [`Doc/Courseware/outline.md` → M2](../Courseware/outline.md#m2--transformer-精通)（ch05–ch07）。
 
 **交付物**：3 章课件 + `Playground/ch06-transformer` 完整可训练实现（将作为 echo-mini 原型）。
 
@@ -64,20 +55,13 @@
 
 ---
 
-## M3 · LLM 全链路入门（理论篇）
+## M3 · LLM 全链路入门（理论）
 
 **目标**：在动手训 echo-mini 之前，把全链路原理讲清楚。
 
-### 课程章节
+**章节列表**：见 [`Doc/Courseware/outline.md` → M3](../Courseware/outline.md#m3--llm-全链路入门理论)（ch08–ch13）。
 
-- **ch08 · 分词器** — 字符/词/子词、BPE/WordPiece/Unigram、中英混合处理。练习：用 `tokenizers` 训练 BPE
-- **ch09 · 预训练** — CLM 目标、数据 packing、混合精度/grad accumulation/gradient checkpointing、scaling law 直觉
-- **ch10 · SFT** — 对话模板、loss mask、多轮、LoRA / QLoRA 原理、数据质量 > 数量
-- **ch11 · 对齐** — RLHF 概览、PPO 痛点、DPO 原理；KTO / ORPO 简提
-- **ch12 · 评测** — PPL、开源 benchmark（C-Eval / MMLU 子集）、人工评测必要性
-- **ch13 · 部署** — 量化（int8/int4/GGUF）、Ollama 上手、`llama-cpp-python`、`transformers` 原生推理对比；选型理由（不选 vLLM 详见 `02-deps-compatibility.md`）
-
-**交付物**：6 章课件（偏理论，少量 demo），每章末尾留 1~2 思考题。
+**交付物**：6 章课件（偏理论，少量 demo），每章按 `Doc/Courseware/outline.md` 章节模板组织（含自检题 + 折叠答案）。
 
 **任务清单**：见 [`tasks.md` → M3](tasks.md#m3--llm-全链路入门理论)。
 
@@ -113,6 +97,8 @@
 
 **交付物**：Echo 最终版（量化后）；本地可启动的 chat demo（Ollama）。
 
+**验收**：满足 [`00-startup-proposal.md` §4.5 echo final 指标](00-startup-proposal.md#echo-finalm6-完量化后)（量化后衰减 ≤5%、3060 ≥20 tok/s int4、Mac ≥15 tok/s GGUF Q4_K_M、`ollama run echo` 可启）。
+
 **任务清单**：见 [`tasks.md` → M6](tasks.md#m6--对齐与优化)。
 
 ---
@@ -140,11 +126,10 @@
 ## 执行策略
 
 1. **严格按里程碑顺序推进**，M4 之前不动训练代码
-2. 每个里程碑结束做一次**复盘文档**，落到 `Doc/DesignDoc/retro-MX.md`
-3. 课件与练习**同步产出**，写完一章就配套练习
-4. Echo 相关的配置、脚本、数据管线一律通过 **CLI + 配置文件** 驱动，避免硬编码
-5. 大的设计变更（如 echo-mini 的架构选型）先在 `Doc/DesignDoc/` 下开专题文档讨论
-6. **跨平台铁律**：每次切换机器前先 `git push`；上机第一件事 `git pull` + `scripts/doctor.py`；练习代码提交前两端都跑过；训练代码提交前至少 Mac 跑过 tiny 配置
+2. 课件与练习**同步产出**，写完一章就配套练习；章节 README 与练习目录的具体形态见 [`Doc/Courseware/outline.md`](../Courseware/outline.md) 章节模板
+3. Echo 相关的配置、脚本、数据管线一律通过 **CLI + 配置文件** 驱动，避免硬编码
+4. 大的设计变更（如 echo-mini 的架构选型）先在 `Doc/DesignDoc/` 下开专题文档讨论
+5. **跨平台铁律**：每次切换机器前先 `git push`；上机第一件事 `git pull` + `scripts/doctor.py`；练习代码提交前两端都跑过；训练代码提交前至少 Mac 跑过 tiny 配置
 
 ## 关联文档
 

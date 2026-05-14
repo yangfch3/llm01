@@ -76,7 +76,6 @@ echo-mini 的训练过程中会沉淀大量"配方"（数据清洗参数、超�
 - 通用基础设施（设备工具、数据加载、日志、评测）一律下沉到 `Echo/shared/`
 - 训练配方差异写入各自 README（`echo-mini/README.md` / `echo/README.md`）
 - 跨产物的踩坑统一追加到 `Doc/DesignDoc/troubleshooting.md`（活文档，按日期倒序）
-- 每个产物里程碑结束（M4、M5、M6）时，强制做一次 retro，遵循 `Doc/DesignDoc/templates/retro-template.md`
 
 ### 4.5 Echo 验收标准
 
@@ -160,16 +159,8 @@ llm01/
 
 ### 6.2 首次 bootstrap
 
-```bash
-# Windows (3060)
-uv sync --extra dev --extra courseware --extra echo-mini --extra train-cuda
-
-# Mac (Apple Silicon)
-uv sync --extra dev --extra courseware --extra echo-mini --extra train-mps
-
-# 验证（两端都应通过 scripts/doctor.py）
-uv run python scripts/doctor.py
-```
+具体安装命令与平台分流见 [`02-deps-compatibility.md` §3](02-deps-compatibility.md#3-依赖分组建议m0-落-pyprojecttoml-时参考)。
+两端 `uv sync` 完成后均需跑 `uv run python scripts/doctor.py` 自检。
 
 ## 7. 双平台协作方案
 
@@ -208,22 +199,13 @@ uv run python scripts/doctor.py
 
 ### 7.4 大文件同步策略
 
-| 类型 | 大小 | 去处 |
-|---|---|---|
-| 代码、配置、课件、文档 | 小 | Git 仓库 |
-| 训练日志（loss 曲线 json/tb） | 中 | Git 仓库（压缩后） |
-| 数据集原始文件 | 大 | **脚本化下载**，入库 `scripts/download_*.py`，数据本身不入 Git |
-| 分词器产物 | 小 | 可入 Git（几 MB） |
-| checkpoint / adapter 权重 | 大 | **HuggingFace Hub 私有/公开仓库**，入库仅保留 HF repo id |
+原则：**仓库里只保留代码、配置、文档与 HF repo id；权重走 HF Hub，数据走脚本下载，二进制不入 Git。**
 
-两台机切换前：
-- 代码、配置：`git push` / `git pull`
-- 权重：`huggingface-cli upload` / `download`
-- 数据：两端各跑一次下载脚本
+详细同步矩阵、HF Hub 命名规则、`huggingface-cli` 上传/下载命令、切机器 SOP 见 [`03-sync-strategy.md`](03-sync-strategy.md)。
 
 ### 7.5 自检脚本 `scripts/doctor.py`
 
-上机第一件事跑一遍，检查项：
+上机第一件事跑一遍。设计意图覆盖以下检查项（**实际实现以脚本为准**，已含子进程隔离、bnb CUDA 自检等扩展，详见 [`troubleshooting.md`](troubleshooting.md)）：
 
 - Python 版本满足 3.12（Win 3.12.10 / Mac 3.12.13）
 - 平台与预期依赖组一致（Win 装了 train-cuda、Mac 装了 train-mps）
@@ -256,6 +238,5 @@ uv run python scripts/doctor.py
 - `01-project-plan.md`：项目计划书（任务拆分 & 里程碑）
 - `02-deps-compatibility.md`：依赖兼容性与部署选型说明
 - `tasks.md`：任务勾选清单（高频改动）
-- `templates/retro-template.md`：里程碑复盘模板
 - `Doc/Courseware/outline.md`：课程大纲（计划书推进后产出）
 - `Doc/UserDraft/repo-target-idea.md`：原始需求来源

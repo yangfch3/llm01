@@ -97,58 +97,26 @@
 - 双平台不兼容（Win/Mac native 都不支持）
 - 优势在高并发吞吐，本项目是单用户本地玩，吞吐不是瓶颈
 - 学习成本 > 收益
-
-### 2.3 概念澄清：vLLM vs Ollama
-
-很多人会混淆，简记：
-
-- **vLLM**：推理引擎库，目标是高并发线上服务，类比 TGI / TensorRT-LLM
-- **Ollama**：本地模型管理 CLI 工具，类比"LLM 界的 Docker"，底层是 llama.cpp
-- 不是同一层东西，本项目场景下 Ollama 完胜
+- 概念区分：**vLLM** 是高并发推理引擎（类比 TGI / TensorRT-LLM），**Ollama** 是本地模型管理 CLI（类比 LLM 界的 Docker，底层 llama.cpp），两者不是同一层东西
 
 ## 3. 依赖分组建议（M0 落 `pyproject.toml` 时参考）
 
-```toml
-[project.optional-dependencies]
-# 核心（跨平台通用）
-echo-mini = [
-  "torch>=2.2",
-  "transformers>=4.36",
-  "tokenizers",
-  "datasets>=2.16",
-  "accelerate>=0.25",
-  "peft>=0.7",
-  "trl>=0.7",
-  "safetensors",
-  "huggingface-hub",
-  "sentencepiece>=0.2",
-  "pyyaml",
-  "tqdm",
-  "rich",
-]
+> **真源在仓库根 `pyproject.toml`，下表仅示意分组意图，不保证字段实时同步**。
+> 当真源与本表冲突，以 `pyproject.toml` 为准。
 
-echo = [...]  # 与 echo-mini 大量重叠，可复用
+| 分组 | 维度 | 关键依赖 | 备注 |
+|---|---|---|---|
+| `courseware` | 模块 | torch、numpy、matplotlib、jupyter、mkdocs* | 课件与 Playground 练习 |
+| `echo-mini` | 模块 | torch、transformers、tokenizers、datasets、accelerate、peft、trl、safetensors、huggingface-hub、sentencepiece | 全链路从零训练 |
+| `echo` | 模块 | 同 echo-mini（高度重叠） | M5 启动后按底座需求增减 |
+| `train-cuda` | 平台 | bitsandbytes>=0.43（带 win32/linux marker） | Win/Linux 训练加速 |
+| `train-mps` | 平台 | （留空占位） | Mac 端预留 |
+| `deploy` | 部署 | （留空占位） | 跨平台轻量部署依赖预留 |
+| `deploy-llamacpp` | 部署 | llama-cpp-python | M6 部署阶段按需，Win 易触发本地编译 |
+| `dev` | 开发 | ruff、pytest | 通用开发工具 |
 
-# 平台专属
-train-cuda = [
-  "bitsandbytes>=0.43",
-]
-train-mps = [
-  # 暂无强制额外依赖，留扩展位
-]
-
-# 部署（跨平台）
-deploy = []  # 占位，预留轻量跨平台依赖
-deploy-llamacpp = [
-  "llama-cpp-python",  # Win 下可能要编译，M6 再按需
-]
-
-# 开发工具
-dev = [
-  "ruff",
-  "pytest",
-]
-```
+`torch` 在 Win/Linux 走 `pytorch-cu124` 源（`[tool.uv.sources]` + `[[tool.uv.index]]`），Mac 走默认 PyPI。
+`train-cuda` 与 `train-mps` 在 `[tool.uv].conflicts` 中互斥声明。
 
 安装命令：
 ```bash

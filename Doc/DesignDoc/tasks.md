@@ -18,7 +18,7 @@
 - [x] T0.9 `Echo/shared/device.py::get_device()`：统一设备选择（cuda→mps→cpu），含 op fallback 工具
 - [x] T0.10 `scripts/doctor.py`：双平台自检脚本（见策划案 §7.5）
 - [x] T0.11 编写大文件同步 SOP 文档（`Doc/DesignDoc/03-sync-strategy.md`）：策略已在策划案 §7.4 确定，本文档只补操作层（HF Hub 仓库命名规则、`huggingface-cli` 上传/下载常用命令、断点续传、数据下载脚本骨架）
-- [ ] T0.12 在 Win/Mac 各自 `uv sync` + `python scripts/doctor.py` 通过（in progress）
+- [ ] T0.12 在 Win/Mac 各自 `uv sync` + `python scripts/doctor.py` 通过（Win 已 PASS，Mac 待验证）
 <!-- M0 END -->
 
 <!-- M1 START -->
@@ -111,12 +111,3 @@
 - [ ] T7.5 常见坑 & 故障排查文档
 - [ ] T7.6（可选）发布到 GitHub，申请加入 awesome-llm 类 list
 <!-- M7 END -->
-
-## 整体进度
-
-- [x] 原始需求整理：`Doc/UserDraft/repo-target-idea.md`
-- [x] Startup 策划案：`Doc/DesignDoc/00-startup-proposal.md`
-- [x] 项目计划书：`Doc/DesignDoc/01-project-plan.md`
-- [x] 依赖兼容性与部署选型：`Doc/DesignDoc/02-deps-compatibility.md`
-- [x] Git 仓库初始化
-- [ ] M0 仓库基建（in progress · T0.1–T0.11 完成，T0.12 待双端验证）

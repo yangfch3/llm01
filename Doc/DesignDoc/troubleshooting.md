@@ -16,13 +16,6 @@
 
 新条目**置顶**（按日期倒序），便于看最近遇到的坑。
 
-## 索引（按主题）
-
-- **依赖安装**：[uv 装到 CPU 版 torch](#2026-05-14--win--uv-默认装到-cpu-版-torch)、[`llama-cpp-python` 源码编译失败](#2026-05-14--win--llama-cpp-python-源码编译失败)
-- **Win native crash**：[`torch` + `pyarrow/pandas` ACCESS_VIOLATION](#2026-05-14--win--torch--pyarrowpandas-同进程-access_violation)
-- **编码 / 终端**：[`bitsandbytes` 子进程 GBK 编码](#2026-05-14--win--bitsandbytes-自检子进程输出-gbk-编码)
-- **脚本路径 / 包结构**：[doctor.py 找不到 `Echo` 模块](#2026-05-14--win--doctorpy-报-no-module-named-echo)
-
 ---
 
 ## 2026-05-14 · Win · `bitsandbytes` 自检子进程输出 GBK 编码
