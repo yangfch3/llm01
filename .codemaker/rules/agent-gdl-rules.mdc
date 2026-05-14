@@ -72,4 +72,9 @@ A living document of recurring mistakes the AI agent makes in this workspace. Ch
 
 - **Do NOT use PowerShell `Set-Content` / `Get-Content` for UTF-8 files with CJK characters.** PowerShell's default encoding mangles multi-byte characters. Use the agent's like `fsWrite` / `strReplace` / `edit_file` / `replace_in_file` tools instead for any file content modifications.
 
+- **Do NOT use Unix-only tools (`head`, `tail`, `less`, `more`, `cat`) on Windows.** They are absent in CMD/PowerShell. Replacements:
+  - View first/last N lines → use the `read_file` tool with `offset` / `limit`
+  - Disable Git pager → prefer `git --no-pager <subcmd>` over piping to `cat`. Git on Windows already does not page in non-interactive shells, so the pipe is unnecessary
+  - Read a file → always use the `read_file` tool to avoid encoding issues
+
 </rule>
