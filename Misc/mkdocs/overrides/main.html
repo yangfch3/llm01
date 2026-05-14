@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block extrahead %}
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [["\\(", "\\)"]],
+    displayMath: [["\\[", "\\]"]],
+    processEscapes: true,
+    processEnvironments: true
+  },
+  options: {
+    ignoreHtmlClass: ".*|",
+    processHtmlClass: "arithmatex"
+  },
+  startup: {
+    ready: function() {
+      MathJax.startup.defaultReady();
+      document$.subscribe(function() {
+        MathJax.startup.output.clearCache();
+        MathJax.typesetClear();
+        MathJax.typeset();
+      });
+    }
+  }
+};
+</script>
+<script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js" async></script>
+{% endblock %}

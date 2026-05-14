@@ -49,6 +49,9 @@ wandb/
 tb_logs/
 *.log
 
+# MkDocs 构建产物
+site/
+
 # 临时
 tmp/
 .cache/
