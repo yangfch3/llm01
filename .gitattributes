@@ -1,0 +1,20 @@
+# 默认所有文本文件 LF，UTF-8 由编辑器/工具保证
+* text=auto eol=lf
+
+# 常见二进制类型显式标注，避免误转换
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.pdf   binary
+*.zip   binary
+*.gz    binary
+*.tar   binary
+*.7z    binary
+*.bin   binary
+*.pt    binary
+*.pth   binary
+*.safetensors binary
+*.gguf  binary
+*.onnx  binary

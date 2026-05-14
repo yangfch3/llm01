@@ -17,7 +17,8 @@ alwaysApply: true
 | 要找什么 | 去哪 |
 |---|---|
 | 项目愿景、决策、目录结构、风险 | `Doc/DesignDoc/00-startup-proposal.md`（**根基文档，最高权威**） |
-| 里程碑与任务拆分 | `Doc/DesignDoc/01-project-plan.md` |
+| 里程碑与任务拆分 | `Doc/DesignDoc/01-project-plan.md`（描述）+ `tasks.md`（勾选清单） |
+| 依赖兼容性、部署选型、踩坑记录 | `Doc/DesignDoc/02-deps-compatibility.md` |
 | 用户原始想法（历史输入，只读） | `Doc/UserDraft/` |
 | 课程大纲与章节 | `Doc/Courseware/outline.md` → `Doc/Courseware/chNN-xxx/` |
 | 章节练习代码 | `Playground/chNN-xxx/`（与课件一一对应） |
@@ -37,7 +38,7 @@ alwaysApply: true
 
 ### 代码
 
-- Python 3.12.10；依赖管理 **uv**（禁用 pip/conda）
+- Python 3.12（minor 锁定；Win 3.12.10 / Mac 3.12.13）；依赖管理 **uv**（禁用 pip/conda）
 - 格式化与 lint：**ruff**；类型注解建议但不强制
 - 禁止硬编码 `cuda` / `mps` / `cpu`，一律走 `Echo/shared/device.py::get_device()`
 - 路径一律 `pathlib.Path`，不做字符串拼接

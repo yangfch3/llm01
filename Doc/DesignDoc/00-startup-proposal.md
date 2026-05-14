@@ -37,7 +37,7 @@
 | 训练链路 | 数据清洗 → 分词器训练 → Pretrain → SFT → DPO/RLHF → 评测 → 量化部署 | 完整覆盖全链路 |
 | 语言 | 中英双语 | 语料丰富、受众更广 |
 | 环境管理 | **uv** + `pyproject.toml` + `uv.lock` | 跨平台、锁定可复现、Win/Mac 一致 |
-| Python 版本 | 3.12.10 | 用户指定 |
+| Python 版本 | 3.12（minor 锁定，Win 用 3.12.10 / Mac 用 3.12.13） | 用户指定，patch 由各平台决定 |
 | 代码规范 | ruff（lint + format），类型注解建议不强制 | 教学代码轻量优先 |
 | 硬件基线 | RTX 3060 12GB / Apple Silicon MPS | Win 主训练，Mac 用于推理 & 开发 |
 
@@ -102,7 +102,7 @@ llm01/
 │  └─ shared/                  两者共用工具（数据加载、评测、日志）
 ├─ pyproject.toml              uv 统一管理依赖
 ├─ uv.lock
-├─ .python-version             3.12.10
+├─ .python-version             3.12（minor 锁定）
 ├─ .gitignore
 └─ README.md                   面向开源访客的入口
 ```
@@ -193,7 +193,7 @@ uv run python scripts/doctor.py
 
 上机第一件事跑一遍，检查项：
 
-- Python 版本 == 3.12.10
+- Python 版本满足 3.12（Win 3.12.10 / Mac 3.12.13）
 - 平台与预期依赖组一致（Win 装了 train-cuda、Mac 装了 train-mps）
 - `torch` 可用 + 设备可见（cuda/mps）
 - 关键依赖 import 不报错
@@ -222,5 +222,6 @@ uv run python scripts/doctor.py
 ## 10. 关联文档
 
 - `01-project-plan.md`：项目计划书（任务拆分 & 里程碑）
+- `02-deps-compatibility.md`：依赖兼容性与部署选型说明
 - `Doc/Courseware/outline.md`：课程大纲（计划书推进后产出）
 - `Doc/UserDraft/repo-target-idea.md`：原始需求来源
