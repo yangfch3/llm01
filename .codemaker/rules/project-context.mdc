@@ -58,6 +58,7 @@ alwaysApply: true
 - 课件/练习成对产出：写完一章 md 就配套 `Playground/chNN-xxx/` 练习
 - 里程碑严格顺序推进，未到 M4 不写训练代码
 - 用户切换机器前后必须 `git push` / `git pull` + `scripts/doctor.py`
+- **Git commit 信息从简**：单行 ≤60 字符，格式 `<里程碑/范围>: <核心动作>`，例 `M0: 仓库脚手架 + Win doctor 通过`、`fix: doctor 处理 pyarrow 段错误`；不堆 bullet，详情靠 `git diff`
 
 ## 五、整体性问题导流
 
