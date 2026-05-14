@@ -159,7 +159,7 @@ llm01/
 
 ### 6.2 首次 bootstrap
 
-具体安装命令与平台分流见 [`02-deps-compatibility.md` §3](02-deps-compatibility.md)。
+具体安装命令与平台分流见 [`02-deps-compatibility.md` §3](02-deps-compatibility.md#3-依赖分组建议m0-落-pyprojecttoml-时参考)。
 两端 `uv sync` 完成后均需跑 `uv run python scripts/doctor.py` 自检。
 
 ## 7. 双平台协作方案
