@@ -154,24 +154,34 @@ activations:   B * L * d * num_layers * (常数)
 > 用 fp16/bf16 算前向反向，关键状态留 fp32。weights+grads 显存减半，矩阵乘吞吐 ~2x。
 
 ```python
-from torch.amp import autocast, GradScaler
+from torch.amp import autocast
 
-scaler = GradScaler("cuda")
 for x, y in loader:
     optimizer.zero_grad()
     with autocast("cuda", dtype=torch.bfloat16):
         logits = model(x)
         loss = F.cross_entropy(logits.view(-1, V), y.view(-1))
-    scaler.scale(loss).backward()
-    scaler.step(optimizer)
-    scaler.update()
+    loss.backward()
+    optimizer.step()
 ```
 
 要点：
 
-- **bf16 优于 fp16**：动态范围与 fp32 一样，几乎不会溢出，Ampere（30 系）及以上原生支持。fp16 训练才需要 `GradScaler`：把 loss 放大 K 倍 → backward 后梯度也放大 K 倍 → 跳过 fp16 的下溢区间 → step 前再 unscale。bf16 范围够大，不需要这一套
-- 上面代码用了 bf16 + scaler，scaler 在 bf16 下实际是 no-op（不放大不还原），留着只为切 fp16 时一行不改
+- **bf16 优于 fp16**：动态范围与 fp32 一样，几乎不会溢出，Ampere（30 系）及以上原生支持。bf16 不需要 `GradScaler`，上面就是完整写法
 - A100/H100 上 bf16 是标配；3060 也支持
+- **如果你只能用 fp16**（V100 之前的老卡 / 某些推理框架）：fp16 容易下溢，要套 `GradScaler` 把 loss 放大 K 倍 → backward 后梯度也放大 K 倍 → 跳过 fp16 下溢区间 → step 前再 unscale。代码：
+
+  ```python
+  from torch.amp import autocast, GradScaler
+  scaler = GradScaler("cuda")
+  for x, y in loader:
+      optimizer.zero_grad()
+      with autocast("cuda", dtype=torch.float16):
+          loss = ...
+      scaler.scale(loss).backward()
+      scaler.step(optimizer)
+      scaler.update()
+  ```
 
 ### 3.2 梯度累积（gradient accumulation）
 
@@ -191,7 +201,7 @@ for i, (x, y) in enumerate(loader):
 
 代价：吞吐略降（多次 forward/backward 但只更新一次），换来等效大 batch 的稳定性。
 
-> 与 AMP 组合：上面用的是 bf16 不必 scaler。若用 fp16 要 scaler，把 `loss.backward()` 换成 `scaler.scale(loss).backward()`，update 时改成 `scaler.step(optimizer); scaler.update()`，scaler 与累积过程兼容。
+> 与 AMP 组合：bf16 直接累积即可。若用 fp16 + scaler，把 `loss.backward()` 换成 `scaler.scale(loss).backward()`，更新时 `scaler.step(optimizer); scaler.update()`，scaler 与累积过程兼容。
 
 > 为什么要除以 ACCUM？loss.backward() 直接累加梯度。如果不除，等效于把 ACCUM 个 micro-batch 的 loss 直接相加（不是平均），lr 实际放大了 ACCUM 倍。
 

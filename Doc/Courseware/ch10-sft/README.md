@@ -149,11 +149,15 @@ Assistant: ...
 ```
 完整序列（拼好的训练样本）:
   <|im_start|>user\n问<|im_end|>\n<|im_start|>assistant\n答<|im_end|>\n
-  └─────────── prompt 部分 ──────────────────────────────┘└─response─┘
+  └────── user 段（mask）──────┘└─ gen prompt ─┘└── response 正文 ──┘
+                                  （通常也 mask）  （算 loss）
 
-input_ids:  [t0, t1, ..., tk, ..., tN]   # 完整序列拼接
-labels:     [-100, -100, ..., tk, ..., tN]  # prompt 部分全 -100
+input_ids: [t_user_0, ..., t_user_k,   t_gp_0, ..., t_gp_m,   t_resp_0, ..., t_resp_n]
+labels:    [   -100,  ...,    -100,     -100,  ...,   -100,    t_resp_0, ..., t_resp_n]
+            └──────── prompt + 模板全 -100 ────────┘└── 仅 response 正文 + <|im_end|> ──┘
 ```
+
+`t_gp_*` 指 `<|im_start|>assistant\n` 这段 generation prompt——它是格式标记不是模型该学的内容，所以也置 -100，只让 `答<|im_end|>` 部分进 loss。
 
 实现就一行：把 prompt 长度内的 label 都设 `-100`，cross_entropy 自动跳过（ch09 §1.3 已铺垫）。
 
@@ -237,7 +241,7 @@ B: (out, r)                # 低秩矩阵，初始化为 0
 - B 初始化为 0 → 训练开始时旁路输出 = 0 → 等价于完全用原模型
 - 训练只更新 B、A，参数量从 `out×in` 降到 `r×(in+out)`
 
-**`α/r` 是干嘛的**：旁路输出幅度近似正比于 r（更高秩有更多自由度推大输出）。除以 r 让旁路幅度**与 r 解耦**，调 r 时不必重调 lr。约定 α 与初始 r 一起定（如 α=16, r=8 → scale=2），后续只动 r、α 不动。这是 LoRA 论文的工程经验，不是数学必然。
+**`α/r` 是干嘛的**：经验上调大 r 会推大旁路输出尺度，`α/r` 缩放让你**调 r 时不必重调 lr**。约定 α 与初始 r 一起定（如 α=16, r=8 → scale=2），后续只动 r、α 不动。这是 LoRA 论文的工程经验，不是数学必然。
 
 参数量对比（7B 模型 attention 的 q/k/v/o 全加 LoRA，r=8）：
 
