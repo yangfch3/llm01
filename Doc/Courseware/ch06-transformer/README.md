@@ -71,6 +71,8 @@ Attention 是**集合操作**——`softmax(QK^T/√d)V` 把 token 当成无序�
 
 ### 2.3 RoPE 的核心思想
 
+> **数学不熟可直接跳到结论**：RoPE 让 attention 看到的是"相对距离"，不是"绝对位置"。下面的推导只需理解大意。
+
 > 不要把位置"加"到 embedding 上，而是让位置在 attention 计算时**直接出现在 Q·K 的相对距离里**。
 
 把 d 维 Q（或 K）按相邻两维分组成 d/2 个 2D 向量。对位置 `p` 的第 `i` 个 2D 组，乘一个旋转矩阵：
@@ -88,9 +90,7 @@ R_{p, i} = \begin{pmatrix} \cos(p\theta_i) & -\sin(p\theta_i) \\ \sin(p\theta_i)
 
 ——结果**只依赖相对距离 `m-p`**（推导用到旋转矩阵正交性：`R_p^\top = R_{-p}`，所以 `R_p^\top R_m = R_{m-p}`）。这就是 RoPE 比绝对位置编码强的根本原因：注意力天然具备相对位置感知。
 
-工程实现就是对 Q、K 做几次三角函数 + 复数乘法，没有新增可学习参数。echo-mini 就用 RoPE。
-
-> 数学不熟的话先记结论：**RoPE 让 attention 看到的是"相对距离"，不是"绝对位置"**。完整推导见 RoFormer 论文。
+工程实现就是对 Q、K 做几次三角函数 + 复数乘法，没有新增可学习参数。echo-mini 就用 RoPE。完整推导见 RoFormer 论文。
 
 ### 自检
 
@@ -159,7 +159,7 @@ def block(x):                    # x: (B, n, d)
 \mathrm{FFN}(x) = W_2 \cdot \mathrm{GELU}(W_1 x + b_1) + b_2
 \]
 
-形状：`d → d_ff → d`，其中 **d_ff 通常等于 4d**（GPT-2/3 经验）。LLaMA 系用 `SwiGLU` 变种（gate/up/down 三个 `d × d_ff` 矩阵），取 `d_ff ≈ 8d/3` 使总参数 `3 · d · d_ff ≈ 8d²`，**与标准 d_ff=4d 双层 FFN 的 `2 · d · 4d = 8d²` 等价**。本章先用最朴素的 GELU 双层版。
+形状：`d → d_ff → d`，其中 **d_ff 通常等于 4d**（GPT-2/3 经验）。LLaMA 系用 `SwiGLU` 变种（gate/up/down 三个 `d × d_ff` 矩阵），取 `d_ff ≈ 8d/3` 使总参数 `3 · d · d_ff ≈ 8d²`，**与标准 d_ff=4d 双层 FFN 的 `2 · d · 4d = 8d²` 等价**（实际实现会把 d_ff 对齐到 256 等硬件友好倍数，如 LLaMA-7B d=4096 对应 d_ff=11008 而非精确的 10923）。本章先用最朴素的 GELU 双层版。
 
 ### 5.2 为什么需要 FFN
 
@@ -205,6 +205,7 @@ embedding (含 tying):  V × d
   小项 (LN/bias):          忽略
   合计：                  ~12 d²
 final LN + 其它：          忽略
+位置编码：                RoPE 无参数；学习式 PE 多 max_len × d，通常是次要项
 总参数 ≈ V·d + L · 12 d²
 ```
 

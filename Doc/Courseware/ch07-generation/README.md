@@ -194,6 +194,8 @@ attention 的 K/V 只依赖各自位置的输入 token——**之前算过的 K/
 | 生成 n 个 token 总计 | O(n³ · d · L) | O(n² · d · L) |
 | 显存 | 仅 weights | weights + KV cache (O(L · n · d)) |
 
+> 总计复杂度的来源：把每步代价对 t=1..n 求和。无 cache 是 Σt² ≈ n³/3 → O(n³)；有 cache 是 Σt ≈ n²/2 → O(n²)。
+
 **结论**：KV cache 用显存换计算，n 越大省得越多。生成 1k token，无 cache 算 ~10⁹ 次，有 cache ~10⁶ 次，**1000 倍**差距。
 
 ### 6.4 形状变化（必背）
@@ -211,7 +213,7 @@ attention 的 K/V 只依赖各自位置的输入 token——**之前算过的 K/
 
 - **训练用不上**：训练时一次性给全长序列，并行算所有位置的 loss，没有"上一步"概念
 - **首次 prefill 走"无 cache"路径**：把 prompt 一次性 forward 进去同时填充 cache，之后才进入"每步一 token"
-- **batch 内不同序列长度问题**：若 batch 内序列等长，KV cache 形状对齐；不等长需要 padding + 合理的 attention mask。生成时通常用 **left-padding**——因为右边是要新增 token 的"生成区"，pad 必须靠左才能让所有序列的"末位"对齐到同一列（M3 工程细节）
+- **batch 内不同序列长度问题**：若 batch 内序列等长，KV cache 形状对齐；不等长需要 padding + 合理的 attention mask。**训练时通常右 padding**（loss 用 mask 忽略 pad 即可）；**生成时用 left-padding**——因为右边是要新增 token 的"生成区"，pad 必须靠左才能让所有序列的"末位"对齐到同一列，新生成的 token 才好统一拼接（M3 工程细节）
 
 ### 自检
 
