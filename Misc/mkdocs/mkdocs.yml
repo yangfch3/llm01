@@ -37,6 +37,8 @@ plugins:
   - awesome-pages
 
 markdown_extensions:
+  # 让嵌套列表按 2 空格识别（对齐 GitHub / 编辑器渲染），避免 3 空格被捋平
+  - mdx_truly_sane_lists
   - admonition
   - md_in_html
   - pymdownx.details
