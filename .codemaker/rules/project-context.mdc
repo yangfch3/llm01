@@ -43,6 +43,7 @@ alwaysApply: true
 - 禁止硬编码 `cuda` / `mps` / `cpu`，一律走 `Echo/shared/device.py::get_device()`
 - 路径一律 `pathlib.Path`，不做字符串拼接
 - 训练脚本必须提供 `config-full.yaml`（Win 生产）+ `config-tiny.yaml`（Mac 验证）两套配置
+- 编写课件配套代码时，注释规范查阅 `Doc/Courseware/outline.md` 里的练习代码注释规范章节
 
 ### 仓库卫生
 

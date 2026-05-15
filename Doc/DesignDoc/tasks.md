@@ -33,9 +33,9 @@
 <!-- M2 START -->
 ## M2 · Transformer 精通
 
-- [ ] T2.1 ch05 课件 + Playground/ch05 注意力机制
-- [ ] T2.2 ch06 课件 + Playground/ch06 Decoder-only Transformer
-- [ ] T2.3 ch07 课件 + Playground/ch07 生成策略与 KV cache
+- [x] T2.1 ch05 课件 + Playground/ch05 注意力机制
+- [x] T2.2 ch06 课件 + Playground/ch06 Decoder-only Transformer
+- [x] T2.3 ch07 课件 + Playground/ch07 生成策略与 KV cache
 <!-- M2 END -->
 
 <!-- M3 START -->

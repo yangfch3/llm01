@@ -12,9 +12,9 @@
 
 ## M2 · Transformer 精通
 
-- [ ] **ch05 · 注意力机制** — seq2seq → attention、Q/K/V、缩放点积、多头 · 练习：手写单/多头注意力
-- [ ] **ch06 · Transformer 架构** — Decoder-only、位置编码（绝对/RoPE）、Pre-LN vs Post-LN、残差/FFN/掩码 · 练习：~1M Decoder-only 过拟合 tiny shakespeare
-- [ ] **ch07 · 生成策略** — 贪心/beam/top-k/top-p/temperature、KV cache · 练习：为 ch06 模型加 KV cache
+- [x] **ch05 · 注意力机制** — seq2seq → attention、Q/K/V、缩放点积、多头 · 练习：手写单/多头注意力
+- [x] **ch06 · Transformer 架构** — Decoder-only、位置编码（绝对/RoPE）、Pre-LN vs Post-LN、残差/FFN/掩码 · 练习：~1M Decoder-only 过拟合 tiny shakespeare
+- [x] **ch07 · 生成策略** — 贪心/beam/top-k/top-p/temperature、KV cache · 练习：为 ch06 模型加 KV cache
 
 ## M3 · LLM 全链路入门（理论）
 
