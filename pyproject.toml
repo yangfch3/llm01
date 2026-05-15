@@ -116,8 +116,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["Echo/shared"]
 
-# ---- uv: 按平台分流 PyTorch wheel 源 ----
+# ---- uv: 按平台分流 PyTorch wheel 源 + 国内镜像加速 ----
 # Win/Linux 用 cu124（CUDA 12.4），Mac 用默认 PyPI（自带 MPS 支持）
+# 普通包走国内镜像源；torch* 强制走 pytorch-cu124（CUDA wheel 仅在官方源）
 [tool.uv]
 conflicts = [
     [
@@ -138,6 +139,15 @@ torchaudio = [
 ]
 
 [[tool.uv.index]]
+name = "tencent"
+url = "https://mirrors.cloud.tencent.com/pypi/simple"
+default = true
+
+[[tool.uv.index]]
 name = "pytorch-cu124"
 url = "https://download.pytorch.org/whl/cu124"
 explicit = true
+
+# uv pip 兼容接口（如 `uv pip install xxx`）也走腾讯镜像
+[tool.uv.pip]
+index-url = "https://mirrors.cloud.tencent.com/pypi/simple"

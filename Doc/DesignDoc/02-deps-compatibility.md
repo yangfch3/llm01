@@ -118,6 +118,12 @@
 `torch` 在 Win/Linux 走 `pytorch-cu124` 源（`[tool.uv.sources]` + `[[tool.uv.index]]`），Mac 走默认 PyPI。
 `train-cuda` 与 `train-mps` 在 `[tool.uv].conflicts` 中互斥声明。
 
+### 3.1 PyPI 镜像选择
+
+- **默认源**：腾讯云 `https://mirrors.cloud.tencent.com/pypi/simple`（`default = true`）
+- **专属源**：`pytorch-cu124`（`explicit = true`），仅 torch 系显式点名走此源
+- **环境变量覆盖**：`UV_DEFAULT_INDEX` / `UV_INDEX_URL`，CI / 海外节点 / 私有源场景免改文件
+
 安装命令：
 ```bash
 # Win
