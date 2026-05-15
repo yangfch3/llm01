@@ -274,16 +274,17 @@ PARAMETER stop "<|im_end|>"
 
 ## 5. 性能基准的"读法"
 
-社区里常见的性能数字（仅供数量级直觉，会因硬件、上下文长度、batch、是否 offload 而变）：
+社区里常见的性能数字（仅供数量级直觉，会因硬件、上下文长度、batch 而变）：
 
-| 平台 | 模型 | 量化 | tok/s（单 batch） |
+| 平台 | 模型 | 量化 | tok/s（单 batch，纯 GPU/Metal） |
 |---|---|---|---|
 | RTX 3060 12GB | 7B | Q4_K_M | ~60 |
-| RTX 3060 12GB | 7B | fp16（**需 CPU offload，超显存**） | ~10—15 |
 | M2 Pro Mac | 7B | Q4_K_M (Metal) | ~25 |
 | M2 Pro Mac | 7B | Q8_0 (Metal) | ~18 |
 | 纯 CPU (i7) | 7B | Q4_K_M | ~6 |
 
+> **关于 3060 + 7B fp16**：14GB 权重超 12GB 显存，必须做 CPU offload，瓶颈从 GPU 显存带宽变成 PCIe 传输，吞吐通常掉到 10—15 tok/s，且严格说不算"GPU 原生推理"——所以没列进表。**这正是为什么 7B 在 3060 上量化是必选项，而非"想省显存才量化"**。
+>
 > 数字假设短上下文（≤ 2k）、无 batch、未启用 Flash Attention 类加速。长上下文（如 8k+）tok/s 通常掉一半。
 
 **echo final 验收**（出自 `00-startup-proposal.md`）：
