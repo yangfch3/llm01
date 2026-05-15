@@ -71,6 +71,13 @@ def score_choice(
     if n_choice_tokens <= 0:
         # BPE 把 choice 合进了 prompt 末尾 token —— 典型"分词坍塌"
         return float("nan"), 0
+    # 隐式陷阱：BPE 是上下文相关的，tokenize(prompt+choice) 的前 prompt_len 个 token
+    # 不一定等于 tokenize(prompt)。若不一致，下面按 prompt_len 切片就错位了。
+    # 这里 assert 守住，发生时立刻暴露而非打出错的分。lm-eval-harness 用的是
+    # "对完整 full_ids 编码后按 byte 长度回算 choice 起点"的更稳方案，本练习从简。
+    assert torch.equal(full_ids[0, :prompt_len], prompt_ids[0]), (
+        "BPE 上下文相关合并导致前缀 token 不一致，prompt_len 切片不可用"
+    )
 
     # forward 一次拿全程 logits
     logits = model(full_ids).logits  # (1, L, V)

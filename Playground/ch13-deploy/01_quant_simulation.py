@@ -77,8 +77,11 @@ def main() -> None:
 
     # ===== 验证 3：多层叠加，误差累积吗？=====
     print("\n" + "=" * 64)
-    print("[验证 3] N 层连续量化矩阵乘，看误差是否被层数放大")
+    print("[验证 3] N 层连续量化矩阵乘 + tanh 非线性，看误差是否被层数放大")
     print("=" * 64)
+    # 加 tanh 是为了贴近真实网络（每层有非线性 + 类 LN 归一化），
+    # 否则纯线性叠加 12 层很容易让 baseline 的尺度爆炸或坍缩，
+    # 与"量化误差累积"信号混在一起难以分辨。tanh 同时把激活压回 [-1, 1] 起到温和归一化。
     n_layers = 12
     layers = [torch.randn(out_dim, out_dim) * 0.05 for _ in range(n_layers)]
     x0 = torch.randn(out_dim)
@@ -87,12 +90,12 @@ def main() -> None:
         # baseline：fp32 跑 N 层
         h_ref = x0
         for W_l in layers:
-            h_ref = W_l @ h_ref
+            h_ref = torch.tanh(W_l @ h_ref)
         # 量化版：每层都用反量化后的权重跑
         h_q = x0
         for W_l in layers:
             W_lq, _ = quantize_symmetric(W_l, bits)
-            h_q = W_lq @ h_q
+            h_q = torch.tanh(W_lq @ h_q)
         rmse = (h_q - h_ref).pow(2).mean().sqrt().item()
         rel = rmse / h_ref.std().clamp(min=1e-6).item()
         print(f"  int{bits}, {n_layers} 层后: RMSE={rmse:.4e}  RMSE/std={rel * 100:.2f}%")
@@ -100,6 +103,8 @@ def main() -> None:
     print("\n  → 误差随层数累积（且因每层放大效应可能呈指数增长），")
     print("    这是为什么真实量化算法（GPTQ / AWQ / GGUF K-quant）要『非均匀』地保护重要权重，")
     print("    而非朴素地按本练习的『全张量统一 scale』做。")
+    print("  注：本实验的 tanh 是简化的非线性占位，真实 Transformer 还有 LayerNorm / 残差等结构")
+    print("  共同稳定数值，所以工业模型量化误差累积通常比这里温和。")
 
 
 if __name__ == "__main__":
