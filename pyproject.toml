@@ -10,6 +10,7 @@ dependencies = []
 # ---- 模块维度 ----
 courseware = [
     "torch>=2.2",
+    "torchvision>=0.17",
     "numpy>=1.26",
     "matplotlib",
     "jupyter",

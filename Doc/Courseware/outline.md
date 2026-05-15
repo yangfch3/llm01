@@ -7,8 +7,8 @@
 
 - [x] **ch01 · 环境与工具** — uv / PyTorch 安装（CUDA vs MPS）/ Jupyter / VSCode 调试 · 练习：环境自检脚本
 - [x] **ch02 · 必要数学（浅层）** — 向量/矩阵/点积、梯度与链式法则、softmax / 交叉熵几何意义 · 练习：纯 NumPy 实现
-- [ ] **ch03 · PyTorch 入门** — Tensor / autograd / nn.Module / DataLoader / 训练循环模板 · 练习：MLP 分类 MNIST
-- [ ] **ch04 · 神经网络与训练要素** — 反向传播工程视角、优化器、LR 调度、初始化、Dropout、BN/LN · 练习：优化器对比
+- [x] **ch03 · PyTorch 入门** — Tensor / autograd / nn.Module / DataLoader / 训练循环模板 · 练习：MLP 分类 MNIST
+- [x] **ch04 · 神经网络与训练要素** — 反向传播工程视角、优化器、LR 调度、初始化、Dropout、BN/LN · 练习：优化器对比
 
 ## M2 · Transformer 精通
 
