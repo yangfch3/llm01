@@ -1,5 +1,6 @@
 site_name: LLM 0-1
 site_description: LLM 0-1 — 从数学基础到部署
+site_url: https://yangfch3.github.io/llm01/
 
 dev_addr: '0.0.0.0:8000'
 
