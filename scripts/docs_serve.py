@@ -52,7 +52,12 @@ def main() -> int:
     # 透传命令行参数给 mkdocs serve
     cmd = [str(MKDOCS_BIN), "serve", "-f", str(MKDOCS_DIR / "mkdocs.yml"), *sys.argv[1:]]
     print(f"[docs_serve] {' '.join(cmd)}")
-    return subprocess.call(cmd)
+    try:
+        return subprocess.call(cmd)
+    except KeyboardInterrupt:
+        # Ctrl+C 时 SIGINT 同时发给本进程和 mkdocs 子进程，
+        # mkdocs 已自行优雅退出，这里吞掉 traceback，按惯例返回 130。
+        return 130
 
 
 if __name__ == "__main__":
