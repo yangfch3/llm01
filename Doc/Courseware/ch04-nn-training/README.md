@@ -29,7 +29,7 @@ PyTorch 的计算图**默认 backward 一次就被释放**（省显存）。再 
 RuntimeError: Trying to backward through the graph a second time
 ```
 
-99% 训练场景一次足够。需要多次反传同一张图（比如算高阶梯度、某些 RL 算法）才用 `loss.backward(retain_graph=True)`。
+99% 训练场景一次足够。需要多次反传同一张图（典型如 GAN：同一份 fake_data 既要更新 G 又要更新 D；或一个 loss 拆两次反传；或算高阶梯度）才用 `loss.backward(retain_graph=True)`。M3 不会遇到，混个眼熟。
 
 ### 1.2 zero_grad 必须在 backward 之前
 
@@ -65,6 +65,8 @@ torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)  # 在 step() �
 
 意思：把所有参数梯度看成一个长向量，范数超过 1.0 就等比例缩放回 1.0。
 
+> grad clip 是**事后救火**——梯度炸了再削。下一节讲的初始化是**事前防火**：从源头让每层激活/梯度方差稳定，避免一上来就爆。两者通常一起用。
+
 ---
 
 ## 2. 参数初始化
@@ -77,8 +79,10 @@ torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)  # 在 step() �
 | 方案 | 公式（fan_in 是输入维度） | 配什么激活 |
 |---|---|---|
 | 朴素正态 $\mathcal{N}(0, 1)$ | std = 1 | **不要用**，几层就炸 |
-| Xavier（Glorot） | std = $\sqrt{1/\mathrm{fan\_in}}$ | sigmoid / tanh |
+| LeCun（Xavier 简化版） | std = $\sqrt{1/\mathrm{fan\_in}}$ | sigmoid / tanh |
 | Kaiming（He） | std = $\sqrt{2/\mathrm{fan\_in}}$ | ReLU 系（含 GELU / SiLU） |
+
+> 严格说 Xavier/Glorot 的完整式是 $\sqrt{2/(\mathrm{fan\_in} + \mathrm{fan\_out})}$，同时让前向激活与反向梯度方差都稳定。在 fan_in ≈ fan_out 时与上面 LeCun 形式接近，本章用单 fan_in 简化。
 
 ReLU 把负半轴砍掉，输出方差减半，所以 He 比 Xavier 多了个 $\sqrt{2}$ 系数补回来。
 
@@ -152,6 +156,9 @@ w \leftarrow w - \mathrm{lr} \cdot \frac{m}{\sqrt{v} + \epsilon}
 
 **核心创新**：每个参数有**自己的学习率**，由 $\sqrt{v}$ 倒数缩放。波动大的参数自动减小步长，波动小的自动放大。这让 Adam 几乎不用调 lr 也能跑。
 
+> $\epsilon$ 是数值稳定项（典型 1e-8），防训练初期 $v \approx 0$ 时分母为零。
+> Adam 实际还有一步 **bias correction**：训练初期 $m, v$ 滑动均值偏向 0，用 $\hat{m} = m / (1-\beta_1^t)$、$\hat{v} = v / (1-\beta_2^t)$ 修正。PyTorch 内部已实现，使用者无感。
+
 ### 3.4 AdamW：weight decay 的正解
 
 L2 正则原本是在 loss 里加 $\frac{\lambda}{2}\|w\|^2$。Adam 把它和梯度一起塞进 $\sqrt{v}$ 缩放，等价于"波动大的参数被较少正则化"——**与正则化初衷相反**。
@@ -167,6 +174,10 @@ LLM 预训练几乎一律 AdamW。PyTorch 一行：
 ```python
 optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=0.1)
 ```
+
+> **与 ch03 的对照**：ch03 MNIST 用的是 `Adam(lr=1e-3)` 不带 weight decay——小模型小数据可以省。本节配置面向 LLM 预训练，M3 起一律 AdamW。
+>
+> **`param_groups` 一瞥**：实操中 LayerNorm（§6 详讲）参数和 bias 通常**不加** weight decay（它们维度小、加正则反而伤性能），靠 `optimizer = AdamW([{"params": decay, "weight_decay": 0.1}, {"params": no_decay, "weight_decay": 0.0}], lr=3e-4)` 分组配置。M3 ch09 详解。
 
 ### 自检
 
@@ -243,6 +254,8 @@ nn.Dropout(p=0.5)                                # 训练时以概率 p 把激�
 
 直觉：强迫网络不要依赖某些"明星神经元"，提升泛化（类似 ensemble 多个子网络）。
 
+**放哪**：常见放在激活之后、下一层 Linear 之前；最后一层（输出 logits）后**不放**——不能 dropout 输出。
+
 ### 5.2 训/推不一致的关键细节
 
 训练丢一半神经元，推理时全保留——**激活值期望就翻倍了**。Dropout 在训练时主动**乘 1/(1-p)** 补偿（叫 inverted dropout），推理时什么都不用做。
@@ -270,11 +283,13 @@ GPT-2/3、LLaMA 系列预训练阶段 Dropout 一般设为 0 或极小（0.0–0
 
 ### 6.1 BatchNorm：沿 batch 维统计
 
-输入 `(N, C, H, W)`，BN 对每个 channel 在 `(N, H, W)` 维上求均值/方差。
+最经典的 `nn.BatchNorm2d` 吃 CV 形状 `(N, C, H, W)`，对每个 channel 在 `(N, H, W)` 三个维度上求均值/方差：
 
 ```python
-nn.BatchNorm2d(num_features=C)
+nn.BatchNorm2d(num_features=C)                   # CV 经典；本课程主线 LLM 不会用到
 ```
+
+（也有 `nn.BatchNorm1d` 吃 `(N, C)` 或 `(N, C, L)`。这里举 2d 版只是因为它最常被讨论。）
 
 **BN 的问题**：
 
@@ -289,6 +304,8 @@ nn.BatchNorm2d(num_features=C)
 ```python
 nn.LayerNorm(normalized_shape=D)
 ```
+
+归一化后还会**乘可学习 γ 加可学习 β**（默认 `elementwise_affine=True`），让网络在需要时恢复任意尺度。M2 ch06 讲的 RMSNorm 就是 LN 的简化版——只除 RMS、去掉 β、有时也去掉 γ。
 
 **LN 的优点**：
 

@@ -38,6 +38,9 @@ x = torch.zeros(3, 4)                            # CPU 上的 (3, 4) 全零
 x = torch.zeros(3, 4, device=device)             # 直接建在目标设备
 x = torch.tensor([[1.0, 2.0], [3.0, 4.0]])       # 从 list 建
 x = torch.from_numpy(np_array)                   # 与 numpy 共享内存（CPU 上）
+
+x = torch.tensor([1, 2, 3], dtype=torch.float32) # 显式指定 dtype
+x = x.float()                                    # 等价转换；.long() / .to(torch.float32) 同理
 ```
 
 **铁律**：业务代码**禁止**写 `.cuda()` / `.to("cuda")`。一律 `.to(device)`，`device` 来自 `get_device()`。
@@ -99,11 +102,11 @@ w = torch.tensor(0.5, requires_grad=True)        # 标记"要算梯度"
 x = torch.tensor(2.0)                            # 普通 tensor，不参与 autograd
 y_true = torch.tensor(3.0)
 
-y = w * x                                         # forward：建图节点 1
-loss = (y - y_true) ** 2                          # forward：建图节点 2
+y = w * x                                         # forward：建图节点 1，y = 0.5·2 = 1
+loss = (y - y_true) ** 2                          # forward：建图节点 2，loss = (1-3)² = 4
 
 loss.backward()                                   # 沿图反向，填 w.grad
-print(w.grad)                                     # tensor(-4.0) ← 2(y-y_true)·x = 2·(1-3)·2
+print(w.grad)                                     # tensor(-8.) ← dL/dw = 2(y-y_true)·x = 2·(1-3)·2
 ```
 
 **对照 ch02**：你不再手写 `dw = (y-t) * x * 2`，PyTorch 自动算出来。代价是它要在 forward 时**保留中间张量**做反向用——所以训练比纯前向（推理）显存占用大几倍。
@@ -120,6 +123,8 @@ loss2.backward()               # w.grad = -4.0 + 新梯度，**不是覆盖**
 PyTorch 设计成累加是为了支持 grad accumulation（小显存模拟大 batch）。代价是**普通训练每步必须 `optimizer.zero_grad()` 清零**，否则梯度爆炸。
 
 **坑 2：只能对 leaf tensor 拿 `.grad`**
+
+> **leaf tensor**（叶子张量）：直接 `torch.tensor(...)` 创建的、不是由其他 tensor 运算产生的 tensor。模型权重都是 leaf；前向中间结果不是。
 
 ```python
 w = torch.tensor(0.5, requires_grad=True)        # leaf
@@ -209,6 +214,8 @@ model = nn.Sequential(
 
 **何时用 Sequential，何时写自定义类**：分支 / 残差 / 多输入 → 自定义类；纯线性串联 → Sequential。LLM 里 Transformer block 一定是自定义类（残差 + 注意力 + FFN 多路）。
 
+> **顺带一提**：loss 函数也是 `nn.Module`，常用的有 `nn.CrossEntropyLoss`（分类）、`nn.MSELoss`（回归），用法 `loss = loss_fn(pred, target)`。§5 训练循环就用它。
+
 ### 3.3 保存与加载
 
 ```python
@@ -246,6 +253,8 @@ ch02 的 `mlp_numpy.py` 一次性把 200 个样本全塞进网络（"全 batch"�
 - 全塞 → 显存爆炸；一条一条 → 梯度噪声大、GPU 利用率低
 
 折中：**mini-batch**，每次取 32 / 64 / 128 个样本算梯度。
+
+> **MNIST 的形状约定**（§5/`05_mnist_mlp.py` 会用到）：`torchvision.datasets.MNIST` 配 `transforms.ToTensor()` 拿到的单样本是 `(1, 28, 28)` 的 float tensor，DataLoader 堆完 batch 是 `(B, 1, 28, 28)`。喂 MLP 前需要 `x = x.view(B, -1)` 拍平成 `(B, 784)`；喂 CNN 则保留四维。
 
 ### 4.2 PyTorch 抽象
 
@@ -311,7 +320,7 @@ loss_fn = nn.CrossEntropyLoss()
 
 for epoch in range(num_epochs):
     # ---- 训练 ----
-    model.train()                                # 切训练模式（影响 Dropout/BN）
+    model.train()                                # 切训练模式（影响 Dropout/BN；本章 MLP 没这俩，写上是肌肉记忆，ch04 详解）
     for x, y in train_loader:
         x, y = x.to(device), y.to(device)
 
@@ -329,11 +338,15 @@ for epoch in range(num_epochs):
         for x, y in val_loader:
             x, y = x.to(device), y.to(device)
             pred = model(x).argmax(dim=-1)
-            correct += (pred == y).sum().item()
+            correct += (pred == y).sum().item()  # .item() 把 0 维 tensor 转 Python int，避免循环里堆一串小 tensor
     print(f"epoch {epoch}  val_acc={correct / len(val_set):.4f}")
 ```
 
 **这五步就是后续 echo-mini Pretrain / SFT 的骨架**，差别只是 loss、数据、模型变复杂。
+
+> **`optimizer` 是什么**：持有 `model.parameters()` 的引用 + 实现 `step()`。`step()` 读每个参数的 `.grad` 按各自规则更新参数；`zero_grad()` 清空 `.grad`。所以三件套的分工是：`backward()` 算梯度填 `.grad` → `optimizer.step()` 用 `.grad` 改参数 → `zero_grad()` 清场准备下一轮。
+>
+> **`non_blocking=True` 提示**：配合 `pin_memory=True` 让 host→device 传输与 GPU 计算重叠，单独写没意义。教学脚本里写或不写都行。
 
 ### 自检
 
