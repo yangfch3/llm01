@@ -18,12 +18,12 @@
 
 ## M3 · LLM 全链路入门（理论）
 
-- [ ] **ch08 · 分词器** — 字符/词/子词、BPE/WordPiece/Unigram、中英混合 · 练习：用 `tokenizers` 训练 BPE
-- [ ] **ch09 · 预训练** — CLM 目标、数据 packing、混合精度 / grad accumulation / gradient checkpointing、scaling law 直觉
+- [x] **ch08 · 分词器** — 字符/词/子词、BPE/WordPiece/Unigram、中英混合 · 练习：用 `tokenizers` 训练 BPE
+- [x] **ch09 · 预训练** — CLM 目标、数据 packing、混合精度 / grad accumulation / gradient checkpointing、scaling law 直觉
 - [x] **ch10 · SFT** — 对话模板、loss mask、多轮、LoRA / QLoRA 原理、数据质量 > 数量
 - [x] **ch11 · 对齐** — RLHF 概览、PPO 痛点、DPO 原理、KTO / ORPO 简提
-- [ ] **ch12 · 评测** — PPL、开源 benchmark（C-Eval / MMLU 子集）、人工评测必要性
-- [ ] **ch13 · 部署** — 量化（int8/int4/GGUF）、Ollama、`llama-cpp-python`、`transformers` 原生推理对比
+- [x] **ch12 · 评测** — PPL、开源 benchmark（C-Eval / MMLU 子集）、人工评测必要性
+- [x] **ch13 · 部署** — 量化（int8/int4/GGUF）、Ollama、`llama-cpp-python`、`transformers` 原生推理对比
 
 ## 章节模板
 
