@@ -126,7 +126,7 @@
 ## 执行策略
 
 1. **严格按里程碑顺序推进**，M4 之前不动训练代码
-2. 课件与练习**同步产出**，写完一章就配套练习；章节 README 与练习目录的具体形态见 [`Doc/Courseware/outline.md`](../Courseware/outline.md) 章节模板
+2. 课件与练习**同步产出**，写完一章就配套练习；章节 README 与练习目录的具体形态、练习代码注释规范见 [`Doc/Courseware/outline.md`](../Courseware/outline.md)
 3. Echo 相关的配置、脚本、数据管线一律通过 **CLI + 配置文件** 驱动，避免硬编码
 4. 大的设计变更（如 echo-mini 的架构选型）先在 `Doc/DesignDoc/` 下开专题文档讨论
 5. **跨平台铁律**：每次切换机器前先 `git push`；上机第一件事 `git pull` + `scripts/doctor.py`；练习代码提交前两端都跑过；训练代码提交前至少 Mac 跑过 tiny 配置
