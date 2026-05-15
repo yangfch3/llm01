@@ -47,11 +47,13 @@
 
 量化不只是省显存，**通常也变快**：
 
-- 显存带宽是大模型推理的瓶颈（每生成一个 token 都要把整组权重读一遍）
-- int4 权重比 fp16 小 4 倍 → 内存读取量 4 倍 → 带宽瓶颈显著缓解
+- decode 阶段（逐 token 自回归生成）显存带宽是瓶颈：每生成一个 token 都要把整组权重读一遍
+- int4 权重比 fp16 小 4 倍 → 内存读取量 1/4 → 带宽瓶颈显著缓解
 - CPU 推理时 int4 的整数运算指令也比浮点快
 
-实测上 3060 跑 7B：fp16 约 30 tok/s，int4 GGUF 通过 llama.cpp 约 60 tok/s。
+> prefill 阶段（处理 prompt 那一遍长 forward）是 compute-bound，瓶颈在算力而非带宽，量化加速效果不如 decode 明显。但日常对话生成长度通常 >> prompt，整体还是 decode 占大头。
+
+实测上 3060 跑 7B：fp16 权重 14GB 已超 12GB 显存，必须 CPU offload 一部分，吞吐通常掉到 10—15 tok/s；int4 GGUF 通过 llama.cpp 全程显卡跑，约 60 tok/s。**fp16 在 3060 上跑 7B 实际不可行**，量化在这个量级是必选项。
 
 ### 1.3 精度损失从哪来
 
@@ -66,6 +68,9 @@ int4:  16 个离散级别（-8 到 7）
 每个权重要找最近的离散级别 → **舍入误差**。
 权重越小、分布越集中，舍入相对误差越大。
 推理时这些小误差会**沿着多层网络累积**，最终输出概率分布会与 fp16 略有偏移。
+
+> 上面的"-128 到 127"、"-8 到 7"是**朴素对称量化**的形式，方便理解原理。
+> 真实部署里 GGUF 的 K-quant、bitsandbytes 的 NF4 等都用**非均匀**离散级别（针对正态分布权重做了优化），精度显著优于朴素方案——见 §2.2。
 
 ### 自检
 
@@ -91,7 +96,7 @@ int4:  16 个离散级别（-8 到 7）
 |---|---|---|---|
 | **PTQ**（Post-Training Quantization） | GGUF / GPTQ / AWQ | 训完后离线量化 | 低，社区主流 |
 | **QAT**（Quantization-Aware Training） | bitsandbytes 的 8bit/4bit 训练 | 训练过程感知量化误差 | 高，少用 |
-| **QLoRA** | bitsandbytes 4bit + LoRA | 把底座 4bit 冻结 + 训 LoRA | 中，省显存训练 |
+| **QLoRA** | bitsandbytes 4bit + LoRA | 把底座 4bit 冻结 + 训 LoRA | 中，省显存训练（NF4 / double quantization 细节见 ch10 §4.4） |
 
 > echo 项目用 PTQ：训练阶段保持 fp16/bf16，训完后导出 GGUF int4 部署。QLoRA 用在 M5 微调底座阶段（省显存训练，不是部署）。
 
@@ -100,7 +105,7 @@ int4:  16 个离散级别（-8 到 7）
 **llama.cpp**（ggerganov 开源）是用 C++ 写的纯 CPU/GPU 通用推理引擎。
 **GGUF** 是它的模型存储格式，特点：
 
-- **单文件**：权重 + 分词器 + 元数据全打包成一个 `.gguf` 文件
+- **单文件**：权重 + 词表 + 元数据打包成一个 `.gguf` 文件（chat template 在新版 convert 脚本下也会写入元数据，但部署时是否生效另说，见 §4）
 - **跨平台**：Windows / Mac / Linux / Android 都能跑
 - **多种量化级别**：
   - `Q8_0`：8-bit，几乎无衰减，文件接近 fp16 一半
@@ -112,7 +117,7 @@ int4:  16 个离散级别（-8 到 7）
 
 > **K-quant 是什么**：传统 int4 是"每个权重独立量化"，K-quant 是"按 block 分组 + 每组单独 scale + 重要 block 用更高 bit"，质量显著优于朴素 int4。
 
-llama.cpp 的下游生态：
+了解了 GGUF 与 K-quant 后，看它在工具链中的位置：
 
 ```
         llama.cpp (C++ 引擎，跑 GGUF)
@@ -204,6 +209,7 @@ PARAMETER stop "<|im_end|>"
 - **优点**：装一个独立 CLI 就能用，自带 REST API（端口 11434），跨平台体验最好
 - **缺点**：底层还是 llama.cpp，能力受 GGUF 限制；模型管理是 Ollama 自己的"私有 registry"格式
 - **适用**：demo 演示、桌面应用、最简上手路径
+- **Python 调用**：通过 REST API（`POST http://localhost:11434/api/generate`）或官方 `ollama` Python 包，见思考题 3
 
 ### 3.4 选型矩阵
 
@@ -245,7 +251,7 @@ PARAMETER stop "<|im_end|>"
 
 **几个工程坑**（M6 会踩，先有数）：
 
-- **chat template 必须显式写在 Modelfile**：转 GGUF 不会自动带 HF 的 `chat_template`，没写的话 Ollama 把对话拼错，模型答非所问
+- **chat template 必须在 Modelfile 里显式写对**：较新版本的 `convert_hf_to_gguf.py` 会把 HF `tokenizer_config.json` 的 `chat_template` 写入 GGUF 元数据，但 Ollama 的 Modelfile `TEMPLATE` 字段会**覆盖** GGUF 内置模板。所以即使 GGUF 自带模板，Modelfile 写错（或漏写）依然会导致对话被拼坏、模型答非所问
 - **stop token**：必须在 Modelfile `PARAMETER stop` 里加，否则模型停不下来
 - **量化级别选择**：先 Q4_K_M 跑通，质量不够再 Q5_K_M / Q8_0 升级，体积换质量
 - **测试要全链路**：HF 推理通过 ≠ GGUF 推理通过 ≠ Ollama 推理通过，每一步都要验
@@ -258,7 +264,7 @@ PARAMETER stop "<|im_end|>"
 <details markdown="1">
 <summary>答案速查</summary>
 
-1. 检查 **chat template 与 stop token**：HF tokenizer 自带的 `chat_template` 不会自动迁到 GGUF/Ollama，要手动写到 Modelfile。多数"乱码 / 答非所问"是模板拼错或 stop token 缺失（模型说完话又开始说下一轮的"用户"内容）
+1. 检查 **chat template 与 stop token**：即使 GGUF 内置了从 HF 转过来的 chat_template，Ollama Modelfile 的 `TEMPLATE` 会覆盖它，所以 Modelfile 必须自己写对。多数"乱码 / 答非所问"是模板拼错或 stop token 缺失（模型说完话又开始说下一轮的"用户"内容）
 
 2. 候选：① 量化级别太激进（Q4 衰减）→ 升 Q5/Q8 再测 ② chat template 写错 → 对照 HF 的 `tokenizer.apply_chat_template` 输出 ③ tokenizer 转换有差异（罕见 BPE 边界 case） ④ KV cache / 采样参数（temperature / top_p）默认值与训练评测时不一致
 
@@ -268,15 +274,17 @@ PARAMETER stop "<|im_end|>"
 
 ## 5. 性能基准的"读法"
 
-社区里常见的性能数字（仅供数量级直觉，会因硬件、上下文长度、batch 而变）：
+社区里常见的性能数字（仅供数量级直觉，会因硬件、上下文长度、batch、是否 offload 而变）：
 
 | 平台 | 模型 | 量化 | tok/s（单 batch） |
 |---|---|---|---|
 | RTX 3060 12GB | 7B | Q4_K_M | ~60 |
-| RTX 3060 12GB | 7B | fp16 | ~30 |
+| RTX 3060 12GB | 7B | fp16（**需 CPU offload，超显存**） | ~10—15 |
 | M2 Pro Mac | 7B | Q4_K_M (Metal) | ~25 |
 | M2 Pro Mac | 7B | Q8_0 (Metal) | ~18 |
 | 纯 CPU (i7) | 7B | Q4_K_M | ~6 |
+
+> 数字假设短上下文（≤ 2k）、无 batch、未启用 Flash Attention 类加速。长上下文（如 8k+）tok/s 通常掉一半。
 
 **echo final 验收**（出自 `00-startup-proposal.md`）：
 - 量化后衰减 ≤ 5%

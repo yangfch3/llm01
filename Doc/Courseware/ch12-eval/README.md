@@ -44,6 +44,8 @@ PPL = exp( -1/N · Σ_t log P(x_t | x_<t) )
 
 ```python
 # 伪代码：在某个评测语料上算 PPL
+# 假设 dataloader 的 batch.input_ids / batch.labels 已按 ch09 §1.2 准备好：
+#   labels 是 input_ids 左移一位的"下一个 token"目标，pad 位填 -100
 total_nll, total_tokens = 0.0, 0
 for batch in eval_loader:
     with torch.no_grad():
@@ -104,14 +106,15 @@ ppl = math.exp(total_nll / total_tokens)
 | **CMMLU** | 中文 67 学科多选 | 4 选 1 | 中 |
 | **GSM8K** | 小学数学题 | 生成数字答案 | 中 |
 | **HumanEval** | Python 代码补全 | 生成函数体 | 中 |
-| **MT-Bench** | 多轮对话 | 生成 + GPT-4 打分 | 综合 |
+| **MT-Bench** | 两轮对话（一问一追问） | 生成 + GPT-4 打分 | 综合 |
 | **AlpacaEval** | 单轮指令 | 生成 + GPT-4 对比 | 综合 |
 
 > M3 阶段你只需要认识它们；M5/M6 落 echo 时，最少跑 **C-Eval 子集 + MT-Bench 中文子集**。
 
 ### 2.2 多选题怎么"考" LLM：loglikelihood scoring
 
-LLM 不是分类器，没法直接吐"选 A"。主流做法是 **loglikelihood scoring**：
+直觉做法是让模型自由生成"A"/"B"/"C"/"D"再解析，但模型可能输出 `"A."`、`" A"`、`"我觉得是 A"` 等无数变体，解析脆弱。
+主流做法换个角度：把"选哪个"转成"4 个候选答案谁的条件概率最高"——**loglikelihood scoring**：
 
 ```
 prompt: "下列哪个是哺乳动物？\nA. 鲨鱼  B. 海豚  C. 章鱼  D. 海星\n答案："
@@ -128,7 +131,9 @@ scores = {}
 for letter in ["A", "B", "C", "D"]:
     full = tokenize(prompt + " " + letter)
     logits = model(full[:-1])
-    # 只取最后一个 token（即 letter 那一位）的 logp
+    # 简化前提：候选只占 1 个 token（如 " A" 在 GPT-2 BPE 下确实如此）
+    # 多 token 候选（例如候选是整句话 "Dolphin is a mammal"）需把候选所有位置的
+    # logp 求和：sum(log P(c_i | prompt, c_<i)) for i in choice_tokens
     logp = log_softmax(logits[-1], dim=-1)[full[-1]]
     scores[letter] = logp.item()
 predicted = max(scores, key=scores.get)
@@ -241,7 +246,9 @@ MMLU 标配是 5-shot；C-Eval 也是 5-shot。few-shot 让模型"看懂格式"�
 
 ### 4.3 GPT-4 当裁判靠谱吗
 
-- 部分靠谱：相关性高，但有偏（偏好长回答、偏好礼貌语气、偏好 GPT 风格）
+- 部分靠谱：相关性高，但有偏：
+  - **风格偏**：偏好长回答、偏好礼貌语气、偏好 GPT 风格
+  - **position bias**：把同一对回答的顺序调换，裁判结果常常跟着变。最被研究、最实操要紧的偏。**必须做 swap**（A/B 与 B/A 各跑一遍取一致结论），否则裁判分数被先后顺序干扰
 - 必须配合人工抽检（10% 样本）校准
 - 别迷信单一裁判，多裁判聚合（GPT-4 + Claude + 人工抽样）更稳
 
@@ -267,7 +274,7 @@ MMLU 标配是 5-shot；C-Eval 也是 5-shot。few-shot 让模型"看懂格式"�
 |---|---|---|
 | **lm-evaluation-harness** | 跑 MMLU / C-Eval 等多选 benchmark | EleutherAI 出品，社区事实标准 |
 | **OpenCompass** | 同上，中文圈用得多 | 上海 AI Lab 出品 |
-| **MT-Bench** | 多轮对话 + GPT-4 裁判 | LMSYS 出品 |
+| **MT-Bench** | 两轮对话 + GPT-4 裁判 | LMSYS 出品 |
 | **AlpacaEval** | 单轮指令对比 | Stanford 出品 |
 | 自己写脚本算 PPL | 训练监控 | 几十行 Python 即可，见 §1.2 |
 
