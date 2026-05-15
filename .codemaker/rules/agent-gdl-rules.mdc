@@ -75,4 +75,6 @@ A living document of recurring mistakes the AI agent makes in this workspace. Ch
   - Disable Git pager → prefer `git --no-pager <subcmd>` over piping to `cat`. Git on Windows already does not page in non-interactive shells, so the pipe is unnecessary
   - Read a file → always use the `read_file` tool to avoid encoding issues
 
+- **Do NOT use `\uXXXX` escapes in shell command strings.** JSON 层先还原成字面字符，shell 拿到的就是字面串，`\u` 没绕过任何 shell 编码。直接写中文，本机 cmd + git 对 UTF-8 commit message 无问题。
+
 </rule>
