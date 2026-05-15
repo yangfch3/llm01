@@ -106,7 +106,7 @@
 
 | 分组 | 维度 | 关键依赖 | 备注 |
 |---|---|---|---|
-| `courseware` | 模块 | torch、numpy、matplotlib、jupyter、mkdocs* | 课件与 Playground 练习 |
+| `courseware` | 模块 | torch、numpy、matplotlib、jupyter | 课件与 Playground 练习（站点工具链见 §3.2） |
 | `echo-mini` | 模块 | torch、transformers、tokenizers、datasets、accelerate、peft、trl、safetensors、huggingface-hub、sentencepiece | 全链路从零训练 |
 | `echo` | 模块 | 同 echo-mini（高度重叠） | M5 启动后按底座需求增减 |
 | `train-cuda` | 平台 | bitsandbytes>=0.43（带 win32/linux marker） | Win/Linux 训练加速 |
@@ -123,6 +123,14 @@
 - **默认源**：腾讯云 `https://mirrors.cloud.tencent.com/pypi/simple`（`default = true`）
 - **专属源**：`pytorch-cu124`（`explicit = true`），仅 torch 系显式点名走此源
 - **环境变量覆盖**：`UV_DEFAULT_INDEX` / `UV_INDEX_URL`，CI / 海外节点 / 私有源场景免改文件
+
+### 3.2 MkDocs 站点依赖（独立管理）
+
+文档站点工具链与项目主依赖分离，单独在 `Misc/mkdocs/requirements-docs.txt` 锁版本：
+
+- **本地预览**：`uv run python scripts/docs_serve.py`（首次需在 `Misc/mkdocs/` 下 `uv venv .venv-docs` + `uv pip install --python .venv-docs -r requirements-docs.txt`）
+- **线上部署**：GitHub Actions（`.github/workflows/docs.yml`）push main 触发 → 发布到 GitHub Pages（<https://yangfch3.github.io/llm01/>）
+- **隔离原因**：CI 跑在 GitHub runner（境外），`uv sync --extra courseware` 会拖整套 torch CUDA wheel 既慢又无用；docs 仅需 4 个包
 
 安装命令：
 ```bash

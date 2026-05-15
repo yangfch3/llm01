@@ -44,13 +44,23 @@ uv run python scripts/doctor.py
 
 ### 文档站（MkDocs）
 
-本地预览 `Doc/` 目录下所有文档（课件、设计文档等），支持 LaTeX 公式渲染：
+`Doc/` 下所有文档（课件、设计文档等）通过 MkDocs Material 主题渲染，支持 LaTeX 公式。
+
+**线上**：<https://yangfch3.github.io/llm01/>（push main 后由 GitHub Actions 自动部署）
+
+**本地预览**：
 
 ```bash
-uv run mkdocs serve -f Misc/mkdocs/mkdocs.yml
+uv run python scripts/docs_serve.py
 ```
 
 浏览器打开 `http://127.0.0.1:8000` 即可。
+
+> 站点工具链与项目主依赖隔离，独立装在 `Misc/mkdocs/.venv-docs/`，依赖锁见 `Misc/mkdocs/requirements-docs.txt`。
+> 首次本地预览前需执行：
+> ```bash
+> cd Misc/mkdocs && uv venv .venv-docs && uv pip install --python .venv-docs -r requirements-docs.txt
+> ```
 
 ## 目录导览
 
