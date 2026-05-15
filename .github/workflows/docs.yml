@@ -33,10 +33,12 @@ jobs:
           cache-dependency-glob: Misc/mkdocs/requirements-docs.txt
 
       - name: Install deps
-        run: uv venv && uv pip install -r requirements-docs.txt
+        run: |
+          uv venv .venv-docs
+          uv pip install --python .venv-docs -r requirements-docs.txt
 
       - name: Build site
-        run: uv run mkdocs build --strict --site-dir _site
+        run: .venv-docs/bin/mkdocs build --strict --site-dir _site
 
       - uses: actions/configure-pages@v5
 
