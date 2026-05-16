@@ -210,6 +210,8 @@ y = w_2 \cdot a,\quad
 L = \tfrac{1}{2}(y - t)^2
 \]
 
+> 这里的 $L = \tfrac{1}{2}(y - t)^2$ 就是 **MSE（Mean Squared Error，均方误差）** 的单样本版——回归任务最常用的 loss。多样本时取平均：$\tfrac{1}{N}\sum_i (y_i - t_i)^2$。前面的 $\tfrac{1}{2}$ 是为了求导后系数干净（$\partial L / \partial y = y - t$，没有多余的 2），不影响优化方向。§3.1 会讨论它在分类任务上的局限。
+
 **反向**（从 L 出发，反向走一遍）：
 
 **Step 1**：$L$ 对 $y$ 的梯度。$L = \tfrac{1}{2}(y-t)^2$，求导：
@@ -271,6 +273,8 @@ PyTorch 的 `loss.backward()` + `optimizer.step()` 自动做的就是这件事�
 > - 向量版 $\partial L / \partial W_1 = (\partial L / \partial h) \otimes x$（外积，`np.outer(dh, x)`）
 >
 > 形状对一下就明白：$\partial L / \partial W_1$ 必须和 $W_1$ 同形 $(h, d_{in})$，而 $dh$ 是 $(h,)$、$x$ 是 $(d_{in},)$ → 唯一能凑出 $(h, d_{in})$ 的就是外积。这个"形状反推"是大多数人手推矩阵反向传播的实战技巧。
+
+> **顺便给它一个名字**：上面 `x → h → a → y` 这种「Linear → 激活 → Linear」的两层结构，就是最小的 **MLP（Multi-Layer Perceptron，多层感知机）**。把这个 pattern 堆 N 遍（每层之间夹激活）就是 N 层 MLP。后面 ch03 用 PyTorch 实现的、ch04 讨论初始化的，都是这个东西。本章只要记住：MLP = 若干 Linear 层 + 层间激活。
 
 ### 2.4 数值梯度：调试的救命稻草
 
