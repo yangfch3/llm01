@@ -6,7 +6,7 @@
 3. 反向传播，打印梯度
 
 跑法：
-    uv run python Playground/ch01-env-tools/hello_torch.py
+    uv run python Playground/ch01-env-tools/01_hello_torch.py
 """
 
 from __future__ import annotations

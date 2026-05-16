@@ -1,6 +1,6 @@
-"""ch03 练习 3：用 nn.Module 重写 ch02 的 mlp_numpy。
+"""ch03 练习 3：用 nn.Module 重写 ch02 的 04_mlp_numpy。
 
-对照组：`Playground/ch02-math/mlp_numpy.py` 全手写约 100 行。
+对照组：`Playground/ch02-math/04_mlp_numpy.py` 全手写约 100 行。
 本脚本同样任务用 PyTorch 写，看 framework 省了哪些代码（forward 反向自动、参数自动注册、优化器一行）。
 任务沿用 ch02：二维平面两个高斯团二分类。
 """
@@ -21,7 +21,7 @@ from Echo.shared.device import get_device
 
 
 def make_data(n_per_class: int = 100, seed: int = 0) -> tuple[torch.Tensor, torch.Tensor]:
-    # 与 ch02 mlp_numpy.make_data 同分布，方便对照
+    # 与 ch02 04_mlp_numpy.make_data 同分布，方便对照
     rng = np.random.default_rng(seed)
     c0 = rng.standard_normal((n_per_class, 2)) + np.array([-2.0, 0.0])
     c1 = rng.standard_normal((n_per_class, 2)) + np.array([+2.0, 0.0])
@@ -51,7 +51,7 @@ def main() -> None:
     x, y = x.to(device), y.to(device)
 
     model = MLP().to(device)
-    # SGD 与 ch02 mlp_numpy 的手写 sgd_step 等价；lr 也对齐
+    # SGD 与 ch02 04_mlp_numpy 的手写 sgd_step 等价；lr 也对齐
     optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
     loss_fn = nn.CrossEntropyLoss()  # 内部含 log_softmax，所以 forward 不要 softmax
 
@@ -81,7 +81,7 @@ def main() -> None:
     with torch.no_grad():
         final_acc = (model(x).argmax(dim=-1) == y).float().mean().item()
     print(f"\n最终准确率 = {final_acc:.3f}")
-    assert final_acc > 0.95, "应能轻松超过 95%（与 ch02 mlp_numpy 同任务）"
+    assert final_acc > 0.95, "应能轻松超过 95%（与 ch02 04_mlp_numpy 同任务）"
     print("PASS")
 
 

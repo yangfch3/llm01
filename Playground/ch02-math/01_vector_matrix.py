@@ -6,7 +6,7 @@
 3. 形状训练：常见 shape 错误的报错样子
 
 跑法：
-    uv run python Playground/ch02-math/vector_matrix.py
+    uv run python Playground/ch02-math/01_vector_matrix.py
 """
 
 from __future__ import annotations

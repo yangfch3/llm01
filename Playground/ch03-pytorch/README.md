@@ -6,7 +6,7 @@ ch03 课件配套练习。课件见 [`Doc/Courseware/ch03-pytorch/README.md`](..
 |---|---|---|
 | `01_tensor_basics.py` | Tensor 创建 / 形状 / 设备 / numpy 桥 / dtype 易错 | `uv run python Playground/ch03-pytorch/01_tensor_basics.py` |
 | `02_autograd.py` | autograd 与 ch02 解析梯度对照、梯度累加、`no_grad` | 同上 |
-| `03_nn_module.py` | 用 `nn.Module` 重写 ch02 的 `mlp_numpy.py` | 同上 |
+| `03_nn_module.py` | 用 `nn.Module` 重写 ch02 的 `04_mlp_numpy.py` | 同上 |
 | `04_dataloader.py` | 自定义 `Dataset` + `DataLoader`，演示 batch / shuffle / drop_last | 同上 |
 | `05_mnist_mlp.py` | **综合实战**：MNIST 分类，3 epoch ≥ 97% | 同上，首次会下载 MNIST 到 `data/mnist/`（≈ 11MB） |
 

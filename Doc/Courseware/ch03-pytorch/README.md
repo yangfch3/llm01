@@ -12,7 +12,7 @@
 ## 前置依赖
 
 - ch01（`get_device()` / uv 命令）
-- ch02（softmax / CE / 链式法则；`mlp_numpy.py` 是本章 PyTorch 版的对照组）
+- ch02（softmax / CE / 链式法则；`04_mlp_numpy.py` 是本章 PyTorch 版的对照组）
 
 ---
 
@@ -247,7 +247,7 @@ model2.load_state_dict(torch.load("ckpt.pt"))    # 灌权重
 
 ### 4.1 为什么需要 batching
 
-ch02 的 `mlp_numpy.py` 一次性把 200 个样本全塞进网络（"全 batch"）。真实场景：
+ch02 的 `04_mlp_numpy.py` 一次性把 200 个样本全塞进网络（"全 batch"）。真实场景：
 
 - MNIST 6 万张图、ImageNet 128 万张、LLM 语料几十亿 token
 - 全塞 → 显存爆炸；一条一条 → 梯度噪声大、GPU 利用率低
@@ -372,7 +372,7 @@ for epoch in range(num_epochs):
 |---|---|
 | `01_tensor_basics.py` | Tensor 创建 / 形状 / 设备 / 与 numpy 互操作 |
 | `02_autograd.py` | `requires_grad` / `backward()`，与 ch02 解析梯度对照 |
-| `03_nn_module.py` | 用 `nn.Module` 重写 `mlp_numpy.py`，对比代码量 |
+| `03_nn_module.py` | 用 `nn.Module` 重写 `04_mlp_numpy.py`，对比代码量 |
 | `04_dataloader.py` | 自定义 `Dataset` + `DataLoader`，演示 batch / shuffle |
 | `05_mnist_mlp.py` | **综合实战**：MNIST 分类，~3 epoch 跑到 97%+ |
 
@@ -387,7 +387,7 @@ uv run python Playground/ch03-pytorch/01_tensor_basics.py
 
 ## 思考题
 
-1. ch02 的 `mlp_numpy.py` 和本章 `03_nn_module.py` 行数大约比例多少？PyTorch 省的主要是哪一块（数据 / forward / 反向 / 优化）？
+1. ch02 的 `04_mlp_numpy.py` 和本章 `03_nn_module.py` 行数大约比例多少？PyTorch 省的主要是哪一块（数据 / forward / 反向 / 优化）？
 2. `model.parameters()` 返回的是生成器，传给 `Adam(...)` 后 Adam 怎么知道哪些参数该更新？如果新增一个 `nn.Parameter` 但**不**注册到 `nn.Module` 上，会发生什么？
 3. MNIST 用 MLP 能到 97%+，但用 CNN 能到 99%+。差距来自哪里？这给我们什么启示——为什么 LLM 不用 CNN？
 

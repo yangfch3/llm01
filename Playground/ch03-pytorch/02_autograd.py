@@ -1,6 +1,6 @@
 """ch03 练习 2：autograd 与 ch02 解析梯度对照。
 
-ch02 `gradient_chain_rule.py` 用 NumPy 手算两层网络的解析梯度。
+ch02 `03_gradient_chain_rule.py` 用 NumPy 手算两层网络的解析梯度。
 本脚本用 PyTorch autograd 算同样网络的梯度，与 ch02 数值对照。
 目的是看清"框架替我们做的就是 ch02 那套链式法则"。
 """
@@ -74,7 +74,7 @@ def demo_no_grad() -> None:
 
 
 def demo_vector() -> None:
-    print("\n--- 4. 向量版：和 ch02 mlp_numpy 同形 ---")
+    print("\n--- 4. 向量版：和 ch02 04_mlp_numpy 同形 ---")
     torch.manual_seed(0)
     # 一个 (1, 4) 输入过两层线性，与 ch02 §2.3 向量推广对照
     x = torch.randn(1, 4)

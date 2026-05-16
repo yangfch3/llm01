@@ -7,7 +7,7 @@
     L = 0.5 * sum((y - t)^2)
 
 跑法：
-    uv run python Playground/ch02-math/gradient_chain_rule.py
+    uv run python Playground/ch02-math/03_gradient_chain_rule.py
 """
 
 from __future__ import annotations

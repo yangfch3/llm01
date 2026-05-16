@@ -265,7 +265,7 @@ L = \tfrac{1}{2}(y - t)^2
 
 PyTorch 的 `loss.backward()` + `optimizer.step()` 自动做的就是这件事。但**至少手算一次**，你才会真懂"梯度是什么、它怎么传"。
 
-> **从标量到向量**：练习 `gradient_chain_rule.py` 把上面的标量版推广到**向量版**——$x$ 是向量、$w_1$ 是矩阵 $(h, d_{in})$、$h$ 是向量。推导思路完全一样，只是每一步的"乘"变成了矩阵运算：
+> **从标量到向量**：练习 `03_gradient_chain_rule.py` 把上面的标量版推广到**向量版**——$x$ 是向量、$w_1$ 是矩阵 $(h, d_{in})$、$h$ 是向量。推导思路完全一样，只是每一步的"乘"变成了矩阵运算：
 >
 > - 标量版 $\partial L / \partial w_1 = (\partial L / \partial h) \cdot x$
 > - 向量版 $\partial L / \partial W_1 = (\partial L / \partial h) \otimes x$（外积，`np.outer(dh, x)`）
@@ -285,7 +285,7 @@ PyTorch 的 `loss.backward()` + `optimizer.step()` 自动做的就是这件事�
 - $\epsilon$ 取 $10^{-5}$ 量级（太小被浮点精度吞掉——`float32` 精度约 $10^{-7}$，$\epsilon < 10^{-6}$ 时 $L(w+\epsilon)$ 和 $L(w)$ 的差被舍入误差淹没；太大则一阶近似不准）
 - 和你手算的解析梯度比较，最大绝对差 $< 10^{-6}$ → 实现正确
 
-练习里 `gradient_chain_rule.py` 就跑这个对照。
+练习里 `03_gradient_chain_rule.py` 就跑这个对照。
 
 ### 自检
 
@@ -523,10 +523,10 @@ loss = F.cross_entropy(logits, target)  # 直接吃 logits
 
 | 脚本 | 内容 |
 |---|---|
-| `vector_matrix.py` | 点积、矩阵乘、形状练习；与 NumPy 内置对照 |
-| `softmax_cross_entropy.py` | 数值稳定版 softmax + CE，验证梯度 = $p - y$ |
-| `gradient_chain_rule.py` | 两层网络解析梯度 vs 数值梯度对照 |
-| `mlp_numpy.py` | **综合 §1–§3 全部内容**：把手算版扩展成可训练的完整分类网络（ch03 PyTorch 版的对照） |
+| `01_vector_matrix.py` | 点积、矩阵乘、形状练习；与 NumPy 内置对照 |
+| `02_softmax_cross_entropy.py` | 数值稳定版 softmax + CE，验证梯度 = $p - y$ |
+| `03_gradient_chain_rule.py` | 两层网络解析梯度 vs 数值梯度对照 |
+| `04_mlp_numpy.py` | **综合 §1–§3 全部内容**：把手算版扩展成可训练的完整分类网络（ch03 PyTorch 版的对照） |
 
 通过标准：每个脚本独立跑通，最后一行打印 `PASS`。
 

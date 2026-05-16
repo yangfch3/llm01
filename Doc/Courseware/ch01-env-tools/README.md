@@ -104,9 +104,9 @@ uv run jupyter lab
 
 | 脚本 | 目标 |
 |---|---|
-| `hello_torch.py` | 用 `get_device()` 建张量，跑一次前向 + 反向，打印梯度 |
-| `hello_uv.py` | 演示 uv 常用命令（注释形式，不执行 shell） |
-| `vscode_debug_demo.py` | 故意留两个断点位置 + 一个等价 bug，练单步调试 |
+| `01_hello_torch.py` | 用 `get_device()` 建张量，跑一次前向 + 反向，打印梯度 |
+| `02_hello_uv.py` | 演示 uv 常用命令（注释形式，不执行 shell） |
+| `03_vscode_debug_demo.py` | 故意留两个断点位置 + 一个等价 bug，练单步调试 |
 
 跑通标准：每个脚本独立执行不报错，且看到设备名（Win 上应是 `cuda`，Mac 上 `mps`）。
 
@@ -114,7 +114,7 @@ uv run jupyter lab
 
 1. 为什么 `get_device()` 默认优先级是 `cuda > mps > cpu` 而不是反过来？反过来会怎样？
 2. `uv run python xxx.py` 和 `python xxx.py` 在已激活 venv 后表现一致吗？不一致时差在哪？
-3. `Playground/ch01-env-tools/hello_torch.py` 里写了 `sys.path.insert(0, str(REPO_ROOT))`，为什么需要这行？删掉会怎样？
+3. `Playground/ch01-env-tools/01_hello_torch.py` 里写了 `sys.path.insert(0, str(REPO_ROOT))`，为什么需要这行？删掉会怎样？
 
 <details markdown="1">
 <summary>答案速查</summary>

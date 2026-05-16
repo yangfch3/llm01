@@ -6,7 +6,7 @@
 3. 修好后再次跑，应该看到 "PASS"
 
 跑法：
-    uv run python Playground/ch01-env-tools/vscode_debug_demo.py
+    uv run python Playground/ch01-env-tools/03_vscode_debug_demo.py
 
 调试入口：VSCode 打开本文件 → F5（用 README §5 的 launch.json）
 

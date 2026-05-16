@@ -6,7 +6,7 @@
 3. 验证 d(CE)/d(z) = p - y_onehot
 
 跑法：
-    uv run python Playground/ch02-math/softmax_cross_entropy.py
+    uv run python Playground/ch02-math/02_softmax_cross_entropy.py
 """
 
 from __future__ import annotations

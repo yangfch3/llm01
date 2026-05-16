@@ -3,7 +3,7 @@
 本脚本不执行 shell，只把命令以注释形式列出，配合本章 README §1 阅读。
 
 跑法（仅打印一段提示）：
-    uv run python Playground/ch01-env-tools/hello_uv.py
+    uv run python Playground/ch01-env-tools/02_hello_uv.py
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from __future__ import annotations
 
 # === 运行脚本 ===
 # 推荐：
-#     uv run python Playground/ch01-env-tools/hello_torch.py
+#     uv run python Playground/ch01-env-tools/01_hello_torch.py
 # 等价：进入 venv 后 `python xxx.py`，但 `uv run` 不要求显式激活。
 
 # === 添加 / 移除依赖 ===

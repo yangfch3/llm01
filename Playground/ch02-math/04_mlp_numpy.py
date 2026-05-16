@@ -10,11 +10,11 @@
     本脚本用 `x @ W` 习惯，batch 在第一维：
         x: (N, in_dim)  W1: (in_dim, hidden)  ->  h: (N, hidden)
     这是 PyTorch / 业界主流写法。
-    `gradient_chain_rule.py` 用的是 `W @ x` 习惯（W 在左、x 在右、单样本），
+    `03_gradient_chain_rule.py` 用的是 `W @ x` 习惯（W 在左、x 在右、单样本），
     两种写法**数学等价**，只是行列互为转置，别弄混。
 
 跑法：
-    uv run python Playground/ch02-math/mlp_numpy.py
+    uv run python Playground/ch02-math/04_mlp_numpy.py
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ def make_data(n_per_class: int = 100, seed: int = 0) -> tuple[np.ndarray, np.nda
 
 
 def softmax_stable(z: np.ndarray) -> np.ndarray:
-    # 减最大值的数值稳定 softmax，原理见 softmax_cross_entropy.py
+    # 减最大值的数值稳定 softmax，原理见 02_softmax_cross_entropy.py
     z_shift = z - z.max(axis=-1, keepdims=True)
     e = np.exp(z_shift)
     return e / e.sum(axis=-1, keepdims=True)
@@ -97,7 +97,7 @@ def loss_and_grad(
         "b2": dlogits.sum(axis=0),  # bias 梯度 = batch 维求和 → (out,)
     }
     dh = dlogits @ params["W2"].T  # 反传到隐藏层 → (N, hidden)
-    # ReLU 反向：>0 处过、≤0 处截断（同 gradient_chain_rule.py）
+    # ReLU 反向：>0 处过、≤0 处截断（同 03_gradient_chain_rule.py）
     dh_pre = dh * (h_pre > 0).astype(np.float64)
     grads["W1"] = x.T @ dh_pre  # (in, hidden)
     grads["b1"] = dh_pre.sum(axis=0)  # (hidden,)
