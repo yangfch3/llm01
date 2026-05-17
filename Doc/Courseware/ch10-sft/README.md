@@ -7,12 +7,12 @@
 > 1. SFT 与 Pretrain 在数据、loss、目标上到底差什么
 > 2. 对话模板（chat template）为什么需要、怎么设计
 > 3. loss mask 是 SFT 的灵魂——为什么 prompt 部分不能算 loss
-> 4. 全参微调显存吃不消，LoRA / QLoRA 是怎么把它压下去的
+> 4. 全参微调显存吃不消，LoRA（Low-Rank Adaptation，低秩适配） / QLoRA（Quantized LoRA，量化版 LoRA） 是怎么把它压下去的
 
 ## 学习目标
 
 1. 能写出 SFT 训练样本的 `input_ids` / `labels` 形态，正确标出 -100 的位置
-2. 能解释 ChatML 类对话模板的三件事：role 标记、turn 边界、generation prompt
+2. 能解释 ChatML（Chat Markup Language，对话标记语言）类对话模板的三件事：role 标记、turn 边界、generation prompt
 3. 能讲清 LoRA 的低秩分解为什么省显存、QLoRA 在它之上又叠了什么 trick
 
 ## 前置依赖
@@ -378,7 +378,7 @@ uv run python Playground/ch10-sft/03_lora_demo.py
 ## 思考题
 
 1. 为什么 LoRA 通常只挂在 attention 的 q/k/v/o 上，不挂 FFN？挂 FFN 会怎样？
-2. SFT 之后再做对齐（ch11 DPO）能进一步提升，反过来"先 DPO 再 SFT"行不行？为什么？
+2. SFT 之后再做对齐（ch11 DPO（Direct Preference Optimization，直接偏好优化））能进一步提升，反过来"先 DPO 再 SFT"行不行？为什么？
 3. 数据混合时 pretrain 数据该占多大比例？小了没用，大了 SFT 信号被淹没
 
 ## 参考资料

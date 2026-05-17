@@ -10,7 +10,7 @@
 
 ## 学习目标
 
-1. 能解释字符级、词级、子词级三种粒度的取舍（词表大小 / 序列长度 / OOV）
+1. 能解释字符级、词级、子词级三种粒度的取舍（词表大小 / 序列长度 / OOV（Out-Of-Vocabulary，词表外））
 2. 能讲清 BPE 的训练过程（合并最频繁的 byte pair）和它为什么有效
 3. 知道 byte-level BPE 在多语言/中英混合下解决了什么问题
 
@@ -41,7 +41,7 @@
 
 ## 2. BPE（Byte Pair Encoding）
 
-> 1994 年 Gage 发明，原本是数据压缩算法。Sennrich 2016 把它搬到 NMT 翻译里，从此成为 NLP 标配。GPT-2 / GPT-3 / LLaMA 都用 BPE 系。
+> 1994 年 Gage 发明，原本是数据压缩算法。Sennrich 2016 把它搬到 NMT（Neural Machine Translation，神经机器翻译）里，从此成为 NLP 标配。GPT-2 / GPT-3 / LLaMA 都用 BPE 系。
 
 ### 2.1 训练流程
 
@@ -99,7 +99,7 @@
 
 - 与 BPE 几乎一致，唯一差别在选合并 pair 的 **打分函数**
 - BPE 选 `count(xy)` 最高，WordPiece 选 `count(xy) / (count(x) * count(y))` 最高
-- 直觉：不只看共现频次，还看"是否互相独立的两个 token 凑巧在一起"——分母惩罚高频通用字符。这本质是 **PMI（点互信息）** 的非对数形式，要求两个 token 共现频次高且各自独立频次低才值得合并
+- 直觉：不只看共现频次，还看"是否互相独立的两个 token 凑巧在一起"——分母惩罚高频通用字符。这本质是 **PMI（Pointwise Mutual Information，点互信息）** 的非对数形式，要求两个 token 共现频次高且各自独立频次低才值得合并
 - **推理也不一样**：BPE 按 merge 优先级反复合并；WordPiece 按**最长前缀贪心**从左切（找词表里最长匹配前缀，砍掉，剩下加 `##` 前缀继续）。匹配不上就 `[UNK]` —— 这是 BERT 偶尔吐 `[UNK]` 的根源
 - 实际差异不大；BERT 时代选它纯属历史路径
 
@@ -131,7 +131,7 @@ UTF-8 编码下任意字符都能拆成 1–4 个 byte，byte 总共只有 256 �
 ```
 "A"  → UTF-8 → [0x41]                  1 byte（ASCII 兼容）
 "é"  → UTF-8 → [0xC3, 0xA9]            2 byte
-"你" → UTF-8 → [0xE4, 0xBD, 0xA0]      3 byte（CJK 通常 3 byte）
+"你" → UTF-8 → [0xE4, 0xBD, 0xA0]      3 byte（CJK（Chinese-Japanese-Korean，中日韩统一表意文字）通常 3 byte）
 "😀" → UTF-8 → [0xF0, 0x9F, 0x98, 0x80] 4 byte（emoji 通常 4 byte）
 ```
 
@@ -145,7 +145,7 @@ UTF-8 编码下任意字符都能拆成 1–4 个 byte，byte 总共只有 256 �
 
 ### 4.3 训中文 / 中英混合分词器的实务
 
-- **必用 byte-level BPE**（HF `tokenizers` 里 `ByteLevelBPETokenizer` 或 `BPE(..., byte_fallback=True)`）
+- **必用 byte-level BPE**（HF（HuggingFace，开源大模型社区与工具集）`tokenizers` 里 `ByteLevelBPETokenizer` 或 `BPE(..., byte_fallback=True)`）
 - 词表 ~16k–32k 适合 echo-mini 这个量级；大模型常 32k–128k
 - pre-tokenizer 通常做三件事：按空白切英文词、按 Unicode 类别**把 CJK 字符逐字拆开**、单独抽出标点和数字。GPT-4 / LLaMA-3 / Qwen 的 pre-tokenizer 用一段 regex 同时处理。中文每个字独立进 BPE 后，靠 byte 组合学出"词"或常见短语
 - **special token 提前定好**：`<pad>`, `<bos>`, `<eos>`, `<unk>`，对话模型还要 `<|user|>`, `<|assistant|>` 等，训练前注册，避免后续重训

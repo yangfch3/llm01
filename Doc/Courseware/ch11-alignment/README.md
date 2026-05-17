@@ -5,10 +5,10 @@
 > **对齐（alignment）** 就是把"人类偏好"塞进模型的过程。
 >
 > 本章讲清四件事：
-> 1. RLHF 三段式（SFT → RM → PPO）为什么是这个结构
+> 1. RLHF（Reinforcement Learning from Human Feedback，基于人类反馈的强化学习）三段式（SFT → RM（Reward Model，奖励模型） → PPO（Proximal Policy Optimization，近端策略优化））为什么是这个结构
 > 2. PPO 为什么难训、贵、容易爆
 > 3. DPO 怎么用一个 loss 公式绕开 RM 与 PPO
-> 4. KTO / ORPO 等"DPO 改良"在解什么问题
+> 4. KTO（Kahneman-Tversky Optimization，前景理论式优化） / ORPO（Odds Ratio Preference Optimization，赔率偏好优化） 等"DPO 改良"在解什么问题
 
 ## 学习目标
 
@@ -87,7 +87,7 @@ A3: 先 print('hello world')                    ← 偷懒
 ### 2.1 为什么要 KL 惩罚
 
 PPO 优化 reward 时模型会**钻 RM 的漏洞**——RM 是个有限模型，存在"它给高分但人看着差"的样本。模型一旦发现这种 hack，会迅速收敛到这种 degenerate 输出（如重复某种讨好话术）。
-KL 项把策略约束在 π_SFT 附近，防止漂太远。β 控制约束强度：β 大 → 偏保守；β 小 → 偏激进。
+KL（Kullback-Leibler divergence，KL 散度，衡量两个概率分布差异）项把策略约束在 π_SFT 附近，防止漂太远。β 控制约束强度：β 大 → 偏保守；β 小 → 偏激进。
 
 ### 2.2 PPO 在 LLM 上为什么难
 
@@ -245,8 +245,8 @@ DPO 解决了 PPO 的工程难题，但仍依赖**成对偏好数据**。许多�
 | DPO | (prompt, chosen, rejected) | 成对偏好 |
 | **KTO** | (prompt, response, ±1) | 单点二元信号，每条样本独立打"好/坏" |
 | **ORPO** | (prompt, chosen, rejected) | DPO + SFT 合并成一阶段，无需 π_ref |
-| **IPO** | (prompt, chosen, rejected) | DPO 的 loss 改良，缓解过拟合偏好对 |
-| **SimPO** | (prompt, chosen, rejected) | 也无需 π_ref，把 logp **平均**（除以 response 长度）当作隐式 reward —— 平均化让模型自己充当"长度归一"的参考点，省掉 π_ref |
+| **IPO**（Identity Preference Optimization，恒等偏好优化） | (prompt, chosen, rejected) | DPO 的 loss 改良，缓解过拟合偏好对 |
+| **SimPO**（Simple Preference Optimization，简化偏好优化） | (prompt, chosen, rejected) | 也无需 π_ref，把 logp **平均**（除以 response 长度）当作隐式 reward —— 平均化让模型自己充当"长度归一"的参考点，省掉 π_ref |
 
 工程选型直觉：
 

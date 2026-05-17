@@ -1,7 +1,7 @@
 # ch05 · 注意力机制
 
 > M2 起步章。注意力是 Transformer 的心脏，也是 LLM 全部能力的源头。
-> 本章只讲"注意力本身"，不碰位置编码、不碰残差、不碰 FFN——那些留给 ch06。
+> 本章只讲"注意力本身"，不碰位置编码、不碰残差、不碰 FFN（Feed-Forward Network，前馈网络）——那些留给 ch06。
 > 目标：你看到 `softmax(QK^T/√d_k)V` 这行公式时，每个符号都能讲清楚为什么。
 
 ## 学习目标
@@ -21,7 +21,7 @@
 
 ### 1.1 RNN/seq2seq 的痛点
 
-经典 seq2seq（Encoder-Decoder + RNN）翻译流程。RNN 是按时间步逐个处理 token 的网络，每步把当前输入和上一步的隐状态合并，产出新隐状态——本课程不展开 RNN 细节，下面只需知道它的瓶颈：**整句信息要被压进一个固定向量 h_n**（想象把一本 100 页的书只用一句话转述给别人）。
+经典 seq2seq（sequence-to-sequence，序列到序列：Encoder-Decoder + RNN）翻译流程。RNN 是按时间步逐个处理 token 的网络，每步把当前输入和上一步的隐状态合并，产出新隐状态——本课程不展开 RNN 细节，下面只需知道它的瓶颈：**整句信息要被压进一个固定向量 h_n**（想象把一本 100 页的书只用一句话转述给别人）。
 
 ```
 输入: I love NLP
@@ -179,7 +179,7 @@ logits = logits.masked_fill(mask == 0, float("-inf"))
 
 ---
 
-## 4. 多头注意力 MHA
+## 4. 多头注意力 MHA（Multi-Head Attention，多头注意力）
 
 ### 4.1 动机
 
@@ -284,7 +284,7 @@ n² 是 Transformer 长上下文的核心瓶颈。后来的 FlashAttention / Lin
 
 1. 如果让 Q 与 K 共享同一个投影矩阵（即 `W^Q = W^K`），attention 的对称性会变成什么样？训练上会出什么问题？
 2. 多头注意力的 H 选 8、16、32 各有什么权衡？d=768 时为什么 H=12 是 GPT-2 的选择？
-3. n²·d 的复杂度里，n=2k 和 n=8k 时 attention 矩阵显存分别多少（fp16，单头单 batch）？
+3. n²·d 的复杂度里，n=2k 和 n=8k 时 attention 矩阵显存分别多少（fp16（16-bit floating point，半精度浮点），单头单 batch）？
 
 ## 参考资料
 

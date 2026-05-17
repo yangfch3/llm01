@@ -5,7 +5,7 @@
 >
 > 本章讲清三件事：
 > 1. 量化（int8/int4）省什么、损什么
-> 2. GGUF / llama.cpp 生态为什么是当下"跨平台本地推理"的事实标准
+> 2. GGUF（GPT-Generated Unified Format，llama.cpp 系的统一模型存储格式） / llama.cpp 生态为什么是当下"跨平台本地推理"的事实标准
 > 3. 三条主流部署通道（`transformers` 原生 / `llama-cpp-python` / Ollama）的取舍
 
 ## 学习目标
@@ -53,7 +53,7 @@
 
 > prefill 阶段（处理 prompt 那一遍长 forward）是 compute-bound，瓶颈在算力而非带宽，量化加速效果不如 decode 明显。但日常对话生成长度通常 >> prompt，整体还是 decode 占大头。
 
-实测上 3060 跑 7B：fp16 权重 14GB 已超 12GB 显存，必须 CPU offload 一部分，吞吐通常掉到 10—15 tok/s；int4 GGUF 通过 llama.cpp 全程显卡跑，约 60 tok/s。**fp16 在 3060 上跑 7B 实际不可行**，量化在这个量级是必选项。
+实测上 3060 跑 7B：fp16 权重 14GB 已超 12GB 显存，必须 CPU offload 一部分，吞吐通常掉到 10—15 tok/s（tokens per second，每秒生成 token 数）；int4 GGUF 通过 llama.cpp 全程显卡跑，约 60 tok/s。**fp16 在 3060 上跑 7B 实际不可行**，量化在这个量级是必选项。
 
 ### 1.3 精度损失从哪来
 
@@ -133,8 +133,8 @@ llama-cpp   Ollama        LM Studio
 
 | 格式 | 用在哪 | 备注 |
 |---|---|---|
-| **GPTQ** | `auto-gptq` / vLLM | GPU 推理向，文件小，仅 CUDA 友好 |
-| **AWQ** | `autoawq` / vLLM | GPU 推理，质量略好于 GPTQ |
+| **GPTQ**（Generative Pre-trained Transformer Quantization，针对 GPT 系的量化算法） | `auto-gptq` / vLLM | GPU 推理向，文件小，仅 CUDA 友好 |
+| **AWQ**（Activation-aware Weight Quantization，激活感知权重量化） | `autoawq` / vLLM | GPU 推理，质量略好于 GPTQ |
 | **bitsandbytes 4bit** | 训练阶段（QLoRA）/ HF 推理 | 不存盘，运行时即时量化 |
 | **GGUF** | llama.cpp 系 | **跨平台首选**，本项目主路径 |
 
@@ -206,7 +206,7 @@ PARAMETER temperature 0.7
 PARAMETER stop "<|im_end|>"
 ```
 
-- **优点**：装一个独立 CLI 就能用，自带 REST API（端口 11434），跨平台体验最好
+- **优点**：装一个独立 CLI（Command Line Interface，命令行界面）就能用，自带 REST API（Representational State Transfer + Application Programming Interface，符合 REST 风格的 HTTP 接口）（端口 11434），跨平台体验最好
 - **缺点**：底层还是 llama.cpp，能力受 GGUF 限制；模型管理是 Ollama 自己的"私有 registry"格式
 - **适用**：demo 演示、桌面应用、最简上手路径
 - **Python 调用**：通过 REST API（`POST http://localhost:11434/api/generate`）或官方 `ollama` Python 包，见思考题 3
@@ -283,7 +283,7 @@ PARAMETER stop "<|im_end|>"
 | M2 Pro Mac | 7B | Q8_0 (Metal) | ~18 |
 | 纯 CPU (i7) | 7B | Q4_K_M | ~6 |
 
-> **关于 3060 + 7B fp16**：14GB 权重超 12GB 显存，必须做 CPU offload，瓶颈从 GPU 显存带宽变成 PCIe 传输，吞吐通常掉到 10—15 tok/s，且严格说不算"GPU 原生推理"——所以没列进表。**这正是为什么 7B 在 3060 上量化是必选项，而非"想省显存才量化"**。
+> **关于 3060 + 7B fp16**：14GB 权重超 12GB 显存，必须做 CPU offload，瓶颈从 GPU 显存带宽变成 PCIe（Peripheral Component Interconnect Express，外设互联标准，常用 GPU 与主板通信总线）传输，吞吐通常掉到 10—15 tok/s，且严格说不算"GPU 原生推理"——所以没列进表。**这正是为什么 7B 在 3060 上量化是必选项，而非"想省显存才量化"**。
 >
 > 数字假设短上下文（≤ 2k）、无 batch、未启用 Flash Attention 类加速。长上下文（如 8k+）tok/s 通常掉一半。
 

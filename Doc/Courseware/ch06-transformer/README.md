@@ -2,7 +2,7 @@
 
 > ch05 把"心脏"（attention）拆开看了。本章把整副"骨架"装起来：
 > 位置编码 + 残差 + LayerNorm + FFN + lm_head，凑出一个能跑能训的 Decoder-only Transformer。
-> **这是 echo-mini 的原型**——本章 `MiniGPT` 类放大 10 倍换上 BPE 分词器，就是 M4 要做的事。
+> **这是 echo-mini 的原型**——本章 `MiniGPT` 类放大 10 倍换上 BPE（Byte-Pair Encoding，字节对编码）分词器，就是 M4 要做的事。
 
 ## 学习目标
 
@@ -54,7 +54,7 @@ Attention 是**集合操作**——`softmax(QK^T/√d)V` 把 token 当成无序�
 |---|---|---|
 | 绝对正弦位置编码 | 加在 embedding 上 | 原版 Transformer、BERT 早期 |
 | 学习式位置 embedding | 加在 embedding 上，可训练 | GPT-2、BERT |
-| **RoPE（旋转位置编码）** | 在 Q、K 上做旋转 | LLaMA、Qwen、GLM、几乎所有现代 LLM |
+| **RoPE（Rotary Position Embedding，旋转位置编码）** | 在 Q、K 上做旋转 | LLaMA、Qwen、GLM、几乎所有现代 LLM |
 
 ### 2.2 正弦位置编码
 
@@ -102,7 +102,7 @@ R_{p, i} = \begin{pmatrix} \cos(p\theta_i) & -\sin(p\theta_i) \\ \sin(p\theta_i)
 
 1. 那等于把 token 含义和位置混在一个维度里，数值范围从 [-1, 1] 直接漂移到 [0, n]，破坏 embedding 的方差结构，attention 也分不清"加了 5 是因为这个词重要还是因为它在第 5 位"
 
-2. attention 计算时直接看到相对距离 `m-p`，**不是绝对位置 p 和 m 各自**。这让模型的"位置感"具备平移不变性：训练时见过 `(1,3)` 距离 2 的对，推理时看到 `(100,102)` 距离 2 的对也能复用知识；也是它能轻松外推到长上下文（NTK / YaRN 等技巧）的基础
+2. attention 计算时直接看到相对距离 `m-p`，**不是绝对位置 p 和 m 各自**。这让模型的"位置感"具备平移不变性：训练时见过 `(1,3)` 距离 2 的对，推理时看到 `(100,102)` 距离 2 的对也能复用知识；也是它能轻松外推到长上下文（NTK（Neural Tangent Kernel，神经切线核）/ YaRN（Yet another RoPE extensioN，RoPE 长上下文扩展方法）等技巧）的基础
 
 </details>
 
@@ -159,7 +159,7 @@ def block(x):                    # x: (B, n, d)
 \mathrm{FFN}(x) = W_2 \cdot \mathrm{GELU}(W_1 x + b_1) + b_2
 \]
 
-形状：`d → d_ff → d`，其中 **d_ff 通常等于 4d**（GPT-2/3 经验）。LLaMA 系用 `SwiGLU` 变种（gate/up/down 三个 `d × d_ff` 矩阵），取 `d_ff ≈ 8d/3` 使总参数 `3 · d · d_ff ≈ 8d²`，**与标准 d_ff=4d 双层 FFN 的 `2 · d · 4d = 8d²` 等价**（实际实现会把 d_ff 对齐到 256 等硬件友好倍数，如 LLaMA-7B d=4096 对应 d_ff=11008 而非精确的 10923）。本章先用最朴素的 GELU 双层版。
+形状：`d → d_ff → d`，其中 **d_ff 通常等于 4d**（GPT-2/3 经验）。LLaMA 系用 `SwiGLU`（Swish-Gated Linear Unit，Swish 门控线性单元）变种（gate/up/down 三个 `d × d_ff` 矩阵），取 `d_ff ≈ 8d/3` 使总参数 `3 · d · d_ff ≈ 8d²`，**与标准 d_ff=4d 双层 FFN 的 `2 · d · 4d = 8d²` 等价**（实际实现会把 d_ff 对齐到 256 等硬件友好倍数，如 LLaMA-7B d=4096 对应 d_ff=11008 而非精确的 10923）。本章先用最朴素的 GELU 双层版。
 
 ### 5.2 为什么需要 FFN
 
@@ -172,7 +172,7 @@ attention 是"token 之间混合"，FFN 是"每个位置独立做特征变换"�
 
 ### 5.3 GELU vs ReLU
 
-GELU = `x · Φ(x)`，其中 Φ 是标准正态 CDF。直觉：ReLU 的"软化版"，负半轴不是硬砍而是逐渐衰减。GPT 系一律 GELU。
+GELU = `x · Φ(x)`，其中 Φ 是标准正态 CDF（Cumulative Distribution Function，累积分布函数）。直觉：ReLU 的"软化版"，负半轴不是硬砍而是逐渐衰减。GPT 系一律 GELU。
 
 ```python
 import torch.nn.functional as F
@@ -252,7 +252,7 @@ class MiniGPT(nn.Module):
         return self.lm_head(x)                             # (B, n, V)
 ```
 
-训练时把 `logits[:, :-1]` 与 `ids[:, 1:]` 算 cross_entropy——这就是 ch09 要正经讲的 **CLM 目标**。
+训练时把 `logits[:, :-1]` 与 `ids[:, 1:]` 算 cross_entropy——这就是 ch09 要正经讲的 **CLM（Causal Language Modeling，因果语言建模）目标**。
 
 ---
 

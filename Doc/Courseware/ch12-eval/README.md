@@ -4,8 +4,8 @@
 > "好"是声明，不是结论。结论需要**指标 + 数据集 + 复现配方**。
 >
 > 本章讲清三件事：
-> 1. PPL（perplexity）测什么、什么时候有用、什么时候没用
-> 2. 开源 benchmark（C-Eval / MMLU 等）是怎么"考"模型的
+> 1. PPL（perplexity，困惑度）测什么、什么时候有用、什么时候没用
+> 2. 开源 benchmark（C-Eval（Chinese Evaluation，中文学科评测集） / MMLU（Massive Multitask Language Understanding，大规模多任务语言理解评测集）等）是怎么"考"模型的
 > 3. 为什么自动指标都跑完了还得做人工评测
 
 ## 学习目标
@@ -87,7 +87,7 @@ ppl = math.exp(total_nll / total_tokens)
 <details markdown="1">
 <summary>答案速查</summary>
 
-1. 不能。分词粒度不同 → 平均每 token 承载的信息量不同 → PPL 数值不可比。要比应该换成"按字符 / 字节平均"的 BPC（bits per character），或干脆改用下游任务指标
+1. 不能。分词粒度不同 → 平均每 token 承载的信息量不同 → PPL 数值不可比。要比应该换成"按字符 / 字节平均"的 BPC（Bits Per Character，每字符比特数），或干脆改用下游任务指标
 
 2. 不一定。SFT 把模型分布拉向"chat 模板 + 助理风格"，与原始 web 文本分布天然有差距，通用语料 PPL 升高很常见。判断好坏要看**对话质量**（人工或对话 benchmark），不是 PPL
 
@@ -212,7 +212,7 @@ MMLU 标配是 5-shot；C-Eval 也是 5-shot。few-shot 让模型"看懂格式"�
 
 ### 3.4 Benchmark 通胀
 
-新模型层出不穷，benchmark 分数被刷得越来越高（MMLU 早期 50 分是 SOTA，现在 90 分起步）。
+新模型层出不穷，benchmark 分数被刷得越来越高（MMLU 早期 50 分是 SOTA（State-Of-The-Art，最先进水平），现在 90 分起步）。
 高分越来越难区分模型，需要不断推出更难的 benchmark（如 MMLU-Pro、GPQA、GAIA）。
 
 > **底线**：benchmark 分数是参考，不是结论。看到"我们在 MMLU 上 85 分"先问"几 shot、什么 harness、训练数据有无污染"。

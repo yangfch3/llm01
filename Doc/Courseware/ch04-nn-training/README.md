@@ -29,7 +29,7 @@ PyTorch 的计算图**默认 backward 一次就被释放**（省显存）。再 
 RuntimeError: Trying to backward through the graph a second time
 ```
 
-99% 训练场景一次足够。需要多次反传同一张图（典型如 GAN：同一份 fake_data 既要更新 G 又要更新 D；或一个 loss 拆两次反传；或算高阶梯度）才用 `loss.backward(retain_graph=True)`。M3 不会遇到，混个眼熟。
+99% 训练场景一次足够。需要多次反传同一张图（典型如 GAN（Generative Adversarial Network，生成对抗网络）：同一份 fake_data 既要更新 G 又要更新 D；或一个 loss 拆两次反传；或算高阶梯度）才用 `loss.backward(retain_graph=True)`。M3 不会遇到，混个眼熟。
 
 ### 1.2 zero_grad 必须在 backward 之前
 
@@ -55,7 +55,7 @@ for name, p in model.named_parameters():
 
 - `< 1e-7` → 梯度消失（学不动）
 - `> 1e3` → 梯度爆炸（很快变 nan）
-- `nan / inf` → 已经爆了，回退到上一个 ckpt + 减小 lr / 加 grad clip
+- `nan / inf`（NaN = Not a Number、Inf = Infinity，浮点非法值/无穷大） → 已经爆了，回退到上一个 ckpt（checkpoint，模型权重检查点）+ 减小 lr / 加 grad clip
 
 **Gradient clipping** 是常用救命药：
 
@@ -79,16 +79,16 @@ torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)  # 在 step() �
 | 方案 | 公式（fan_in 是输入维度） | 配什么激活 |
 |---|---|---|
 | 朴素正态 $\mathcal{N}(0, 1)$ | std = 1 | **不要用**，几层就炸 |
-| LeCun（Xavier 简化版） | std = $\sqrt{1/\mathrm{fan\_in}}$ | sigmoid / tanh |
-| Kaiming（He） | std = $\sqrt{2/\mathrm{fan\_in}}$ | ReLU 系（含 GELU / SiLU） |
+| LeCun（Yann LeCun，Xavier 简化版） | std = $\sqrt{1/\mathrm{fan\_in}}$ | sigmoid / tanh |
+| Kaiming（何恺明，又叫 He 初始化） | std = $\sqrt{2/\mathrm{fan\_in}}$ | ReLU 系（含 GELU（Gaussian Error Linear Unit，高斯误差线性单元） / SiLU（Sigmoid Linear Unit，S 形线性单元）） |
 
-> 严格说 Xavier/Glorot 的完整式是 $\sqrt{2/(\mathrm{fan\_in} + \mathrm{fan\_out})}$，同时让前向激活与反向梯度方差都稳定。在 fan_in ≈ fan_out 时与上面 LeCun 形式接近，本章用单 fan_in 简化。
+> 严格说 Xavier（Xavier Glorot，Glorot 初始化）的完整式是 $\sqrt{2/(\mathrm{fan\_in} + \mathrm{fan\_out})}$，同时让前向激活与反向梯度方差都稳定。在 fan_in ≈ fan_out 时与上面 LeCun 形式接近，本章用单 fan_in 简化。
 
 ReLU 把负半轴砍掉，输出方差减半，所以 He 比 Xavier 多了个 $\sqrt{2}$ 系数补回来。
 
 ### 2.2 PyTorch 默认初始化
 
-`nn.Linear` 默认走 **Kaiming 均匀**（uniform 版的 He）。`nn.Conv2d` 同。所以**普通 MLP/CNN 你不动它就对了**。
+`nn.Linear` 默认走 **Kaiming 均匀**（uniform 版的 He）。`nn.Conv2d` 同。所以**普通 MLP/CNN（Convolutional Neural Network，卷积神经网络）你不动它就对了**。
 
 需要手动初始化的场景：
 
@@ -126,10 +126,10 @@ LLM 训练里更常见的是 GPT-2 / LLaMA 风格初始化（小标准差如 0.0
 
 | 优化器 | 一句话特性 | 何时用 |
 |---|---|---|
-| **SGD** | 纯梯度下降 | 简单凸问题、教学；现代深网络极少单独用 |
+| **SGD**（Stochastic Gradient Descent，随机梯度下降） | 纯梯度下降 | 简单凸问题、教学；现代深网络极少单独用 |
 | **SGD + momentum** | 累积"惯性方向"，跨过窄峡谷 | 视觉任务（ResNet 时代）、LLM 预训练偶见 |
-| **Adam** | 一阶矩 + 二阶矩自适应学习率 | NLP / Transformer 默认 |
-| **AdamW** | Adam 的 weight decay 修正版 | **LLM 预训练 / SFT 的事实标准** |
+| **Adam**（Adaptive Moment Estimation，自适应矩估计） | 一阶矩 + 二阶矩自适应学习率 | NLP（Natural Language Processing，自然语言处理） / Transformer 默认 |
+| **AdamW**（Adam with decoupled Weight decay，权重衰减解耦版 Adam） | Adam 的 weight decay 修正版 | **LLM 预训练 / SFT（Supervised Fine-Tuning，监督微调）的事实标准** |
 
 ### 3.2 momentum 的直觉
 
@@ -280,10 +280,11 @@ GPT-2/3、LLaMA 系列预训练阶段 Dropout 一般设为 0 或极小（0.0–0
 ## 6. 归一化：BatchNorm vs LayerNorm
 
 > 归一化的共同目的：把每层激活值拉回均值 0、方差 1 附近，让训练更稳。
+> **BatchNorm（BN，批归一化）** 沿 batch 维统计，**LayerNorm（LN，层归一化）** 沿特征维统计。下文用 BN/LN 简称。
 
 ### 6.1 BatchNorm：沿 batch 维统计
 
-最经典的 `nn.BatchNorm2d` 吃 CV 形状 `(N, C, H, W)`，对每个 channel 在 `(N, H, W)` 三个维度上求均值/方差：
+最经典的 `nn.BatchNorm2d` 吃 CV（Computer Vision，计算机视觉）形状 `(N, C, H, W)`，对每个 channel 在 `(N, H, W)` 三个维度上求均值/方差：
 
 ```python
 nn.BatchNorm2d(num_features=C)                   # CV 经典；本课程主线 LLM 不会用到
@@ -295,7 +296,7 @@ nn.BatchNorm2d(num_features=C)                   # CV 经典；本课程主线 L
 
 - batch 太小（< 8）时统计量噪声大，反而拖累训练
 - 推理时用训练阶段的 running statistics（不是当前 batch），训推不一致
-- 在 RNN / 序列长度可变的场景几乎不能用——**包括 Transformer**
+- 在 RNN（Recurrent Neural Network，循环神经网络） / 序列长度可变的场景几乎不能用——**包括 Transformer**
 
 ### 6.2 LayerNorm：沿特征维统计
 
@@ -305,7 +306,7 @@ nn.BatchNorm2d(num_features=C)                   # CV 经典；本课程主线 L
 nn.LayerNorm(normalized_shape=D)
 ```
 
-归一化后还会**乘可学习 γ 加可学习 β**（默认 `elementwise_affine=True`），让网络在需要时恢复任意尺度。M2 ch06 讲的 RMSNorm 就是 LN 的简化版——只除 RMS、去掉 β、有时也去掉 γ。
+归一化后还会**乘可学习 γ 加可学习 β**（默认 `elementwise_affine=True`），让网络在需要时恢复任意尺度。M2 ch06 讲的 RMSNorm（Root Mean Square Norm，均方根归一化）就是 LN 的简化版——只除 RMS、去掉 β、有时也去掉 γ。
 
 **LN 的优点**：
 

@@ -147,9 +147,9 @@ activations:   B * L * d * num_layers * (常数)
 
 7B 模型光优化器状态就 56GB。RTX 3060 12GB 别想直接训。三件套分别治：weights/grad、batch、activations。
 
-> 启 AMP 后分项会变（fp16/bf16 forward + fp32 master weights + fp32 optimizer states + grad），具体分配随实现（PyTorch 原生 / DeepSpeed / Megatron）有差，量级仍在 **~16N–20N** 范围。三件套**省的主要是 activations 和矩阵乘吞吐**，参数侧的总占用不会显著下降。
+> 启 AMP 后分项会变（fp16/bf16（bfloat16，Brain Floating Point 16-bit，谷歌脑启发的 16 位浮点）forward + fp32 master weights + fp32 optimizer states + grad），具体分配随实现（PyTorch 原生 / DeepSpeed / Megatron）有差，量级仍在 **~16N–20N** 范围。三件套**省的主要是 activations 和矩阵乘吞吐**，参数侧的总占用不会显著下降。
 
-### 3.1 混合精度（AMP）
+### 3.1 混合精度（AMP，Automatic Mixed Precision，自动混合精度）
 
 > 用 fp16/bf16 算前向反向，关键状态留 fp32。weights+grads 显存减半，矩阵乘吞吐 ~2x。
 
@@ -263,7 +263,7 @@ HF 模型一行 `model.gradient_checkpointing_enable()` 即可。
 ```
 N: 参数量 (params)
 D: 训练 token 数 (tokens)
-C: 算力 (FLOPs) ≈ 6 * N * D    # 经验近似，前向 2ND + 反向 4ND
+C: 算力 (FLOPs（Floating Point Operations，浮点运算次数）) ≈ 6 * N * D    # 经验近似，前向 2ND + 反向 4ND
 ```
 
 记住 **C ≈ 6ND**。GPU-小时 ≈ FLOPs / (GPU 峰值 × 利用率)。
@@ -293,7 +293,7 @@ C: 算力 (FLOPs) ≈ 6 * N * D    # 经验近似，前向 2ND + 反向 4ND
 ### 4.3 对 echo-mini 的启示
 
 - 参数 ~30M → Chinchilla 目标 D ≈ 600M token；实际能弄到的语料量级约 100M（几十 GB 中英纯文本不容易凑），**已知会欠训**，目标只是"能续写"而非"质量好"
-- 算力预估（按实际 D=100M 算）：C ≈ 6 × 30M × 100M = 1.8e16 FLOPs。3060 ~10 TFLOPS bf16 理论值，训练实际利用率 ~30% → 有效 ~3 TFLOPS = 3e12 FLOPs/s。1.8e16 / 3e12 ≈ 6000 秒 ≈ 1.7 小时（不计 dataloader / checkpoint IO 等开销）
+- 算力预估（按实际 D=100M 算）：C ≈ 6 × 30M × 100M = 1.8e16 FLOPs。3060 ~10 TFLOPS（Tera FLOPS，每秒万亿次浮点运算）bf16 理论值，训练实际利用率 ~30% → 有效 ~3 TFLOPS = 3e12 FLOPs/s。1.8e16 / 3e12 ≈ 6000 秒 ≈ 1.7 小时（不计 dataloader / checkpoint IO 等开销）
 - batch / lr / 训练步数：抄 nanoGPT/MiniMind 的配方，别从零调
 
 ### 自检
@@ -330,12 +330,12 @@ uv run python Playground/ch09-pretrain/02_packing.py
 uv run python Playground/ch09-pretrain/03_amp_gradacc.py
 ```
 
-`03` 在 CPU/MPS 上 grad checkpoint 时间收益不明显（CUDA 上才显著），但 API 调用方式相同，验证代码能跑通即可。
+`03` 在 CPU/MPS（Metal Performance Shaders，苹果 GPU 加速后端）上 grad checkpoint 时间收益不明显（CUDA 上才显著），但 API 调用方式相同，验证代码能跑通即可。
 
 ## 思考题
 
 1. 为什么 LLaMA-3 用 15T token 训 8B（远超 Chinchilla 的 160B），仍说"未饱和"？这违反 scaling law 吗？
-2. 你能想到哪些数据 packing 之外的"省吞吐"手段？（提示：dataloader workers / pinned memory / fused optimizer / FSDP）
+2. 你能想到哪些数据 packing 之外的"省吞吐"手段？（提示：dataloader workers / pinned memory / fused optimizer / FSDP（Fully Sharded Data Parallel，完全分片数据并行））
 3. 推理阶段（ch07 KV cache）和训练阶段（本章 packing）对显存的诉求完全不同，能从这种差异看出什么工程哲学？
 
 ## 参考资料

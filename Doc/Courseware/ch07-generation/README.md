@@ -2,7 +2,7 @@
 
 > ch06 训出来的 MiniGPT，贪心解码下输出 "the the the the..."。本章解决两件事：
 > 1. **怎么解码** — 让生成的文本既不傻（贪心退化）也不乱（纯随机崩坏）
-> 2. **怎么提速** — KV cache 让生成 n 个 token 的复杂度从 O(n³) 降到 O(n²)
+> 2. **怎么提速** — KV cache（Key/Value cache，键值缓存）让生成 n 个 token 的复杂度从 O(n³) 降到 O(n²)
 >
 > 本章是 M2 收官，也是 echo-mini 推理 CLI 的全部理论基础。
 
@@ -52,7 +52,7 @@ softmax_T(z)_i = exp(z_i / T) / Σ exp(z_j / T)
 工程经验：
 
 - T ∈ [0.7, 1.0]：对话/续写默认范围
-- T = 0：需要确定性输出（代码补全、抽取式 QA）
+- T = 0：需要确定性输出（代码补全、抽取式 QA（Question Answering，问答））
 - T > 1.5：极少用，输出失控
 
 实现一行：`logits = logits / T` 然后接 softmax 与采样。
