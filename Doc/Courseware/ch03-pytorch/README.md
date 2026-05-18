@@ -109,7 +109,9 @@ loss.backward()                                   # 沿图反向，填 w.grad
 print(w.grad)                                     # tensor(-8.) ← dL/dw = 2(y-y_true)·x = 2·(1-3)·2
 ```
 
-**对照 ch02**：你不再手写 `dw = (y-t) * x * 2`，PyTorch 自动算出来。代价是它要在 forward 时**保留中间张量**做反向用——所以训练比纯前向（推理）显存占用大几倍。
+> 注：ch02 写的是 $(y-t)^2/2$，那个 $1/2$ 是为了**手推梯度时**抵消平方求导出来的 2，让结果干净（$\partial L/\partial y = y-t$）。ch03 起交给 autograd 自动求导，多不多那个系数都一样能反传，去掉反而让 loss 数值（4）和梯度链路（$-4 \to -8$）更直观，故本章不再带 $1/2$。
+
+**对照 ch02**：你不再手写 `dw = (y-t) * x * 2`，PyTorch 自动算出来。代价是它要在 forward 时**保留中间张量**做反向用—— **所以训练比纯前向（推理）显存占用大几倍**。
 
 ### 2.2 三个最易踩的坑
 
@@ -188,7 +190,7 @@ logits = model(x)                                # 直接调 model() 等价于 m
 
 1. **参数自动注册**：所有 `nn.Linear` / `nn.Conv2d` 之类的 submodule，它们的 `weight` / `bias` 自动出现在 `model.parameters()` 里
 2. **`.to(device)` 一键搬全家**：所有子参数和 buffer 都跟着搬
-3. **`train() / eval()` 切模式**：影响 Dropout、BN 等"训推不一致"算子（详见 ch04）
+3. **`train() / eval()` 切模式**：影响 Dropout、BN（BtachNorm，批归一化） 等"训推不一致"算子（详见 ch04）
 4. **`state_dict()` 标准持久化**：保存/加载权重的 lingua franca
 
 ```python
@@ -227,6 +229,14 @@ model2.load_state_dict(torch.load("ckpt.pt"))    # 灌权重
 
 **禁止** `torch.save(model, ...)`：会序列化整个类定义，跨版本/跨机器加载常出错。
 
+**state_dict 的三种用法**（本章只演示第 1 种，后两种留到 M5 部署章）：
+
+- 训练中途存档：连 `optimizer.state_dict()` 一起存，崩了能续训
+- 最终权重发布：只存 `model.state_dict()`，对应 HuggingFace 上的 `pytorch_model.bin` / `model.safetensors`
+- 跨环境部署：再转 ONNX / TorchScript / GGUF，目标是脱离 PyTorch 运行
+
+> 配套演示见 `Playground/ch03-pytorch/03_nn_module.py` 末尾：训完模型 → 存权重 → 重建空壳 → 加载 → 断言输出一致。
+
 ### 自检
 
 1. `nn.Linear(784, 128)` 的 `weight.shape` 是什么？为什么不是 `(784, 128)`？
@@ -254,7 +264,7 @@ ch02 的 `04_mlp_numpy.py` 一次性把 200 个样本全塞进网络（"全 batc
 
 折中：**mini-batch**，每次取 32 / 64 / 128 个样本算梯度。
 
-> **MNIST 的形状约定**（§5/`05_mnist_mlp.py` 会用到）：`torchvision.datasets.MNIST` 配 `transforms.ToTensor()` 拿到的单样本是 `(1, 28, 28)` 的 float tensor，DataLoader 堆完 batch 是 `(B, 1, 28, 28)`。喂 MLP 前需要 `x = x.view(B, -1)` 拍平成 `(B, 784)`；喂 CNN 则保留四维。
+> **MNIST 的形状约定**（§5/`05_mnist_mlp.py` 会用到）：`torchvision.datasets.MNIST` 配 `transforms.ToTensor()` 拿到的单样本是 `(1, 28, 28)` 的 float tensor，DataLoader 堆完 batch 是 `(B, 1, 28, 28)`。喂 MLP 前需要 `x = x.view(B, -1)` 拍平成 `(B, 784)`；喂 CNN（convolutional neural network, 卷积神经网络） 则保留四维。
 
 ### 4.2 PyTorch 抽象
 

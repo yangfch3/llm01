@@ -105,6 +105,7 @@ def loss_and_grad(
 
 
 def sgd_step(params: dict, grads: dict, lr: float) -> None:
+    # SGD -> stochastic gradient descent, 随机梯度下降
     # SGD 更新规则：θ ← θ - lr · ∇L
     # 这里是"批梯度下降"（用全部样本算梯度），严格说不是"随机"SGD
     for k in params:
