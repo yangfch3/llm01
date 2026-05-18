@@ -1,47 +1,12 @@
 # ch00 · AI 全景与概念速查
 
-> 定位：趣味入门 + 概念地图 + 速查手册。遇到陌生术语回来翻这里。
->
-> **不用现在全懂。** 本文是地图，不是考试。先建立整体印象，遇到陌生词回来查就行。
+> **不用现在全懂。** 本文是地图，不是考试。先建立整体印象，遇到陌生词翻到末尾的[术语速查表](#附录术语速查表)即可。
 
-## 0. 术语速查表
+## 0. 引言
 
-| 缩写 | 全称 | 一句话 |
-|------|------|--------|
-| AE | Autoencoder | 编码器压缩 + 解码器重建，学习数据的压缩表示 |
-| Agent | AI Agent | 模型 + 工具调用 + 多步规划，自主完成任务 |
-| BPE | Byte Pair Encoding | 子词分词算法，从字符对频率迭代合并 |
-| CLM | Causal Language Modeling | 自回归语言建模，根据前文预测下一个 token |
-| CNN | Convolutional Neural Network | 卷积神经网络，擅长捕捉局部空间特征 |
-| CoT | Chain of Thought | 思维链，让模型分步推理再给结论 |
-| DPO | Direct Preference Optimization | 直接偏好优化，无需训练奖励模型的对齐方法 |
-| DiT | Diffusion Transformer | 用 Transformer 替代 U-Net 做扩散模型骨干 |
-| FFN | Feed-Forward Network | Transformer 内的逐位置全连接层 |
-| GAN | Generative Adversarial Network | 生成对抗网络，生成器与判别器博弈 |
-| GQA | Grouped Query Attention | 分组查询注意力，多个 Q head 共享一组 KV，省显存 |
-| GRPO | Group Relative Policy Optimization | 组内相对奖励策略优化，无需 Critic 模型的 RL 方法 |
-| GRU | Gated Recurrent Unit | 门控循环单元，LSTM 简化变体 |
-| KV Cache | Key-Value Cache | 推理时缓存已计算的 K/V 矩阵避免重复计算 |
-| LLM | Large Language Model | 大语言模型 |
-| LoRA | Low-Rank Adaptation | 低秩适配，冻结原参数只训小矩阵，省显存 |
-| LSTM | Long Short-Term Memory | 长短期记忆网络，用门控解决 RNN 长距离遗忘 |
-| MCP | Model Context Protocol | 标准化模型与外部工具/数据源的连接协议 |
-| MLA | Multi-head Latent Attention | 多头潜注意力，将 KV 压缩到低维潜向量，极省显存 |
-| MLM | Masked Language Modeling | 掩码语言建模，遮住部分 token 让模型预测（BERT） |
-| MLP | Multi-Layer Perceptron | 多层感知机，最基础的前馈全连接网络 |
-| MoE | Mixture of Experts | 混合专家，稀疏激活降低计算量 |
-| MTP | Multi-Token Prediction | 多 token 预测，辅助训练目标，同时预测未来多个 token |
-| QLoRA | Quantized LoRA | LoRA + 4-bit 量化底座，进一步省显存 |
-| RAG | Retrieval-Augmented Generation | 检索增强生成，外挂知识库缓解幻觉 |
-| RL | Reinforcement Learning | 强化学习 |
-| RLHF | RL from Human Feedback | 基于人类反馈的强化学习对齐方法 |
-| RMSNorm | Root Mean Square Normalization | 均方根归一化，比 LayerNorm 更快的归一化方案 |
-| RNN | Recurrent Neural Network | 循环神经网络，隐状态逐步传递建模序列 |
-| RoPE | Rotary Position Embedding | 旋转位置编码，Transformer 相对位置方案 |
-| SFT | Supervised Fine-Tuning | 有监督微调 |
-| SwiGLU | Swish-Gated Linear Unit | 带门控的激活函数，现代 Transformer FFN 常用 |
-| VAE | Variational Autoencoder | 变分自编码器，潜空间连续化可采样生成 |
-| VLM | Vision-Language Model | 视觉语言模型，图文多模态理解 |
+2022 年底，ChatGPT 一夜之间让全世界知道了"大语言模型"。但在它背后，是从感知机到 Transformer 长达六十年的积累，是 Scaling Law 的量化预言，是 RLHF 对齐技术的临门一脚。
+
+这篇文档帮你快速建立全局认知：AI 怎么走到今天、核心概念之间什么关系、一个模型从训练到上线经历了哪些阶段、当下前沿在做什么。不求深，但求"知道自己不知道什么"。
 
 ---
 
@@ -408,3 +373,42 @@ Qwen2.5 训练流程：
 **Multi-Token Prediction (MTP)** — 在 CLM 主目标之外，额外预测未来 2~3 个 token。增强表示质量，预训练后可丢弃或用于 speculative decoding 加速推理。
 
 ---
+
+## 附录：术语速查表
+
+| 缩写 | 全称 | 一句话 |
+|------|------|--------|
+| AE | Autoencoder | 编码器压缩 + 解码器重建，学习数据的压缩表示 |
+| Agent | AI Agent | 模型 + 工具调用 + 多步规划，自主完成任务 |
+| BPE | Byte Pair Encoding | 子词分词算法，从字符对频率迭代合并 |
+| CLM | Causal Language Modeling | 自回归语言建模，根据前文预测下一个 token |
+| CNN | Convolutional Neural Network | 卷积神经网络，擅长捕捉局部空间特征 |
+| CoT | Chain of Thought | 思维链，让模型分步推理再给结论 |
+| DPO | Direct Preference Optimization | 直接偏好优化，无需训练奖励模型的对齐方法 |
+| DiT | Diffusion Transformer | 用 Transformer 替代 U-Net 做扩散模型骨干 |
+| FFN | Feed-Forward Network | Transformer 内的逐位置全连接层 |
+| GAN | Generative Adversarial Network | 生成对抗网络，生成器与判别器博弈 |
+| GQA | Grouped Query Attention | 分组查询注意力，多个 Q head 共享一组 KV，省显存 |
+| GRPO | Group Relative Policy Optimization | 组内相对奖励策略优化，无需 Critic 模型的 RL 方法 |
+| GRU | Gated Recurrent Unit | 门控循环单元，LSTM 简化变体 |
+| KV Cache | Key-Value Cache | 推理时缓存已计算的 K/V 矩阵避免重复计算 |
+| LLM | Large Language Model | 大语言模型 |
+| LoRA | Low-Rank Adaptation | 低秩适配，冻结原参数只训小矩阵，省显存 |
+| LSTM | Long Short-Term Memory | 长短期记忆网络，用门控解决 RNN 长距离遗忘 |
+| MCP | Model Context Protocol | 标准化模型与外部工具/数据源的连接协议 |
+| MLA | Multi-head Latent Attention | 多头潜注意力，将 KV 压缩到低维潜向量，极省显存 |
+| MLM | Masked Language Modeling | 掩码语言建模，遮住部分 token 让模型预测（BERT） |
+| MLP | Multi-Layer Perceptron | 多层感知机，最基础的前馈全连接网络 |
+| MoE | Mixture of Experts | 混合专家，稀疏激活降低计算量 |
+| MTP | Multi-Token Prediction | 多 token 预测，辅助训练目标，同时预测未来多个 token |
+| QLoRA | Quantized LoRA | LoRA + 4-bit 量化底座，进一步省显存 |
+| RAG | Retrieval-Augmented Generation | 检索增强生成，外挂知识库缓解幻觉 |
+| RL | Reinforcement Learning | 强化学习 |
+| RLHF | RL from Human Feedback | 基于人类反馈的强化学习对齐方法 |
+| RMSNorm | Root Mean Square Normalization | 均方根归一化，比 LayerNorm 更快的归一化方案 |
+| RNN | Recurrent Neural Network | 循环神经网络，隐状态逐步传递建模序列 |
+| RoPE | Rotary Position Embedding | 旋转位置编码，Transformer 相对位置方案 |
+| SFT | Supervised Fine-Tuning | 有监督微调 |
+| SwiGLU | Swish-Gated Linear Unit | 带门控的激活函数，现代 Transformer FFN 常用 |
+| VAE | Variational Autoencoder | 变分自编码器，潜空间连续化可采样生成 |
+| VLM | Vision-Language Model | 视觉语言模型，图文多模态理解 |
