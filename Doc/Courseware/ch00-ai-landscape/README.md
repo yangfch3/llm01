@@ -124,15 +124,97 @@ MLP（全连接）
 
 ### 每一站的故事
 
-**MLP** — 网络基础形态。每层全连接，能拟合任意函数（万能近似定理），但对空间/序列结构完全无感，参数量爆炸。类比：一张全是连线的蜘蛛网，什么都连但什么结构都不懂。
+---
 
-**CNN** — 观察：图像有局部相关性。方案：小卷积核滑动扫描 → 权重共享大幅降参数；池化下采样压缩空间维度并提供平移不变性。成就：ImageNet 革命。局限：全局信息需要堆很多层或很大核。类比：拿放大镜逐块扫描一张图片，先看局部细节再拼出整体。
+**MLP（多层感知机）**
 
-**RNN → LSTM/GRU** — 观察：语言/时序有前后依赖。方案：隐状态逐步传递，理论上"记住"所有历史。现实：梯度消失/爆炸 → LSTM 引入门控缓解。局限：串行无法并行，长序列仍会遗忘。类比：逐字朗读一本书，同时在脑中默记上文——读到第 500 页时，第 1 页的细节早忘了。
+> 类比：一堆人站成几排传纸条——每个人能看到上一排所有人递来的内容，但完全不知道"顺序"和"位置"有什么含义。
 
-**Seq2Seq + Attention** — 观察：翻译时不是每个输出都依赖所有输入。方案：解码每步动态加权聚焦源端。效果：翻译质量飞跃。但仍依赖 RNN 做编码/解码。类比：翻译一句话时，翻到某个词会回头重点看原文对应的几个词，而不是把整句话平均地记在脑子里。
+```
+输入 [x₁, x₂, ..., xₙ]
+      ↓ 全连接（每个输入连到每个神经元）
+隐藏层 [h₁, h₂, ..., hₘ]  ← 激活函数（ReLU 等）
+      ↓ 全连接
+输出 [y₁, y₂, ..., yₖ]
+```
 
-**Transformer** — 激进一步：把 RNN 全扔掉，编码和解码都用自注意力。位置信息靠位置编码注入。每个 Transformer 块由两部分组成：自注意力层（捕捉 token 间关系）+ FFN 前馈层（逐位置独立变换，提供非线性拟合能力）。收益：完全并行训练 + 全局依赖一步到位。代价：注意力计算 O(n²)。自此之后，几乎所有 SOTA 模型都基于 Transformer 变体。类比：一间教室里所有学生同时互相交流，每个人瞬间就能获取任何人的信息——沟通效率极高，但人数多了开销爆炸。
+能拟合任意函数（万能近似定理），但对空间/序列结构完全无感——把图片像素打乱顺序喂进去，它毫无察觉。参数量随输入维度爆炸（1000×1000 图片 → 百万维全连接）。
+
+---
+
+**CNN（卷积神经网络）**
+
+> 类比：拿一个小放大镜在图片上逐块扫描——每次只看局部，但同一个放大镜（同一组权重）扫遍整张图，找出所有"边缘""纹理"。
+
+```
+输入图像 [H × W × C]
+      ↓ 卷积核滑动扫描（提取局部特征）
+特征图 [H' × W' × F]   ← 多个卷积核 = 多种特征
+      ↓ 池化（下采样，压缩空间尺寸）
+更小特征图
+      ↓ 重复 N 层（浅层→边缘 / 中层→纹理 / 深层→物体部件）
+      ↓ 展平 → MLP
+分类输出
+```
+
+关键设计：**权重共享**（一个卷积核全图复用，参数极少）+ **池化**（压缩空间 + 平移不变性）。成就：2012 AlexNet 引爆深度学习。局限：感受野有限，全局依赖需堆很多层。
+
+---
+
+**RNN → LSTM/GRU**
+
+> 类比：逐字朗读一篇文章，同时在脑中维护一份"到目前为止的摘要"。每读一个字就更新摘要，用摘要指导后续理解。读到第 500 页时，第 1 页的细节早忘了。
+
+```
+输入序列: x₁, x₂, x₃, ..., xₜ
+           ↓    ↓    ↓         ↓
+RNN:    [h₀]→[h₁]→[h₂]→[h₃]→...→[hₜ] → 输出
+         初始  每步: hₜ = f(hₜ₋₁, xₜ)
+         状态  "用上一步的记忆 + 当前输入 → 新记忆"
+```
+
+问题：信息在反复覆盖中稀释殆尽（梯度消失）。LSTM 加三个"门"（遗忘门/输入门/输出门）控制信息存取，缓解遗忘但未根治。致命局限：必须**串行**（h₂ 依赖 h₁），无法并行，训练慢。
+
+---
+
+**Seq2Seq + Attention**
+
+> 类比：同声传译——翻译每个词时不是死记整句话，而是**回头扫一眼**原文中最相关的部分，动态聚焦。
+
+```
+编码器 (RNN):  [法语 x₁...xₙ] → 隐状态序列 [h₁, h₂, ..., hₙ]
+
+解码器 (RNN):  生成每个英语词时:
+               ① 算注意力权重 αᵢ = 对齐(当前解码状态, hᵢ)
+               ② 加权求和 context = Σ αᵢ·hᵢ  ← "聚焦源端相关位置"
+               ③ context + 上一个输出 → 生成下一个词
+```
+
+效果：翻译质量飞跃（终于不用把整句话压成一个固定向量了）。但编码/解码仍是 RNN，串行瓶颈未消。
+
+---
+
+**Transformer**
+
+> 类比：一间教室里所有学生同时互相交流，每个人瞬间获取任何人的信息——沟通效率极高，但人数多了开销爆炸。
+
+```
+输入 tokens + 位置编码
+      ↓
+┌─ Transformer Block × N ─────────────────┐
+│                                          │
+│  自注意力: 每个 token 同时看所有其他 token │
+│     Q·Kᵀ → 权重 → 加权求和 V            │
+│           ↓                              │
+│  前馈网络 (FFN): 逐位置独立变换           │
+│           ↓                              │
+│  残差连接 + 归一化                        │
+└──────────────────────────────────────────┘
+      ↓
+输出
+```
+
+激进一步：RNN 全扔掉，编码和解码都只用注意力。每个块两大组件：自注意力（捕捉 token 间关系）+ FFN（逐位置独立变换，提供非线性拟合能力）。位置信息靠位置编码注入。收益：**完全并行**（所有 token 同时互看）+ **全局依赖一步到位**（第 1 个和第 1000 个 token 直接交互）。代价：注意力计算 O(n²)。自此之后，几乎所有 SOTA 模型都基于 Transformer 变体。
 
 ---
 
@@ -326,22 +408,25 @@ DeepSeek V3 + R1 完整流程：
                 │                                │
                 ▼                                ▼
  ┌──────── V3 Chat (SFT + RL) ────┐  ┌──────────── R1 推理模型 ────────┐
- │                                  │  │                                  │
- │  SFT: 150 万条高质量对话        │  │  阶段 1: 冷启动 SFT             │
- │  RL:  GRPO (无 Critic 模型)     │  │     少量 long-CoT 示例           │
- │                                  │  │           ↓                      │
- └──────────────────────────────────┘  │  阶段 2: 大规模 RL (GRPO)       │
-                                       │     规则奖励: 正确性 + 格式     │
-                                       │     模型自发涌现 CoT 推理       │
-                                       │           ↓                      │
-                                       │  阶段 3: 拒绝采样 → SFT         │
-                                       │     用 RL 模型生成高质量数据     │
-                                       │     混合通用 SFT 数据再训        │
-                                       │           ↓                      │
-                                       │  阶段 4: 二次 RL                 │
-                                       │     全场景对齐(推理+通用)        │
-                                       │                                  │
-                                       └──────────────────────────────────┘
+ │                               │  │                                  │
+ │  SFT: 150 万条高质量对话         │  │  阶段 1: 冷启动 SFT             │
+ │  RL:  GRPO (无 Critic 模型)    │  │     少量 long-CoT 示例           │
+ │                               │  │           ↓                      │
+ └──────────────┬───────────────────┘  │  阶段 2: 大规模 RL (GRPO)       │
+               │                    │     规则奖励: 正确性 + 格式     │
+               ▼                    │     模型自发涌现 CoT 推理       │
+ 部署：FP8 推理 / GGUF 量化 /         │           ↓                      │
+       SGLang / vLLM                │  阶段 3: 拒绝采样 → SFT         │
+                                    │     用 RL 模型生成高质量数据     │
+                                    │     混合通用 SFT 数据再训        │
+                                    │           ↓                      │
+                                    │  阶段 4: 二次 RL                 │
+                                    │     全场景对齐(推理+通用)        │
+                                    │           ↓                      │
+                                    │  部署：动态量化 / GGUF /         │
+                                    │        SGLang / vLLM             │
+                                    │                                  │
+                                    └──────────────────────────────────┘
 ```
 
 ```
@@ -383,39 +468,39 @@ Qwen2.5 训练流程：
 
 ## 附录：术语速查表
 
-| 缩写 | 全称 | 一句话 |
-|------|------|--------|
-| AE | Autoencoder | 编码器压缩 + 解码器重建，学习数据的压缩表示 |
-| Agent | AI Agent | 模型 + 工具调用 + 多步规划，自主完成任务 |
-| BPE | Byte Pair Encoding | 子词分词算法，从字符对频率迭代合并 |
-| CLM | Causal Language Modeling | 自回归语言建模，根据前文预测下一个 token |
-| CNN | Convolutional Neural Network | 卷积神经网络，擅长捕捉局部空间特征 |
-| CoT | Chain of Thought | 思维链，让模型分步推理再给结论 |
-| DPO | Direct Preference Optimization | 直接偏好优化，无需训练奖励模型的对齐方法 |
-| DiT | Diffusion Transformer | 用 Transformer 替代 U-Net 做扩散模型骨干 |
-| FFN | Feed-Forward Network | Transformer 内的逐位置全连接层 |
-| GAN | Generative Adversarial Network | 生成对抗网络，生成器与判别器博弈 |
-| GQA | Grouped Query Attention | 分组查询注意力，多个 Q head 共享一组 KV，省显存 |
-| GRPO | Group Relative Policy Optimization | 组内相对奖励策略优化，无需 Critic 模型的 RL 方法 |
-| GRU | Gated Recurrent Unit | 门控循环单元，LSTM 简化变体 |
-| KV Cache | Key-Value Cache | 推理时缓存已计算的 K/V 矩阵避免重复计算 |
-| LLM | Large Language Model | 大语言模型 |
-| LoRA | Low-Rank Adaptation | 低秩适配，冻结原参数只训小矩阵，省显存 |
-| LSTM | Long Short-Term Memory | 长短期记忆网络，用门控解决 RNN 长距离遗忘 |
-| MCP | Model Context Protocol | 标准化模型与外部工具/数据源的连接协议 |
-| MLA | Multi-head Latent Attention | 多头潜注意力，将 KV 压缩到低维潜向量，极省显存 |
-| MLM | Masked Language Modeling | 掩码语言建模，遮住部分 token 让模型预测（BERT） |
-| MLP | Multi-Layer Perceptron | 多层感知机，最基础的前馈全连接网络 |
-| MoE | Mixture of Experts | 混合专家，稀疏激活降低计算量 |
-| MTP | Multi-Token Prediction | 多 token 预测，辅助训练目标，同时预测未来多个 token |
-| QLoRA | Quantized LoRA | LoRA + 4-bit 量化底座，进一步省显存 |
-| RAG | Retrieval-Augmented Generation | 检索增强生成，外挂知识库缓解幻觉 |
-| RL | Reinforcement Learning | 强化学习 |
-| RLHF | RL from Human Feedback | 基于人类反馈的强化学习对齐方法 |
-| RMSNorm | Root Mean Square Normalization | 均方根归一化，比 LayerNorm 更快的归一化方案 |
-| RNN | Recurrent Neural Network | 循环神经网络，隐状态逐步传递建模序列 |
-| RoPE | Rotary Position Embedding | 旋转位置编码，Transformer 相对位置方案 |
-| SFT | Supervised Fine-Tuning | 有监督微调 |
-| SwiGLU | Swish-Gated Linear Unit | 带门控的激活函数，现代 Transformer FFN 常用 |
-| VAE | Variational Autoencoder | 变分自编码器，潜空间连续化可采样生成 |
-| VLM | Vision-Language Model | 视觉语言模型，图文多模态理解 |
+| 缩写 | 全称 | 中译 | 一句话 |
+|------|------|------|--------|
+| AE | Autoencoder | 自编码器 | 编码器压缩 + 解码器重建，学习数据的压缩表示 |
+| Agent | AI Agent | - | 模型 + 工具调用 + 多步规划，自主完成任务 |
+| BPE | Byte Pair Encoding | 字节对编码 | 子词分词算法，从字符对频率迭代合并 |
+| CLM | Causal Language Modeling | 因果语言建模 | 自回归语言建模，根据前文预测下一个 token |
+| CNN | Convolutional Neural Network | 卷积神经网络 | 擅长捕捉局部空间特征 |
+| CoT | Chain of Thought | 思维链 | 让模型分步推理再给结论 |
+| DPO | Direct Preference Optimization | 直接偏好优化 | 无需训练奖励模型的对齐方法 |
+| DiT | Diffusion Transformer | - | 用 Transformer 替代 U-Net 做扩散模型骨干 |
+| FFN | Feed-Forward Network | 前馈网络 | Transformer 内的逐位置全连接层 |
+| GAN | Generative Adversarial Network | 生成对抗网络 | 生成器与判别器博弈 |
+| GQA | Grouped Query Attention | 分组查询注意力 | 多个 Q head 共享一组 KV，省显存 |
+| GRPO | Group Relative Policy Optimization | - | 组内相对奖励策略优化，无需 Critic 模型的 RL 方法 |
+| GRU | Gated Recurrent Unit | 门控循环单元 | LSTM 简化变体 |
+| KV Cache | Key-Value Cache | 键值缓存 | 推理时缓存已计算的 K/V 矩阵避免重复计算 |
+| LLM | Large Language Model | 大语言模型 | - |
+| LoRA | Low-Rank Adaptation | 低秩适配 | 冻结原参数只训小矩阵，省显存 |
+| LSTM | Long Short-Term Memory | 长短期记忆网络 | 用门控解决 RNN 长距离遗忘 |
+| MCP | Model Context Protocol | - | 标准化模型与外部工具/数据源的连接协议 |
+| MLA | Multi-head Latent Attention | 多头潜注意力 | 将 KV 压缩到低维潜向量，极省显存 |
+| MLM | Masked Language Modeling | 掩码语言建模 | 遮住部分 token 让模型预测（BERT） |
+| MLP | Multi-Layer Perceptron | 多层感知机 | 最基础的前馈全连接网络 |
+| MoE | Mixture of Experts | 混合专家 | 稀疏激活降低计算量 |
+| MTP | Multi-Token Prediction | 多 token 预测 | 辅助训练目标，同时预测未来多个 token |
+| QLoRA | Quantized LoRA | - | LoRA + 4-bit 量化底座，进一步省显存 |
+| RAG | Retrieval-Augmented Generation | 检索增强生成 | 外挂知识库缓解幻觉 |
+| RL | Reinforcement Learning | 强化学习 | - |
+| RLHF | RL from Human Feedback | - | 基于人类反馈的强化学习对齐方法 |
+| RMSNorm | Root Mean Square Normalization | 均方根归一化 | 比 LayerNorm 更快的归一化方案 |
+| RNN | Recurrent Neural Network | 循环神经网络 | 隐状态逐步传递建模序列 |
+| RoPE | Rotary Position Embedding | 旋转位置编码 | Transformer 相对位置方案 |
+| SFT | Supervised Fine-Tuning | 有监督微调 | - |
+| SwiGLU | Swish-Gated Linear Unit | - | 带门控的激活函数，现代 Transformer FFN 常用 |
+| VAE | Variational Autoencoder | 变分自编码器 | 潜空间连续化可采样生成 |
+| VLM | Vision-Language Model | 视觉语言模型 | 图文多模态理解 |

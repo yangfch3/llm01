@@ -39,11 +39,13 @@ ch03 §2.2 已强调。再补一个细节：`set_to_none=True`（PyTorch 1.7+ �
 optimizer.zero_grad()                # 等价于 optimizer.zero_grad(set_to_none=True)
 ```
 
-`set_to_none=True` 直接把 `.grad` 设回 `None`，比"填零"更省一次显存写入；唯一区别是某些自定义优化器需要先判 `if p.grad is not None`。
+`set_to_none=True` 直接把 `.grad` 设回 `None`，比"填零"（PyTorch < 1.7）更省一次显存写入；唯一区别是某些自定义优化器需要先判 `if p.grad is not None`。
 
 ### 1.3 梯度爆炸 / 消失：用数值看
 
 不做任何归一化的深网络，前向激活值会指数级炸或衰减。最快诊断方法：每隔几步打印各层梯度范数：
+
+> 此处的归一化：指对网络中间层激活值（activations，即每层线性/卷积输出后的中间张量）的归一化。不是对输入数据、不是对权重、不是对梯度。
 
 ```python
 for name, p in model.named_parameters():
@@ -88,7 +90,7 @@ ReLU 把负半轴砍掉，输出方差减半，所以 He 比 Xavier 多了个 $\
 
 ### 2.2 PyTorch 默认初始化
 
-`nn.Linear` 默认走 **Kaiming 均匀**（uniform 版的 He）。`nn.Conv2d` 同。所以**普通 MLP/CNN（Convolutional Neural Network，卷积神经网络）你不动它就对了**。
+`nn.Linear` 默认走 **Kaiming 均匀**（uniform 版的 He）。`nn.Conv2d` 同。所以**普通 MLP（Multilayer Perceptron, 多层感知器）/CNN（Convolutional Neural Network，卷积神经网络）你不动它就对了**。
 
 需要手动初始化的场景：
 
