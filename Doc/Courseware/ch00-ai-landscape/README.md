@@ -104,11 +104,11 @@ AI（人工智能）
 MLP（全连接）
  │
  ├──→ CNN ──────────────────────────┐
- │    "用卷积核扫描局部特征"          │
- │                                   │
- └──→ RNN → LSTM / GRU             │ 2017: 全部汇聚
-      "隐状态传递记忆"               │
-       │                             │
+ │    "用卷积核扫描局部特征"         │
+ │                                │
+ └──→ RNN → LSTM / GRU            │ 2017: 全部汇聚
+      "隐状态传递记忆"              │
+       │                          │
        └→ Seq2Seq + Attention ──────→ Transformer
            "解码器动态看源端"         "全靠注意力，并行训练"
 ```
@@ -570,6 +570,7 @@ AI (Artificial Intelligence，人工智能)
 | RNN | Recurrent Neural Network | 循环神经网络 | 隐状态逐步传递建模序列 |
 | RoPE | Rotary Position Embedding | 旋转位置编码 | Transformer 相对位置方案 |
 | SFT | Supervised Fine-Tuning | 有监督微调 | - |
+| SOTA | State of the Art | 当前最优 | 某任务/基准上的最佳性能或模型 |
 | Speculative Decoding | - | 推测解码 | 用小模型草拟多 token，大模型一次验证，加速推理 |
 | SwiGLU | Swish-Gated Linear Unit | - | 带门控的激活函数，现代 Transformer FFN 常用 |
 | VAE | Variational Autoencoder | 变分自编码器 | 潜空间连续化可采样生成 |
