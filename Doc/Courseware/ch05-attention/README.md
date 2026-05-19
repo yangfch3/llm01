@@ -13,7 +13,7 @@
 
 ## 前置依赖
 
-- ch02 §3 矩阵乘法 / §4 softmax · ch03 §3 `nn.Module` 写法
+- ch02 §3 矩阵乘法 + §4 softmax、ch03 §3 `nn.Module` 写法
 
 ---
 
@@ -21,7 +21,9 @@
 
 ### 1.1 RNN/seq2seq 的痛点
 
-经典 seq2seq（sequence-to-sequence，序列到序列：Encoder-Decoder + RNN）翻译流程。RNN 是按时间步逐个处理 token 的网络，每步把当前输入和上一步的隐状态合并，产出新隐状态——本课程不展开 RNN 细节，下面只需知道它的瓶颈：**整句信息要被压进一个固定向量 h_n**（想象把一本 100 页的书只用一句话转述给别人）。
+前面几章的 MLP 处理的是固定维度输入。当任务变成"一段话翻译成另一段话"——输入输出都是变长序列——历史上的解决方案是 RNN（Recurrent Neural Network，循环神经网络）组成的 seq2seq 架构。
+
+经典 seq2seq（sequence-to-sequence，序列到序列）用 Encoder-Decoder + RNN 做翻译。RNN 按时间步逐个处理 token，每步把当前输入和上一步的隐状态合并产出新隐状态——本课程不展开 RNN 细节，只需知道它的瓶颈：**整句信息要被压进一个固定向量 h_n**（想象把一本 100 页的书只用一句话转述给别人）。
 
 ```
 输入: I love NLP
@@ -38,21 +40,27 @@
 - **顺序依赖**：必须 t-1 算完才能算 t，没法并行
 - **长程衰减**：第 50 步看第 1 步要传 49 次梯度，消失/爆炸两难
 
-Bahdanau 2014 的 attention 是修补 RNN 用的："Decoder 每一步可以**回看**所有 Encoder 输出，按需取用"。后来 Vaswani 2017《Attention is All You Need》直接把 RNN 砍了，**只留 attention**——Transformer 诞生。
+Bahdanau 2014 的 attention 是修补 RNN 用的（绕开了"只靠 h_n 一个向量传递信息"的瓶颈）："Decoder 每一步可以**回看**所有 Encoder 输出，按需取用"。后来 Vaswani 2017《Attention is All You Need》直接把 RNN 砍了，**只留 attention**——Transformer 诞生。
 
 ### 1.2 一句话直觉
 
 > 注意力 = **可微分的字典查找**。
 
-普通字典：给 key `"apple"` → 返回 value。注意力：给一个 **query**，对所有 keys 算"相似度权重"，把对应 values 加权求和返回。"相似度"是连续的（点积+softmax），所以可微，能反传。
+普通字典：给 key `"apple"` → 返回 value。
+
+注意力：给一个 **query**，对所有 keys 算"相似度权重"，把对应 values 加权求和返回。"相似度"是连续的（点积+softmax），所以可微，能反传。
+
+> 注意：这里的 query/key/value 不是 token 本身，而是 token 嵌入经过投影矩阵后的产物（§2.1 详述）。类比里 "apple" 是 token，"你拿着 apple 想查什么"才是 query。
 
 ---
 
 ## 2. 缩放点积注意力
 
+> 从这里开始，忘掉 RNN。下面讲的是 Transformer 的 self-attention——输入一个序列，输出同长序列，没有时间步、没有 Encoder-Decoder 的区分。
+
 ### 2.1 Q/K/V 三元组
 
-设输入序列 `X ∈ R^{n × d}`（n 个 token，每个 d 维）。三个**独立**的可学习投影矩阵：
+设输入序列 `X ∈ R^{n × d}`（n 个 token，每个 d 维）。token 是文本被分词器切出的最小单元（可以是一个字、一个词或子词片段，ch08 详讲）。三个**独立**的可学习投影矩阵：
 
 \[
 Q = X W^Q, \quad K = X W^K, \quad V = X W^V
@@ -60,11 +68,11 @@ Q = X W^Q, \quad K = X W^K, \quad V = X W^V
 
 形状：Q、K 是 `(n, d_k)`，V 是 `(n, d_v)`。对应投影矩阵 W^Q、W^K 为 `(d, d_k)`，W^V 为 `(d, d_v)`。工程上常令 `d_v = d_k` 简化。
 
-| 角色 | 类比 | 谁来"提问" |
+| 角色 | 类比 | 说明 |
 |---|---|---|
-| Query (Q) | "我想找什么" | 当前 token |
-| Key (K) | "我是什么" | 所有候选 token（含自己） |
-| Value (V) | "我能贡献什么" | 所有候选 token |
+| Query (Q) | "我想找什么" | 每个 token 各有一个 query，代表它想关注谁 |
+| Key (K) | "我是什么" | 每个 token 各有一个 key，供所有 query 算相似度 |
+| Value (V) | "我能贡献什么" | 每个 token 各有一个 value，按权重被取用 |
 
 在 self-attention 里 Q/K/V 都从**同一个 X** 投影出来——同一份输入，三种身份。
 
@@ -74,34 +82,58 @@ Q = X W^Q, \quad K = X W^K, \quad V = X W^V
 \mathrm{Attention}(Q, K, V) = \mathrm{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right) V
 \]
 
+语义：每个 token 用自己的 query 去和所有 token 的 key 算相似度，得到权重，再用权重加权混合所有 token 的 value——结果是一个融合了上下文信息的新向量，供后续层进一步处理（ch06 详述完整架构）。
+
 逐步拆：
 
-1. `QK^T`：形状 `(n, n)`，第 `(i, j)` 项 = query_i 与 key_j 的点积，即"i 想看 j 的程度"
-2. `/√d_k`：缩放，下面 §2.3 详讲
+1. `QK^T`：形状 `(n, n)`（n 为上方提到的输入 X 的 token 长度），第 `(i, j)` 项 = query_i 与 key_j 的点积，即"i 想看 j 的程度"
+2. `/√d_k`：缩放（d_k 为每个 key 向量的维度），下面 §2.3 详讲
 3. `softmax(行)`：每行归一化成概率，每个 query 对所有 key 的注意力权重和为 1
 4. `× V`：用权重加权求和 V，得到形状 `(n, d_v)` 的输出
+
+> 回顾 ch02 §3：点积衡量两个向量的方向接近程度。`QK^T` 的每一项正是这个意思——query_i 和 key_j 方向越近，"i 想看 j"的原始分数越高。
 
 ### 2.3 为什么要 √d_k
 
 直觉：d_k 越大，`QK^T` 数值越大 → softmax 越尖锐 → 梯度越接近 0（softmax 饱和区）。
 
-数学：假设 q、k 各分量 i.i.d. 均值 0 方差 1，**且 q 与 k 相互独立**（投影矩阵随机初始化时近似成立），那么 `q·k = Σ q_i k_i` 的方差 = `d_k`。除以 `√d_k` 把方差拉回 1，softmax 输出分布不会过于尖锐，梯度健康。
+数学：假设 q、k 各分量 i.i.d.（independent and identically distributed，独立同分布：各分量互相独立且服从同一分布）均值 0 方差 1，**且 q 与 k 相互独立**（投影矩阵随机初始化时近似成立），那么 `q·k = Σ q_i k_i` 的方差 = `d_k`。除以 `√d_k` 把方差拉回 1，softmax 输出分布不会过于尖锐，梯度健康。
 
-> 工程结论：**忘了除 √d_k 训不动**。这是注意力的 Kaiming 初始化级别的"事前防火"。
+> 工程结论：**忘了除 √d_k 会训不动**。这是注意力的 Kaiming 初始化级别的"事前防火"。
 
 ### 2.4 一个 4 token 玩具示例
 
 ```
-n=4, d_k=2
-QK^T (4×4)：
-    j=0   j=1   j=2   j=3
-i=0  [3.0  0.5  -1.0   2.0]   ← query 0 觉得 key 0 最相关
-i=1  [0.0  2.5   0.5   0.1]
-i=2  [...]
-i=3  [...]
+n=4, d_k=2, d_v=d_k
 
-softmax 第 0 行 → [0.68 0.06 0.01 0.25]   ← 主要看 j=0，其次 j=3
-× V → 加权混合 V_0 和 V_3 得到 output_0
+Q <- XW^Q      K <- XW^K      V <- XW^V
+[1.0  1.0]     [1.0  1.0]     [1.0  0.0]
+[0.0  1.0]     [0.0  1.0]     [0.0  1.0]
+[1.0  0.0]     [1.0  0.0]     [1.0  1.0]
+[0.5  0.5]     [0.5  0.5]     [0.5  0.5]
+
+Step 1: QK^T (4×4)，每项 = q_i · k_j
+        j=0   j=1   j=2   j=3
+i=0    [2.0   1.0   1.0   1.0]    ← q_0·k_0 = 1*1+1*1=2
+i=1    [1.0   1.0   0.0   0.5]
+i=2    [1.0   0.0   1.0   0.5]
+i=3    [1.0   0.5   0.5   0.5]
+
+Step 2: /√d_k = /√2 ≈ /1.41
+i=0    [1.41  0.71  0.71  0.71]
+i=1    [0.71  0.71  0.00  0.35]
+i=2    [0.71  0.00  0.71  0.35]
+i=3    [0.71  0.35  0.35  0.35]
+
+Step 3: softmax（逐行归一化，以 token 0 为例，其余行同理）
+i=0    [0.40  0.20  0.20  0.20]    ← token 0 对自己关注最多
+...
+
+Step 4: output_0 = 加权求和 V （其余行 output_i 同理）
+        = 0.40*[1,0] + 0.20*[0,1] + 0.20*[1,1] + 0.20*[0.5,0.5]
+        = [0.40+0+0.20+0.10, 0+0.20+0.20+0.10]
+        = [0.70, 0.50]            ← token 0 的最终输出向量
+        ...
 ```
 
 ### 自检
@@ -122,15 +154,17 @@ softmax 第 0 行 → [0.68 0.06 0.01 0.25]   ← 主要看 j=0，其次 j=3
 
 ## 3. 掩码
 
-注意力公式没说"哪些 token 不能看"。掩码就是干这个：在 softmax **之前**把不该看的位置加上 `-∞`，softmax 后这些位置权重变 0。
+注意力公式没说"哪些 token 不能看"。但实际场景有两种 token 不该被关注：一是 padding（补位用的占位符，不含信息）；二是未来 token（自回归训练时，看到未来等于作弊）。
+
+掩码就是干这个的：在 softmax **之前**把不该看的位置加上 `-∞`，softmax 后这些位置权重变 0。
 
 ### 3.1 Padding mask
 
-batch 里每个序列长度不一样，短的右边补 `<pad>`。pad token 不该被 attend：
+batch 里每个序列长度不一样，短的右边补 `<pad>`。pad token 不该被 attend。这里的 logits 即 §2.2 中 `QK^T / √d_k` 的结果（softmax 之前的原始分数）：
 
 ```
 原始 logits (n=4):  [3.0  0.5  -1.0   2.0]
-mask:               [ 1    1    0     0 ]   ← 后两位是 pad
+mask:               [ 1    1    0     0 ]   ← 1=真实token可看，0=pad不可看
 应用 mask:          [3.0  0.5  -inf  -inf]
 softmax:            [0.92 0.08  0     0 ]
 ```
@@ -139,7 +173,7 @@ softmax:            [0.92 0.08  0     0 ]
 
 ### 3.2 Causal mask（因果掩码）
 
-LLM 训练时**当前 token 只能看自己和之前**，不能偷看未来——否则就是开卷考试，学不到东西。形状是上三角 `-∞`：
+LLM 训练时**当前 token 只能看自己和之前**，不能偷看未来——否则就是开卷考试，学不到东西。做法：mask 矩阵的上三角为 0（不可看），应用后 logits 矩阵的上三角被填成 `-∞`，softmax 后这些位置权重归零：
 
 ```
 n=4 的 causal mask（1 = 能看，0 = 不能）：
@@ -157,11 +191,11 @@ mask = torch.tril(torch.ones(n, n))               # 下三角全 1
 logits = logits.masked_fill(mask == 0, float("-inf"))
 ```
 
-> **关键点**：mask 在 `softmax` **之前**加，不是之后。之后再 mask 已经把概率分给未来了，归一化破坏。
+> **关键点**：mask 在 `softmax` **之前**加，不是之后。之后再 mask 已经把概率分给未来了，破坏归一化。
 
 ### 3.3 两种 mask 同时存在
 
-实战训练里两者通常**一起**应用：causal mask 防偷看 + padding mask 排除补位。两个布尔矩阵相与（或两个 `-∞` 矩阵相加）即可。
+实战训练里两者通常**一起**应用：causal mask 防偷看 + padding mask 排除补位。实现上只需合并成一个 mask——某位置只要任一条件说"不可看"，最终就不可看（实现方式：两个 Mask 矩阵相 AND / 加性 MASK 相加）。
 
 ### 自检
 
@@ -198,7 +232,7 @@ logits = logits.masked_fill(mask == 0, float("-inf"))
 **真相**：把 d 维**拆**成 H 段，每段 `d_k = d / H` 维：
 
 ```
-输入 X: (n, d=512)
+输入 X: (n, d=512) -> n 行 × 512 列 的矩阵
   ↓ W^Q (512 × 512)
 Q: (n, 512)
   ↓ reshape: (n, H=8, d_k=64) → transpose: (H=8, n, d_k=64)
@@ -209,6 +243,8 @@ output: (n, 512)
 ```
 
 **总参数量与单头同维相同**——只是把同一份 d 维表示分给多头分工。参数量没多花一分，**表达力却更强**：每个头在自己的 d_k 维子空间独立学一种注意力模式，互不打架。
+
+> 为什么拆开不会破坏信息？因为 W^Q 本身就是学出来的——网络会自动学会把相关信息投影到同一个头的 64 维子空间里。拆头只是让每组子空间**独立做 softmax**，互不干扰。
 
 ### 4.3 公式
 
@@ -221,6 +257,18 @@ output: (n, 512)
 \]
 
 工程上不会真的搞 3H 个独立小矩阵，而是用 3 个大矩阵 `W^Q, W^K, W^V`（各 `d × d`）一次投影出来，再 reshape 切头。代码效率与可读性都高。
+
+```python
+# 理论写法：3×H=24 个小矩阵，循环 H 次（慢，不实用）
+q_heads = [x @ W_Q_list[i] for i in range(H)]   # 每个 (n, d_k)
+k_heads = [x @ W_K_list[i] for i in range(H)]
+v_heads = [x @ W_V_list[i] for i in range(H)]
+
+# 工程写法：1 个大矩阵一次算完 + reshape 切头（快，实际都这么写）
+Q = x @ W_Q                             # (n, d) → (n, d)
+Q = Q.reshape(n, H, d_k).transpose(0, 1)  # → (H, n, d_k)
+# K、V 同理
+```
 
 ### 4.4 形状记忆口诀
 
