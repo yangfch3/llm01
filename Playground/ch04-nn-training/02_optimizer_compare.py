@@ -97,6 +97,34 @@ def main() -> None:
     print("- SGD vs SGD+momentum：动量让早期下降更快")
     print("- Adam/AdamW vs SGD：自适应 lr，前 100 步基本收敛")
     print("- AdamW 与 Adam 在小任务上几乎无差，差异在大模型泛化上")
+
+    # --plot：画 loss 走势对比图
+    if "--plot" in sys.argv:
+        import matplotlib.pyplot as plt
+
+        plt.figure(figsize=(8, 5))
+        for name in names:
+            plt.plot(history[name], label=name)
+        plt.xlabel("Step")
+        plt.ylabel("MSE Loss")
+        plt.title("Optimizer Comparison: Loss Curve")
+        plt.legend()
+        plt.yscale("log")  # log 尺度看差异更明显
+        # 标注 Adam/AdamW 重合现象
+        plt.annotate(
+            "Adam ~ AdamW: weight decay has\nnear-zero effect on small tasks;\ndifference shows in large-model generalization",
+            xy=(250, history["Adam"][250]),
+            xytext=(300, history["SGD"][200]),
+            fontsize=8,
+            arrowprops=dict(arrowstyle="->", color="gray"),
+            bbox=dict(boxstyle="round,pad=0.3", fc="lightyellow", ec="gray", alpha=0.8),
+        )
+        plt.tight_layout()
+        out_path = REPO_ROOT / "Doc" / "Courseware" / "ch04-nn-training" / "optimizer_compare.png"
+        plt.savefig(out_path, dpi=150)
+        print(f"\n图已保存: {out_path.relative_to(REPO_ROOT)}")
+        plt.show()
+
     print("\nPASS")
 
 

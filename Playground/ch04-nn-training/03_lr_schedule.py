@@ -10,6 +10,10 @@
 from __future__ import annotations
 
 import math
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def lr_constant(step: int, lr_max: float = 1e-3, **_) -> float:
@@ -71,6 +75,24 @@ def main() -> None:
     assert lr_warmup_cosine(0, lr_max=lr_max, warmup=10, total=total) == 0.0  # warmup 起点 lr=0
     assert abs(lr_warmup_cosine(10, lr_max=lr_max, warmup=10, total=total) - lr_max) < 1e-9  # warmup 末端
     assert lr_warmup_cosine(99, lr_max=lr_max, lr_min=1e-4, warmup=10, total=total) < 2e-4  # 末端接近 lr_min
+
+    # --plot：画 lr 走势对比图
+    if "--plot" in sys.argv:
+        import matplotlib.pyplot as plt
+
+        plt.figure(figsize=(8, 5))
+        for name, fn in schedules.items():
+            values = [fn(step=s, lr_max=lr_max, lr_min=1e-4, total=total) for s in range(total)]
+            plt.plot(values, label=name)
+        plt.xlabel("Step")
+        plt.ylabel("Learning Rate")
+        plt.title("LR Schedule Comparison")
+        plt.legend()
+        plt.tight_layout()
+        out_path = REPO_ROOT / "Doc" / "Courseware" / "ch04-nn-training" / "lr_schedule.png"
+        plt.savefig(out_path, dpi=150)
+        print(f"\n图已保存: {out_path.relative_to(REPO_ROOT)}")
+        plt.show()
 
     print("\nPASS")
 

@@ -133,6 +133,10 @@ LLM 训练里更常见的是 GPT-2 / LLaMA 风格初始化（小标准差如 0.0
 | **Adam**（Adaptive Moment Estimation，自适应矩估计） | 一阶矩 + 二阶矩自适应学习率 | NLP（Natural Language Processing，自然语言处理） / Transformer 默认 |
 | **AdamW**（Adam with decoupled Weight decay，权重衰减解耦版 Adam） | Adam 的 weight decay 修正版 | **LLM 预训练 / SFT（Supervised Fine-Tuning，监督微调）的事实标准** |
 
+> 走势图（运行 `Playground/ch04-nn-training/02_optimizer_compare.py --plot` 生成）：
+>
+> ![optimizer comparison](optimizer_compare.png)
+
 ### 3.2 momentum 的直觉
 
 ```
@@ -145,31 +149,99 @@ SGD + momentum：v ← β·v + g
 
 ### 3.3 Adam = momentum + 自适应学习率
 
-Adam 同时维护两个滑动平均：
+§3.2 的 momentum 只解决了"方向平滑"。但不同参数的梯度量级可能差几个数量级——某些参数梯度天天 0.001，另一些天天 10。用同一个 lr 更新，小梯度的参数永远追不上。
 
-- 一阶矩 $m$（梯度均值，类似 momentum）
-- 二阶矩 $v$（梯度平方均值，估计每个参数的"波动幅度"）
+Adam 的思路：**给每个参数一个独立的有效学习率**。
 
-更新规则（省略 bias correction）：
+它维护两个滑动平均（每个参数各一份）：
 
-\[
-w \leftarrow w - \mathrm{lr} \cdot \frac{m}{\sqrt{v} + \epsilon}
-\]
-
-**核心创新**：每个参数有**自己的学习率**，由 $\sqrt{v}$ 倒数缩放。波动大的参数自动减小步长，波动小的自动放大。这让 Adam 几乎不用调 lr 也能跑。
-
-> $\epsilon$ 是数值稳定项（典型 1e-8），防训练初期 $v \approx 0$ 时分母为零。
-> Adam 实际还有一步 **bias correction**：训练初期 $m, v$ 滑动均值偏向 0，用 $\hat{m} = m / (1-\beta_1^t)$、$\hat{v} = v / (1-\beta_2^t)$ 修正。PyTorch 内部已实现，使用者无感。
-
-### 3.4 AdamW：weight decay 的正解
-
-L2 正则原本是在 loss 里加 $\frac{\lambda}{2}\|w\|^2$。Adam 把它和梯度一起塞进 $\sqrt{v}$ 缩放，等价于"波动大的参数被较少正则化"——**与正则化初衷相反**。
-
-AdamW 的修法：weight decay **不进梯度**，直接在参数上扣：
+- $m$：梯度的滑动均值（= momentum，方向信号）
+- $v$：梯度**平方**的滑动均值（= 衡量这个参数的梯度"波动有多大"）
 
 ```
-w ← w - lr · (Adam 更新方向) - lr · λ · w
+m ← β₁·m + (1-β₁)·g          # 方向（同 momentum）
+v ← β₂·v + (1-β₂)·g²         # 幅度（g² 是逐元素平方）
+w ← w - lr · m / (√v + ε)     # 更新
 ```
+
+> β₁（典型 0.9）= $m$ 的滑动系数，功能等同 §3.2 momentum 的 β，控制方向平滑。
+> β₂（典型 0.999）= $v$ 的滑动系数，Adam 独有，控制波动估计的记忆长度。β₂ 更大意味着 $v$ 变化更缓慢、估计更稳定。
+
+关键在最后一行的 $\frac{m}{\sqrt{v}}$：
+
+- 某参数梯度**波动大**（$v$ 大）→ $\sqrt{v}$ 大 → 除以大数 → **步子变小**（别冲过头）
+- 某参数梯度**波动小**（$v$ 小）→ $\sqrt{v}$ 小 → 除以小数 → **步子变大**（加速追上）
+
+**数值例子**：参数 A 梯度平方均值 $v_A = 100$，参数 B 的 $v_B = 0.01$。
+有效步长比 = $\frac{1/\sqrt{100}}{1/\sqrt{0.01}} = \frac{0.1}{10} = 1:100$。
+Adam 自动给 B 的学习率放大了 100 倍——这就是"自适应"。
+
+> $\epsilon$（典型 1e-8）防分母为零。
+> 训练初期 $m, v$ 从 0 开始偏小，Adam 有 bias correction 修正（PyTorch 内部实现，使用者无感）。
+
+### 3.4 过拟合、正则化与 weight decay
+
+**过拟合（Overfitting）**：模型在训练集上 loss 很低，但在新数据上表现差。本质是模型"背答案"而非学规律。参数越多、模型越大，越容易过拟合。
+
+**正则化（Regularization）**：所有用来对抗过拟合的手段的统称。核心思路：给模型加约束，限制它的"自由度"，逼它学到更泛化的解。常见手段包括 Dropout（§5）、数据增强、早停（early stopping）、以及本节要讲的 **weight decay**。
+
+**L2 正则**：最朴素的正则化之一。在 loss 后面加一项惩罚权重大小的东西：
+
+$$
+\text{total_loss} = \text{task_loss} + \frac{\lambda}{2}\|w\|^2
+$$
+
+直觉：权重越大惩罚越重 → 逼模型用尽量小的权重完成任务 → 不容易在某几个参数上"押重注"去记住训练样本。
+
+对 $w$ 求导，L2 项贡献一个额外梯度 $\lambda w$，更新变成：
+
+```
+w ← w - lr·g - lr·λ·w
+```
+
+最后那项 $-lr \cdot \lambda \cdot w$ 每步把权重往 0 拽一点——所以也叫 **weight decay**（权重衰减）。在普通 SGD 里，L2 正则和 weight decay **数学完全等价**。
+
+> LLM 预训练几乎必加 weight decay（典型 $\lambda = 0.1$）。模型太大、数据虽多但参数更多，不加容易过拟合。
+
+### 3.5 AdamW：weight decay 的正解
+
+上一节得到结论：SGD + L2 = SGD + weight decay，每个参数被均匀衰减，没问题。
+
+**但 Adam 里加 L2 就出问题了。**
+
+回忆 Adam 的更新（§3.3）：
+
+```
+m ← β₁·m + (1-β₁)·g
+v ← β₂·v + (1-β₂)·g²
+w ← w - lr · m / √v
+```
+
+现在加 L2 正则，梯度从 $g$ 变成 $g + \lambda w$：
+
+```
+m ← β₁·m + (1-β₁)·(g + λ·w)
+v ← β₂·v + (1-β₂)·(g + λ·w)²
+w ← w - lr · m / √v              # λ·w 的效果也被 1/√v 缩放了
+```
+
+weight decay 的实际力度变成了 $lr \cdot \lambda w / \sqrt{v}$——被 $v$ 控制了。
+
+**这导致反直觉的结果：**
+
+- 波动大的参数 → $v$ 大 → $1/\sqrt{v}$ 小 → **decay 被削弱**（最不稳定的参数反而最少被约束）
+- 波动小的参数 → $v$ 小 → $1/\sqrt{v}$ 大 → **decay 被放大**（本来就稳定的参数反而被过度约束）
+
+这和"正则化应该约束不稳定参数"的初衷完全相反——这就是 Adam + L2 的已知缺陷。
+
+**AdamW 的修法**：把 weight decay **从梯度通路中拿出来**，不经过 $\sqrt{v}$ 缩放，直接在参数上减：
+
+```
+w ← w - lr · m/√v       ← Adam 正常更新（梯度部分）
+w ← w - lr · λ · w      ← weight decay（独立扣，不被 √v 影响）
+```
+
+每个参数被**均匀衰减**，与波动幅度无关。回到了 SGD 里 weight decay 的正确行为。
 
 LLM 预训练几乎一律 AdamW。PyTorch 一行：
 
@@ -214,6 +286,10 @@ optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=0.1)
 | **CosineAnnealing** | 余弦曲线从 max → min | LLM 预训练默认 |
 | **Warmup + Cosine** | 前 K 步线性升到 max，再 cosine 衰减到 min | LLM 预训练事实标准 |
 
+> 走势图（运行 `Playground/ch04-nn-training/03_lr_schedule.py --plot` 生成）：
+>
+> ![lr schedule comparison](lr_schedule.png)
+
 ### 4.2 为什么 LLM 都要 warmup
 
 训练前期参数随机，梯度方差极大。直接上高 lr 容易把参数推到"再也回不来"的位置。warmup（前几百到几千步线性升 lr）让网络先"探探路"再放开。
@@ -254,9 +330,21 @@ PyTorch 提供 `torch.optim.lr_scheduler.CosineAnnealingLR`、`OneCycleLR` 等�
 nn.Dropout(p=0.5)                                # 训练时以概率 p 把激活置 0
 ```
 
-直觉：强迫网络不要依赖某些"明星神经元"，提升泛化（类似 ensemble 多个子网络）。
+直觉：强迫网络不要依赖某些"明星神经元"，提升泛化。
 
-**放哪**：常见放在激活之后、下一层 Linear 之前；最后一层（输出 logits）后**不放**——不能 dropout 输出。
+> **为什么能提升泛化**：每次前向传播随机丢掉不同的神经元，等于每次训练的是一个不同的"子网络"（原网络的子集）。最终模型相当于隐式地把指数级多个子网络的预测做了平均——这和集成学习（ensemble）用多个模型投票的效果类似，但不需要真的训多个模型。
+
+**放哪**：常见放在激活函数之后、下一层 Linear 之前。
+
+典型 MLP 层序：
+
+```
+Linear → ReLU → Dropout → Linear → ReLU → Dropout → Linear(output)
+```
+
+为什么放在激活之后：Dropout 要丢的是"激活值"（神经元的输出信号），激活函数算完才有最终输出信号。如果放在激活之前（即 Linear 之后、ReLU 之前），丢掉的是线性变换的原始输出——ReLU 本身已经会把负值置 0，和 Dropout 的置 0 效果部分重叠，浪费了 Dropout 的"随机性预算"。
+
+最后一层（输出 logits）后**不放**——不能 dropout 输出。
 
 ### 5.2 训/推不一致的关键细节
 
@@ -274,7 +362,7 @@ model.eval()                                     # Dropout 关闭，全保留
 GPT-2/3、LLaMA 系列预训练阶段 Dropout 一般设为 0 或极小（0.0–0.1）。原因：
 
 - 数据足够多时 Dropout 几乎没收益
-- 与 Pre-LN 结构、warmup、AdamW 一起用时它的正则化作用被替代
+- 与 Pre-LN 结构（LayerNorm 放在子层之前，§6.3 展开）、warmup、AdamW 一起用时它的正则化作用被替代
 - SFT / 微调阶段会重新启用（数据量小，需要正则）
 
 ---
@@ -294,11 +382,28 @@ nn.BatchNorm2d(num_features=C)                   # CV 经典；本课程主线 L
 
 （也有 `nn.BatchNorm1d` 吃 `(N, C)` 或 `(N, C, L)`。这里举 2d 版只是因为它最常被讨论。）
 
+**数值例子**：输入 `(N=2, D=3)`，BN 对每一列（特征维）在 batch 维上求均值/方差：
+
+```
+输入 x:         特征0   特征1   特征2
+  样本0:        [ 1.0,   2.0,   3.0 ]
+  样本1:        [ 3.0,   4.0,   9.0 ]
+
+每列均值 μ:     [ 2.0,   3.0,   6.0 ]
+每列方差 σ²:    [ 1.0,   1.0,   9.0 ]
+
+归一化（逐列）:
+  样本0:        [-1.0,  -1.0,  -1.0 ]
+  样本1:        [ 1.0,   1.0,   1.0 ]
+```
+
+注意：统计跨样本（竖着算），所以 **batch 越小，均值/方差越不准**。
+
 **BN 的问题**：
 
 - batch 太小（< 8）时统计量噪声大，反而拖累训练
-- 推理时用训练阶段的 running statistics（不是当前 batch），训推不一致
-- 在 RNN（Recurrent Neural Network，循环神经网络） / 序列长度可变的场景几乎不能用——**包括 Transformer**
+- 推理时用训练阶段的 running statistics（而非像训练时那样现算，因为用户输入的是单/小值 batch），训推计算方式不一致
+- 在 RNN（Recurrent Neural Network，循环神经网络） / 序列长度可变的场景几乎不能用（不等长序列需 padding 补 0，padding 位置的假值会污染跨样本统计量）——**包括 Transformer**
 
 ### 6.2 LayerNorm：沿特征维统计
 
@@ -308,7 +413,27 @@ nn.BatchNorm2d(num_features=C)                   # CV 经典；本课程主线 L
 nn.LayerNorm(normalized_shape=D)
 ```
 
-归一化后还会**乘可学习 γ 加可学习 β**（默认 `elementwise_affine=True`），让网络在需要时恢复任意尺度。M2 ch06 讲的 RMSNorm（Root Mean Square Norm，均方根归一化）就是 LN 的简化版——只除 RMS、去掉 β、有时也去掉 γ。
+**数值例子**：同一份输入 `(N=2, D=3)`，LN 对每一行（特征维）独立求均值/方差：
+
+```
+输入 x:         特征0   特征1   特征2
+  样本0:        [ 1.0,   2.0,   3.0 ]    ← μ=2.0, σ²=0.667
+  样本1:        [ 3.0,   4.0,   9.0 ]    ← μ=5.33, σ²=6.889
+
+归一化（逐行）:
+  样本0:        [-1.22,  0.0,   1.22]
+  样本1:        [-0.89, -0.51,  1.40]
+```
+
+注意：统计在每个样本内部（横着算），**与 batch 中其它样本完全无关**。batch=1 也能正常算。
+
+归一化后还会**乘可学习 γ 加可学习 β**（默认 `elementwise_affine=True`）：
+
+```
+LN(x) = γ · 归一化(x) + β
+```
+
+为什么需要：归一化把值强制压到均值 0、方差 1，但网络某些特征可能确实需要更大的尺度或非零偏移。γ（缩放）和 β（偏移）是可学习参数，让网络在"稳定起点"的基础上自由调整，不损失表达力。M2 ch06 讲的 RMSNorm（Root Mean Square Norm，均方根归一化）就是 LN 的简化版——只除 RMS、去掉 β、有时也去掉 γ。
 
 **LN 的优点**：
 
@@ -319,6 +444,12 @@ nn.LayerNorm(normalized_shape=D)
 **所以 LLM 全用 LN（或它的变种 RMSNorm）**。BN 和 LLM 几乎绝缘。
 
 ### 6.3 Pre-LN vs Post-LN（M2 详讲）
+
+残差连接（Residual Connection）：把子层的输入原样加回到子层输出上的一条捷径，保证梯度有直通路径（ch06 详讲）：
+
+```
+残差输出 = SubLayer(x) + x
+```
 
 Transformer 里 LN 放在残差**之前**还是**之后**直接影响训练稳定性。简短结论：
 
@@ -350,8 +481,8 @@ ch06 会画图详解，这里先记结论。
 | 脚本 | 内容 |
 |---|---|
 | `01_init_compare.py` | 朴素 / Xavier / He 初始化在 10 层 ReLU MLP 上的激活方差对比 |
-| `02_optimizer_compare.py` | SGD / Momentum / Adam / AdamW 在合成数据上的 loss 曲线 |
-| `03_lr_schedule.py` | 固定 / Step / Cosine / Warmup+Cosine 四种 lr 曲线可视化（数值打印） |
+| `02_optimizer_compare.py` | SGD / Momentum / Adam / AdamW 在合成数据上的 loss 曲线（加 `--plot` 出走势图） |
+| `03_lr_schedule.py` | 固定 / Step / Cosine / Warmup+Cosine 四种 lr 曲线可视化（加 `--plot` 出走势图） |
 | `04_dropout_bn_ln.py` | Dropout 训/推差异；小 batch 下 BN 翻车 vs LN 稳定 |
 
 跑法同 ch03。所有脚本不依赖外部数据，3060 / Mac / CPU 都秒级跑完。
