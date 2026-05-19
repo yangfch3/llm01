@@ -15,7 +15,7 @@
 | 年代 | 事件 | 意义 |
 |------|------|------|
 | 1958 | 感知机 (Perceptron) | 第一个可学习的神经网络单元 |
-| 1969 | Minsky《Perceptrons》出版 | 数学证明感知机局限性，AI 第一次寒冬开始——此后神经网络沉寂近 20 年 |
+| 1969 | Minsky《Perceptrons》出版 | 数学证明感知机局限性，成为 AI 第一次寒冬的导火索——此后神经网络沉寂近 20 年 |
 | 1986 | 反向传播算法普及 | 多层网络可训练，寒冬回暖 |
 | 2012 | AlexNet 夺冠 ImageNet | 深度学习实用化信号，GPU 训练起飞 |
 
@@ -32,9 +32,9 @@
 | 2015 | Attention 机制 | 解码时动态聚焦源端相关位置，性能跃升 |
 | 2017 | **Transformer** | "Attention Is All You Need"，抛弃循环，全靠注意力+并行 |
 | 2018 | GPT-1 / BERT | 预训练+微调范式确立；自回归 (Autoregressive) vs 双向掩码 (Bidirectional Masked) 两条路线分野 |
-| 2020 | **Scaling Law / GPT-3** | Scaling Law 量化了"规模→性能"规律；GPT-3 (1750亿参数) 是其实践产物 |
+| 2020 | **Scaling Law / GPT-3** | Scaling Law（2020 初）量化了"规模→性能"规律；GPT-3 (1750亿参数) 是其验证产物 |
 | 2020 | Vision Transformer (ViT) | Transformer 入侵视觉，证明注意力不止做 NLP |
-| 2021 | DALL·E 1 / CLIP | 文本↔图像对齐，多模态时代序幕（注：DALL·E 1 用 dVAE+Transformer，非扩散） |
+| 2021 | DALL·E 1 / CLIP | 文本↔图像对齐，多模态时代序幕 |
 | 2022 | **ChatGPT / InstructGPT** | RLHF 对齐落地，LLM 进入大众视野 |
 | 2022 | Stable Diffusion | 潜空间扩散，开源图像生成爆发 |
 | 2023 | **GPT-4 / LLaMA** | 多模态闭源标杆；开源权重潮涌 |
@@ -85,17 +85,6 @@ AI（人工智能）
 - **自监督学习** — 像完形填空：把文章挖几个空让你猜，答案就藏在原文里，不需要额外标注。GPT 的"预测下一个词"本质就是这个。
 - **强化学习** — 像训练小狗：做对了给零食（奖励），做错了没有。小狗通过反复试错学会"坐下"和"握手"。
 
-### 模型架构
-
-| 架构 | 核心思想 | 擅长 | 主要瓶颈 |
-|------|---------|------|---------|
-| MLP | 全连接层堆叠 | 通用基础积木 | 无法捕捉空间/序列结构 |
-| CNN | 局部感受野 (Local Receptive Field) + 权重共享 + 池化 | 图像、空间特征 | 全局依赖需要很深 |
-| RNN / LSTM / GRU | 隐状态逐步传递 | 序列、时序 | 长距离遗忘，无法并行 |
-| Transformer | 自注意力 + 位置编码 | 全局依赖，天然并行 | 计算量随序列长度二次增长 |
-
-> 注：展开讲解见下方 **架构演进路线** 
-
 ### 两维度正交
 
 > 学习范式和模型架构是独立的两个选择。任何架构都能搭配任何范式。
@@ -125,6 +114,13 @@ MLP（全连接）
 ```
 
 ### 每一站的故事
+
+| 架构 | 核心思想 | 擅长 | 主要瓶颈 |
+|------|---------|------|---------|
+| MLP | 全连接层堆叠 | 通用基础积木 | 无法捕捉空间/序列结构 |
+| CNN | 局部感受野 + 权重共享 + 池化 | 图像、空间特征 | 全局依赖需要很深 |
+| RNN / LSTM / GRU | 隐状态逐步传递 | 序列、时序 | 长距离遗忘，无法并行 |
+| Transformer | 自注意力 + 位置编码 | 全局依赖，天然并行 | 计算量随序列长度二次增长 |
 
 ---
 
@@ -222,6 +218,8 @@ RNN:    [h₀]→[h₁]→[h₂]→[h₃]→...→[hₜ] → 输出
 
 ## 5. 当下模型方向
 
+> 本节概览各模态主流技术路线，后续内容聚焦 LLM（文本生成）。
+
 | 模态 | 主流架构 | 训练方法 | 代表 |
 |------|---------|---------|------|
 | 文本生成 | Decoder-only Transformer | CLM 自回归 | GPT-4、LLaMA、Qwen |
@@ -238,9 +236,9 @@ RNN:    [h₀]→[h₁]→[h₂]→[h₃]→...→[hₜ] → 输出
 扩散模型一句话原理：训练时对图像**逐步**加噪直到变成纯噪声，然后训练网络学会逆过程（去噪）。推理时从纯随机噪声出发，**逐步**去噪，最终生成清晰图像。
 
 - **文本**天然是离散序列，左到右逐 token 生成符合语言本质，CLM 自回归简洁高效。
-- **图像**是高维连续信号，像素之间强空间相关性；扩散模型通过逐步去噪，能在潜空间稳定生成高质量图像，比 GAN 更易训练、比自回归像素生成更高效。
+- **图像**是高维连续信号，像素之间强空间相关性；扩散模型通过逐步去噪，能在潜空间稳定生成高质量图像，比 GAN 更易训练、生成质量和训练稳定性优于自回归像素生成。
 
-> 注：本文聚焦于 LLM，图像与视频相关在不再展开
+> 注：图像与视频生成不再展开，后续章节聚焦 LLM。
 
 ---
 
@@ -271,7 +269,7 @@ RNN:    [h₀]→[h₁]→[h₂]→[h₃]→...→[hₜ] → 输出
 | Alignment | 对齐人类偏好（RLHF / DPO），变好用+无害 | 对齐后模型 |
 | 量化 | FP16 → INT8/INT4，精度换显存 | 可本地部署的模型 |
 
-**SFT 具体怎么做？**
+#### SFT 具体怎么做？
 
 核心：用"指令 + 标准回答"的配对数据，教 base 模型学会对话格式。
 
@@ -281,9 +279,9 @@ RNN:    [h₀]→[h₁]→[h₂]→[h₃]→...→[hₜ] → 输出
 [Assistant] 黑洞是时空中引力极强、连光都无法逃逸的区域。
 ```
 
-Base 模型只会无限续写，SFT 让它学到：看到 `[User]` 就该在 `[Assistant]` 后给出简洁回答然后停下来。本质是用监督学习把"对话行为模式"注入模型。数据质量 > 数量——几万条高质量样本就能显著改变模型行为。
+Base 模型只会无限续写，SFT 让它学到：看到 `[User]` 就该在 `[Assistant]` 后给出简洁回答然后停下来。本质是用监督学习把"对话行为模式"注入模型。数据质量 > 数量——早期 7B 级模型几万条高质量样本就能显著改变行为，前沿大模型（如 DeepSeek V3）则用到百万级。
 
-**Alignment 具体怎么做？**
+#### Alignment 具体怎么做？
 
 核心：让人类当裁判，告诉模型"哪个回答更好"，模型据此调整行为。
 
@@ -301,7 +299,13 @@ Prompt: "如何减肥？"
 
 模型训完后需要高效跑起来。类比：训练像"培养一个专家"，推理像"让专家上岗接客"——上岗时要考虑响应速度和接待能力。
 
-核心优化思路：缓存已算结果（KV Cache）、压缩精度（量化）、并行调度（Continuous Batching）。
+核心优化思路：
+
+- **KV Cache** — 类比：考试时把已经查过的公式抄在草稿纸上，后面直接看草稿纸而不是重新翻书。模型生成每个新 token 时，缓存之前算过的中间结果，避免重复计算。
+- **量化** — 类比：把精装全彩教材换成黑白口袋本——内容几乎一样，但体积小得多。将模型参数从高精度（FP16）压缩到低精度（INT8/INT4），显存开销大幅下降，精度损失很小。
+- **Continuous Batching** — 多个用户请求动态拼批处理，提升 GPU 利用率。
+
+> 本课程后续章节课件会展开。
 
 ### 上层应用
 
@@ -314,7 +318,14 @@ Prompt: "如何减肥？"
 | Skill | Agent 的可复用能力单元，封装特定任务的 prompt + 工具组合 |
 | Agent | 模型 + 工具调用 + 多步规划，从"回答问题"到"完成任务" |
 
-> 类比：如果 LLM 是大脑，那么 Prompt Engineering 是"问对问题的技巧"、RAG 是"查资料"、Function Calling 是"动手操作"、MCP 是"统一的工具接口标准"、Skill 是"学会的一项具体技能"、Agent 是"自主规划+执行一整套流程"。
+> 类比：如果 LLM 是大脑，那么
+> 
+> - Prompt Engineering 是"问对问题的技巧"
+> - RAG 是"查资料"
+> - Function Calling 是"动手操作"
+> - MCP 是"统一的工具接口标准"
+> - Skill 是"学会的一项具体技能"
+> - Agent 是"自主规划+执行一整套流程"。
 
 想看工业界真实案例如何落地以上全链路？见下方[附录](#附录前沿模型完整链路deepseek-v3--r1--qwen25)。
 
@@ -322,7 +333,7 @@ Prompt: "如何减肥？"
 
 ## 附录：前沿模型完整链路（DeepSeek V3 / R1 & Qwen2.5）
 
-> 以下展示 2024–2025 年前沿开源模型的真实全链路。信息密度较高，建议对注意力机制有基本了解后再细读。
+> 以下展示 2024–2025 年前沿开源模型的真实全链路。信息密度较高，初次阅读完全可以跳过——等学完注意力机制再回来细读效果更好。
 
 ### Dense vs MoE
 
@@ -393,6 +404,8 @@ Prompt: "如何减肥？"
 
 ### 训练流程
 
+> 下方 ASCII 流程图较宽，建议在宽屏下查看。
+
 ```
 DeepSeek V3 + R1 完整流程：
 
@@ -440,7 +453,7 @@ Qwen2.5 训练流程：
        ↓
   SFT (大规模高质量指令数据)
        ↓
-  Alignment: DPO (离线偏好优化)
+  Alignment: DPO 为主 (离线偏好优化)
        ↓
   部署：原生 Dense / GGUF 量化 / vLLM
 ```
@@ -451,7 +464,7 @@ Qwen2.5 训练流程：
 |------|---------------|---------|
 | 预训练数据 | 14.8T tokens | 约 18T tokens |
 | 预训练精度 | FP8 | BF16 |
-| 对齐方法 | GRPO（无 Critic，组内相对奖励） | DPO |
+| 对齐方法 | GRPO（无 Critic，组内相对奖励） | DPO 为主 |
 | 推理能力来源 | 纯 RL 涌现 CoT（R1 路线） | SFT + 蒸馏 R1 数据 |
 | MTP 辅助 | 有（预测多个未来 token） | 无 |
 | 推理阶段特色 | 多阶段 RL + 拒绝采样迭代 | 单轮 DPO |
@@ -477,10 +490,12 @@ Qwen2.5 训练流程：
 | BPE | Byte Pair Encoding | 字节对编码 | 子词分词算法，从字符对频率迭代合并 |
 | CLM | Causal Language Modeling | 因果语言建模 | 自回归语言建模，根据前文预测下一个 token |
 | CNN | Convolutional Neural Network | 卷积神经网络 | 擅长捕捉局部空间特征 |
+| Continuous Batching | - | 连续批处理 | 动态拼批多请求，提升 GPU 利用率 |
 | CoT | Chain of Thought | 思维链 | 让模型分步推理再给结论 |
 | DPO | Direct Preference Optimization | 直接偏好优化 | 无需训练奖励模型的对齐方法 |
 | DiT | Diffusion Transformer | - | 用 Transformer 替代 U-Net 做扩散模型骨干 |
 | FFN | Feed-Forward Network | 前馈网络 | Transformer 内的逐位置全连接层 |
+| FIM | Fill-in-Middle | 中间填充 | 给定前缀和后缀让模型补全中间内容，代码补全常用 |
 | GAN | Generative Adversarial Network | 生成对抗网络 | 生成器与判别器博弈 |
 | GQA | Grouped Query Attention | 分组查询注意力 | 多个 Q head 共享一组 KV，省显存 |
 | GRPO | Group Relative Policy Optimization | - | 组内相对奖励策略优化，无需 Critic 模型的 RL 方法 |
@@ -495,6 +510,7 @@ Qwen2.5 训练流程：
 | MLP | Multi-Layer Perceptron | 多层感知机 | 最基础的前馈全连接网络 |
 | MoE | Mixture of Experts | 混合专家 | 稀疏激活降低计算量 |
 | MTP | Multi-Token Prediction | 多 token 预测 | 辅助训练目标，同时预测未来多个 token |
+| PPO | Proximal Policy Optimization | 近端策略优化 | RLHF 中常用的策略梯度算法 |
 | QLoRA | Quantized LoRA | - | LoRA + 4-bit 量化底座，进一步省显存 |
 | RAG | Retrieval-Augmented Generation | 检索增强生成 | 外挂知识库缓解幻觉 |
 | RL | Reinforcement Learning | 强化学习 | - |
@@ -503,6 +519,7 @@ Qwen2.5 训练流程：
 | RNN | Recurrent Neural Network | 循环神经网络 | 隐状态逐步传递建模序列 |
 | RoPE | Rotary Position Embedding | 旋转位置编码 | Transformer 相对位置方案 |
 | SFT | Supervised Fine-Tuning | 有监督微调 | - |
+| Speculative Decoding | - | 推测解码 | 用小模型草拟多 token，大模型一次验证，加速推理 |
 | SwiGLU | Swish-Gated Linear Unit | - | 带门控的激活函数，现代 Transformer FFN 常用 |
 | VAE | Variational Autoencoder | 变分自编码器 | 潜空间连续化可采样生成 |
 | VLM | Vision-Language Model | 视觉语言模型 | 图文多模态理解 |
