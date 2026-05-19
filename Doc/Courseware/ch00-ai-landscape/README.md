@@ -57,7 +57,7 @@ AI（人工智能）
    │   └─ 强化学习
    └─ 模型架构（网络怎么搭）
        ├─ 传统 ML
-       └─ 神经网络
+       └─ 神经网络（多层时称"深度学习"）
            ├─ MLP
            ├─ CNN
            ├─ RNN → LSTM / GRU
@@ -478,6 +478,57 @@ Qwen2.5 训练流程：
 **GRPO (Group Relative Policy Optimization)** — PPO 需要 Critic 模型估计 baseline（贵）。GRPO 改为：对同一 prompt 采样一组回答，用组内平均奖励做 baseline。省掉 Critic，训练成本砍半。
 
 **Multi-Token Prediction (MTP)** — 在 CLM 主目标之外，额外预测未来 2~3 个 token。增强表示质量，预训练后可丢弃或用于 speculative decoding 加速推理。
+
+---
+
+## 附录：AI 概念全景分类树
+
+> §3 的分类树聚焦"当代 ML"维度。这里补一张从历史流派到具体方法的全景图，帮助定位各概念的来龙去脉。
+
+```
+AI (Artificial Intelligence，人工智能)
+├── 符号主义 (Symbolism / GOFAI)         ← 主导 1950s–1980s，现已边缘
+│   ├── Expert System (专家系统)          ← MYCIN、DENDRAL、XCON
+│   ├── Knowledge Graph (知识图谱)        ← 仍活跃：搜索、电商、金融风控
+│   ├── Logic / Prolog (逻辑推理)
+│   └── Planning & Search (规划与搜索)    ← A*、STRIPS、AlphaGo 的 MCTS (Monte Carlo Tree Search，蒙特卡洛树搜索)
+│
+├── 连接主义 (Connectionism)              ← 神经网络派，当下绝对主流
+│   └── Machine Learning (ML，机器学习)
+│       ├── 传统 ML
+│       │   ├── Linear / Logistic Regression (线性 / 逻辑回归)
+│       │   ├── Decision Tree (决策树) → Random Forest → GBDT (XGBoost / LightGBM)
+│       │   ├── Support Vector Machine (SVM，支持向量机)
+│       │   ├── Naive Bayes (朴素贝叶斯)
+│       │   └── K-Means / PCA (聚类 / 降维)
+│       └── Neural Network (NN，神经网络)
+│           └── Deep Learning (DL，深度学习)
+│               ├── MLP / FNN              ← 万能近似器，所有 NN 基本盘
+│               ├── CNN                    ← 图像主力
+│               ├── RNN / LSTM / GRU       ← 序列老兵，被 Transformer 替代
+│               ├── Transformer            ← 当下统治者（GPT / BERT / LLaMA …）
+│               │   ├── Encoder-only       ← BERT 系，理解任务
+│               │   ├── Decoder-only       ← GPT 系，生成主流
+│               │   └── Encoder-Decoder    ← T5 / Whisper，翻译类
+│               ├── Autoencoder / VAE      ← 表示学习、生成模型源头
+│               ├── GAN                    ← 生成对抗，2014–2020 图像生成主流
+│               ├── Diffusion              ← 当下图像 / 视频生成主流
+│               ├── MoE                    ← 稀疏激活，大参小算（DeepSeek / Mixtral）
+│               └── Mamba / SSM            ← Transformer 挑战者，长序列友好
+│
+├── 行为主义 (Behaviorism / Cybernetics)  ← 思想源控制论
+│   ├── Reinforcement Learning (RL，强化学习)  ← 学术也归 ML 第三学习范式
+│   │   ├── Value-based (Q-Learning, DQN)
+│   │   ├── Policy-based (REINFORCE, PPO)
+│   │   └── Actor-Critic (A3C, SAC)
+│   └── Robotics (机器人学)                ← 含传统控制论
+│
+└── Evolutionary Computation (演化计算)   ← 小众但独立
+    ├── Genetic Algorithm (GA，遗传算法)
+    └── Neural Architecture Search (NAS)  ← 与 DL 结合复活
+```
+
+> 注：流派界限并非绝对，现代系统常融合多种思路（如 LLM + 知识图谱、RL + Transformer = RLHF）。本课程聚焦的是连接主义路线。
 
 ---
 
