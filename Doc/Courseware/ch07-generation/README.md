@@ -54,7 +54,7 @@ def generate(self, ids: torch.Tensor, max_new_tokens: int) -> torch.Tensor:
 
 ## 2. 为什么贪心不够
 
-ch06 §04 训完的 MiniGPT 续写 ROMEO 的结果：
+ch06 04 练习代码训完的 MiniGPT 续写 ROMEO 的结果：
 
 ```
 ROMEO:
@@ -63,9 +63,9 @@ The the the the the the the the the the the the the the the the...
 
 诊断：**贪心解码每步取 argmax**。一旦模型学到"逗号后大概率接 the"、"the 后大概率接 the"（小模型欠训练时常见），就会陷入**确定性循环**。
 
-数学上：贪心 = 温度 0 的概率分布退化为 one-hot，永远走概率最高的那条路 → 没有任何探索 → 一旦进入循环态出不来。
+数学上：贪心每步把概率分布退化为 one-hot（只有 argmax 位置为 1，其余为 0），永远走概率最高的那条路 → 没有任何探索 → 一旦进入循环态出不来。
 
-解药：**给概率分布加一点不确定性**，让模型有机会跳出 local 最优。三种主流做法：温度、top-k、top-p。
+解药：**给概率分布加一点不确定性**，让模型有机会跳出局部最优。三种主流做法：temperature、top-k、top-p。
 
 > Beam search 是另一类（保留多条路径取总概率最高的），在机器翻译时代曾是主流，**LLM 时代基本不用** — beam 倾向短而保守的输出，对开放式生成（写故事、对话）反而不利。本章不展开。
 
