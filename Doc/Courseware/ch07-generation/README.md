@@ -24,12 +24,6 @@ ch06 的 `forward` 输入一段 token 序列，输出每个位置的 logits。�
 
 做法叫**自回归生成（autoregressive generation）**：
 
-![Autoregressive generation](fig_autoregressive.png)
-
-> 图中弧线表示"? 位置对每个已有 token 的关注度"。`a`(.30) 和 `robot`(.50) 贡献最大，其余 token 关注度 <.01。右侧条形图为模型输出的下一词概率分布，最终采样选中 `it`。
-> 
-> 学完本章后续的内容再来看这张图，便会感觉一目了然了。
-
 ```python
 # 给定 prompt = [id_0, id_1, ..., id_k]
 # 循环：
@@ -54,7 +48,13 @@ def generate(self, ids: torch.Tensor, max_new_tokens: int) -> torch.Tensor:
 
 关键特征：**每步只生成一个 token，且依赖前面所有已生成的 token**——所以叫"自回归"（用自己的输出作为下一步输入）。
 
-最朴素的"选法"是**贪心（greedy）**：每步取 argmax，选概率最高的那个 token。ch06 的练习用的就是这个。但贪心有严重问题（ch06 的练习陷入输出 the 的循环），下文将展开。
+![Autoregressive generation](fig_autoregressive.png)
+
+> 图中弧线表示"? 位置对每个已有 token 的关注度"。`a`(.30) 和 `robot`(.50) 贡献最大，其余 token 关注度 <.01。右侧条形图为模型输出的下一词概率分布，最终采样选中 `it`。
+> 
+> 学完本章后续的内容再来看这张图，便会感觉一目了然了。
+
+对于伪代码中提到的解码策略，最朴素的"选法"是**贪心（greedy）**：每步取 argmax，选概率最高的那个 token。ch06 的练习用的就是这个。但贪心有严重问题（ch06 的练习陷入输出 the 的循环），下文将展开。
 
 ---
 
