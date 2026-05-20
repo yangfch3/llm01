@@ -297,7 +297,7 @@ class MiniGPT(nn.Module):
         x = self.ln_final(x)
         return self.lm_head(x)                             # (B, n, V)
 
-    # 推理：逐 token 自回归生成（非本章节内容）
+    # 逐 token 自回归生成（详见 ch07）
     def generate(self, ids, max_new_tokens):
         for _ in range(max_new_tokens):
             logits = self.forward(ids[:, -max_len:])       # 截断到最大上下文长度
@@ -306,7 +306,17 @@ class MiniGPT(nn.Module):
         return ids
 ```
 
-整个 `def generate` 及其内部朴素贪心生成（ch07 中讲解）非本章的内容范畴，在这里以及 `03_model.py` 练习代码中引入是为了呼应本章的全景图一节。
+以上 `forward` 对应 §1 全景图中 input_ids → logits 的部分。`generate` 是推理环节的逻辑（什么是自回归生成、为什么贪心不够、更好的解码策略，均在 ch07 展开），此处仅给出最朴素的贪心版供练习 03/04 验证模型能跑。
+
+对于全景图中的从 logits 到 loss，在练习代码中可见：
+
+```python
+# 03_model.py
+loss = F.cross_entropy(
+   logits[:, :-1].reshape(-1, V),  # (B*(n-1), V)
+   targets[:, 1:].reshape(-1),     # (B*(n-1),)
+)
+```
 
 训练时把 `logits[:, :-1]` 与 `ids[:, 1:]` 做 shift 错位对齐后算 cross_entropy——这就是 ch09 要正经讲的 **CLM（Causal Language Modeling，因果语言建模）目标**。
 

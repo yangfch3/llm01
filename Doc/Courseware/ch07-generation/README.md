@@ -1,6 +1,6 @@
 # ch07 · 生成策略与 KV cache
 
-> ch06 训出来的 MiniGPT，贪心解码下输出 "the the the the..."。本章解决两件事：
+> ch06 训出来的 MiniGPT，其临时的自回归生成用的贪心解码下输出 "the the the the..."。本章解决两件事：
 > 1. **怎么解码** — 让生成的文本既不傻（贪心退化）也不乱（纯随机崩坏）
 > 2. **怎么提速** — KV cache（Key/Value cache，键值缓存）让生成 n 个 token 的复杂度从 O(n³) 降到 O(n²)
 >
@@ -18,7 +18,41 @@
 
 ---
 
-## 1. 为什么贪心不够
+## 1. 自回归生成
+
+ch06 的 `forward` 输入一段 token 序列，输出每个位置的 logits。训练时用 logits 算 loss 就够了。但**推理时要用模型"写东西"**——怎么从 logits 变成一段文本？
+
+做法叫**自回归生成（autoregressive generation）**：
+
+```python
+# 给定 prompt = [id_0, id_1, ..., id_k]
+# 循环：
+#   1. forward(prompt) → logits: (1, len, V)
+#   2. 取最后一个位置的 logits[:, -1, :] → (1, V)
+#   3. 从这个分布里"选"一个 token id（怎么选 = 解码策略）
+#   4. 把选出的 id 拼到 prompt 末尾
+#   5. 重复，直到满足停止条件（达到最大长度 / 生成了结束符）
+
+# 简单演示
+def generate(self, ids: torch.Tensor, max_new_tokens: int) -> torch.Tensor:
+  """朴素贪心：每步取 argmax。ch07 会加 top-k / top-p / KV cache。"""
+  self.eval()
+  for _ in range(max_new_tokens):
+      # 上下文超长就截断左侧（推理时无 KV cache 的简单做法）
+      ids_cond = ids[:, -self.max_len :]
+      logits = self(ids_cond)              # (B, n, V)
+      next_logits = logits[:, -1, :]       # 只看最后一步：(B, V)
+      next_id = SomeDecodeStratagy()       # 占位：解码策略，本章聚焦
+      ids = torch.cat([ids, next_id], dim=1)
+```
+
+关键特征：**每步只生成一个 token，且依赖前面所有已生成的 token**——所以叫"自回归"（用自己的输出作为下一步输入）。
+
+最朴素的"选法"是**贪心（greedy）**：每步取 argmax，选概率最高的那个 token。ch06 的练习用的就是这个。但贪心有严重问题（ch06 的练习陷入输出 the 的循环），下文将展开。
+
+---
+
+## 2. 为什么贪心不够
 
 ch06 §04 训完的 MiniGPT 续写 ROMEO 的结果：
 
@@ -37,7 +71,7 @@ The the the the the the the the the the the the the the the the...
 
 ---
 
-## 2. Temperature：拉伸或压缩 softmax
+## 3. Temperature：拉伸或压缩 softmax
 
 ```
 softmax_T(z)_i = exp(z_i / T) / Σ exp(z_j / T)
@@ -73,7 +107,7 @@ softmax_T(z)_i = exp(z_i / T) / Σ exp(z_j / T)
 
 ---
 
-## 3. Top-k 采样
+## 4. Top-k 采样
 
 > 只在概率最高的 k 个 token 里采样，其余直接丢弃。
 
@@ -97,7 +131,7 @@ def top_k_filter(logits: torch.Tensor, k: int) -> torch.Tensor:
 
 ---
 
-## 4. Top-p (nucleus) 采样
+## 5. Top-p (nucleus) 采样
 
 > 选择**累计概率 ≥ p 的最小 token 集合**，在集合内重新归一化采样。
 
@@ -134,7 +168,7 @@ top-k 是"硬截断"，top-p 是"软截断"——后者更主流。经验值：p
 
 ---
 
-## 5. 解码配方与 ch06 退化的解药
+## 6. 解码配方与 ch06 退化的解药
 
 回到 ch06 的 "the the the" 问题。三种解药：
 
@@ -144,13 +178,13 @@ top-k 是"硬截断"，top-p 是"软截断"——后者更主流。经验值：p
 | `T=0.8` | 偶尔跳出循环 | 最小修补 |
 | `T=0.8 + top-k=20 + top-p=0.9` | 几乎不死循环 | 推荐默认 |
 
-ch07 §06 练习 1 会跑出对照打印。
+ch07 §07 练习 1 会跑出对照打印。
 
 > **另一类正交手段：repetition / frequency penalty**。直接对"已生成过的 token"的 logit 减一个惩罚值（OpenAI API 的 `presence_penalty` / `frequency_penalty`），从源头打压重复，可与上面三件套叠加。本章不展开实现。
 
 ---
 
-## 6. KV cache
+## 7. KV cache
 
 ### 6.1 朴素自回归生成的浪费
 
@@ -231,7 +265,7 @@ attention 的 K/V 只依赖各自位置的输入 token——**之前算过的 K/
 
 ---
 
-## 7. 练习
+## 8. 练习
 
 落到 `Playground/ch07-generation/`：
 
