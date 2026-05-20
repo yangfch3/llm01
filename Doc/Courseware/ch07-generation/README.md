@@ -73,15 +73,28 @@ The the the the the the the the the the the the the the the the...
 
 ## 3. Temperature：拉伸或压缩 softmax
 
-```
-softmax_T(z)_i = exp(z_i / T) / Σ exp(z_j / T)
-```
+$$
+\text{softmax}_T(\mathbf{z})_i = \frac{\exp(z_i / T)}{\sum_j \exp(z_j / T)}
+$$
 
 | T | 效果 | 直觉 |
 |---|---|---|
 | T → 0⁺ | softmax 趋于 one-hot | 等价贪心，最确定 |
+| T ≈ 0.7–0.8 | 挤压使分布略尖锐，多样性可控 | 对话/续写常用，兼顾质量与变化 |
 | T = 1 | 原始 softmax | 模型学到的原始分布 |
-| T → ∞ | softmax 趋于均匀 | 完全随机 |
+| T → ∞ | >1 拉伸使分布变缓，∞ 时趋于均匀 | 完全随机 |
+
+**数字示例** — logits = [2.0, 1.0, 0.5]（3 个候选 token）：
+
+| | token A | token B | token C |
+|---|---|---|---|
+| T = 1（原始） | 0.59 | 0.22 | 0.13 |
+| T = 0.8 | 0.67 | 0.20 | 0.10 |
+| 贪心 (T → 0) | 1.00 | 0.00 | 0.00 |
+
+T=0.8 使头部概率更集中（0.59→0.67），尾部被压缩，但仍保留采样多样性；贪心则退化为 argmax。
+
+> 注意：采样是**按概率随机抽取**，不是取最大值。0.67 意味着每步仍有 33% 概率选到其它 token，多步累积即可打破贪心的重复循环。
 
 工程经验：
 
@@ -117,6 +130,8 @@ softmax_T(z)_i = exp(z_i / T) / Σ exp(z_j / T)
 3. softmax + multinomial 采样 1 个
 ```
 
+> multinomial - 带权重（每项概率）的随机抽取
+
 直觉：**截掉长尾**。模型分布尾部往往是大量"明显不该出现"的 token，加起来概率不小但都是噪声。砍掉后采样更安全。
 
 经验值：k ∈ [20, 100]。k=1 等价贪心，k=V（词表大小）等价无截断。
@@ -148,21 +163,19 @@ def top_k_filter(logits: torch.Tensor, k: int) -> torch.Tensor:
 - 模型很确定时（如填"今天天气真"后接什么），分布尖锐，p=0.9 可能只保留 3-5 个 token
 - 模型不确定时（如开放性创意），分布扁平，p=0.9 可能保留几十上百个
 
-top-k 是"硬截断"，top-p 是"软截断"——后者更主流。经验值：p ∈ [0.8, 0.95]。
-
-> 这两者不互斥。GPT-2/LLaMA 的常见配方是 **top-k=50 + top-p=0.95 + T=0.8** 三件套，先 top-k 砍掉离谱长尾、再 top-p 自适应、最后温度调锐度。
+top-k 是"硬截断"，top-p 是"软截断"。经验值：p ∈ [0.8, 0.95]。
 
 ### 自检
 
 1. top-p=1.0 等价于什么？top-k=词表大小呢？
-2. 为什么 top-p 比 top-k 主流？
+2. 如果只能用 top-k 或 top-p 其中一种，为什么 top-p 更受青睐？
 
 <details markdown="1">
 <summary>答案速查</summary>
 
 1. 都等价于"无截断的纯采样"，整个词表都参与归一化采样
 
-2. top-k 的 k 是固定的，无法适配分布形状。模型很确定时 k=50 可能让尾部噪声混入；模型不确定时 k=50 又可能截太狠。top-p 按概率累计自适应，分布尖时自动 k 小、分布平时自动 k 大
+2. top-k 的 k 是固定的，无法适配分布形状。模型很确定时 k=50 可能让尾部噪声混入；模型不确定时 k=50 又可能截太狠。top-p 按概率累计自适应，分布尖时候选少、分布平时候选多——所以二选一时 top-p 更通用。实践中二者常搭配：top-k 当安全网粗筛，top-p 做精细截断
 
 </details>
 
@@ -170,13 +183,17 @@ top-k 是"硬截断"，top-p 是"软截断"——后者更主流。经验值：p
 
 ## 6. 解码配方与 ch06 退化的解药
 
+上面介绍完了 temperature / top-k / top-p 几种解码时的采样算法，需要强调的是这几种方法不是对立冲突的。
+
+如 GPT-2/LLaMA 等的常见配方是 **top-k=50 & top-p=0.95 & T=0.8** 三件套，先 top-k 砍掉离谱长尾、再 top-p 自适应、最后温度调锐度。
+
 回到 ch06 的 "the the the" 问题。三种解药：
 
 | 配方 | 效果 | 适用 |
 |---|---|---|
 | `greedy` | 死循环依旧 | 仅诊断 |
 | `T=0.8` | 偶尔跳出循环 | 最小修补 |
-| `T=0.8 + top-k=20 + top-p=0.9` | 几乎不死循环 | 推荐默认 |
+| `T=0.8 & top-k=20 & top-p=0.9` | 几乎不死循环 | 推荐默认 |
 
 ch07 §07 练习 1 会跑出对照打印。
 
@@ -190,13 +207,16 @@ ch07 §07 练习 1 会跑出对照打印。
 
 ch06 §03 的 `generate` 每生成一个新 token，**整段历史重新跑一遍**：
 
-```
-生成第 t 个 token：
-  forward([id_0, id_1, ..., id_{t-1}])  → logits  → 采样 id_t
-生成第 t+1 个 token：
-  forward([id_0, id_1, ..., id_t])      → logits  → 采样 id_{t+1}
-                                                ↑↑↑
-                                    前 t 个 token 的 K/V 又算了一遍
+```python
+# ch06 03_model.py — MiniGPT.generate（关键行）
+for _ in range(max_new_tokens):
+    ids_cond = ids[:, -self.max_len:]
+    # 每步把整段 ids 历史重新 forward，前 t-1 个 token 的 K/V 白算
+    # self 调用: forward([id_0, id_1, ..., id_{t-1}])
+    logits = self(ids_cond)
+    next_id = logits[:, -1, :].argmax(dim=-1, keepdim=True)
+    # id_t append 到 id_{t-1} 后
+    ids = torch.cat([ids, next_id], dim=1)
 ```
 
 attention 的 K/V 只依赖各自位置的输入 token——**之前算过的 K/V 永远不会变**。每步重算就是纯浪费。
