@@ -1,6 +1,7 @@
 # ch07 · 生成策略与 KV cache
 
 > ch06 训出来的 MiniGPT，其临时的自回归生成用的贪心解码下输出 "the the the the..."。本章解决两件事：
+> 
 > 1. **怎么解码** — 让生成的文本既不傻（贪心退化）也不乱（纯随机崩坏）
 > 2. **怎么提速** — KV cache（Key/Value cache，键值缓存）让生成 n 个 token 的复杂度从 O(n³) 降到 O(n²)
 >

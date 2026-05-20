@@ -4,6 +4,7 @@
 > "能用"包括：能在普通显卡跑、能在 Mac 跑、能 1 秒出第一个 token、能塞进 Ollama 让别人 `ollama run echo` 一句话起。
 >
 > 本章讲清三件事：
+> 
 > 1. 量化（int8/int4）省什么、损什么
 > 2. GGUF（GPT-Generated Unified Format，llama.cpp 系的统一模型存储格式） / llama.cpp 生态为什么是当下"跨平台本地推理"的事实标准
 > 3. 三条主流部署通道（`transformers` 原生 / `llama-cpp-python` / Ollama）的取舍

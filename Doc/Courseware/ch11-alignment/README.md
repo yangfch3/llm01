@@ -5,6 +5,7 @@
 > **对齐（alignment）** 就是把"人类偏好"塞进模型的过程。
 >
 > 本章讲清四件事：
+> 
 > 1. RLHF（Reinforcement Learning from Human Feedback，基于人类反馈的强化学习）三段式（SFT → RM（Reward Model，奖励模型） → PPO（Proximal Policy Optimization，近端策略优化））为什么是这个结构
 > 2. PPO 为什么难训、贵、容易爆
 > 3. DPO 怎么用一个 loss 公式绕开 RM 与 PPO
