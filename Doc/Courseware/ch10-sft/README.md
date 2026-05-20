@@ -1,15 +1,10 @@
 # ch10 · SFT（监督微调）
 
 > Pretrain 教模型"接龙"，但接出来的东西不一定是你想要的——它可能续写一段维基、丢一串代码、或者陷入复读。
-> 
+>
 > **SFT（Supervised Fine-Tuning）** 把模型从"会接龙"调教成"会按对话格式回答问题"。
 >
-> 本章回答四个问题：
-> 
-> 1. SFT 与 Pretrain 在数据、loss、目标上到底差什么
-> 2. 对话模板（chat template）为什么需要、怎么设计
-> 3. loss mask 是 SFT 的灵魂——为什么 prompt 部分不能算 loss
-> 4. 全参微调显存吃不消，LoRA（Low-Rank Adaptation，低秩适配） / QLoRA（Quantized LoRA，量化版 LoRA） 是怎么把它压下去的
+> 本章是 M5 echo 微调的理论基础——数据怎么拼、loss 怎么算、显存不够怎么办，全在这里。
 
 ## 学习目标
 

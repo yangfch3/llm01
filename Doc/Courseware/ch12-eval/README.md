@@ -1,13 +1,10 @@
 # ch12 · 评测（Evaluation）
 
 > "我们训了个模型，效果挺好" —— 业界最不可信的一句话。
+> 
 > "好"是声明，不是结论。结论需要**指标 + 数据集 + 复现配方**。
 >
-> 本章讲清三件事：
-> 
-> 1. PPL（perplexity，困惑度）测什么、什么时候有用、什么时候没用
-> 2. 开源 benchmark（C-Eval（Chinese Evaluation，中文学科评测集） / MMLU（Massive Multitask Language Understanding，大规模多任务语言理解评测集）等）是怎么"考"模型的
-> 3. 为什么自动指标都跑完了还得做人工评测
+> 本章为 echo 项目各阶段（Pretrain / SFT / 对齐）提供统一的评测方法论，M4–M6 每训完一步都要回来用。
 
 ## 学习目标
 

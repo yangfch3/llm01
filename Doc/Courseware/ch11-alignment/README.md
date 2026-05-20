@@ -2,20 +2,17 @@
 
 > SFT 之后的模型已经能"按格式回答"，但回答的**好坏**还没人教过它。
 > "好"是个主观概念——同一个问题两个回答，A 比 B 好在哪？这种偏好信号 SFT 学不到。
+> 
 > **对齐（alignment）** 就是把"人类偏好"塞进模型的过程。
 >
-> 本章讲清四件事：
-> 
-> 1. RLHF（Reinforcement Learning from Human Feedback，基于人类反馈的强化学习）三段式（SFT → RM（Reward Model，奖励模型） → PPO（Proximal Policy Optimization，近端策略优化））为什么是这个结构
-> 2. PPO 为什么难训、贵、容易爆
-> 3. DPO 怎么用一个 loss 公式绕开 RM 与 PPO
-> 4. KTO（Kahneman-Tversky Optimization，前景理论式优化） / ORPO（Odds Ratio Preference Optimization，赔率偏好优化） 等"DPO 改良"在解什么问题
+> 本章以理论 + 公式推导为主，echo 项目 M5 对齐阶段会回来把 DPO 落地。
 
 ## 学习目标
 
 1. 能讲清 RLHF 三段式各自的作用与产物
-2. 能写出 DPO loss 公式，并解释 β、参考模型 π_ref 的角色
-3. 知道在不同数据形态（成对偏好 / 单点打分 / 二元接受）下选哪种对齐算法
+2. 能解释 PPO 在 LLM 对齐中为什么难训（奖励 hacking、高方差、显存开销）
+3. 能写出 DPO loss 公式，并解释 β、参考模型 π_ref 的角色
+4. 知道在不同数据形态（成对偏好 / 单点打分 / 二元接受）下选哪种对齐算法
 
 ## 前置依赖
 

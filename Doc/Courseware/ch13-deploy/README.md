@@ -1,13 +1,10 @@
 # ch13 · 部署（Deployment）
 
 > 训完一个模型，HF 权重躺在硬盘上，怎么让它**真正能用**？
-> "能用"包括：能在普通显卡跑、能在 Mac 跑、能 1 秒出第一个 token、能塞进 Ollama 让别人 `ollama run echo` 一句话起。
->
-> 本章讲清三件事：
 > 
-> 1. 量化（int8/int4）省什么、损什么
-> 2. GGUF（GPT-Generated Unified Format，llama.cpp 系的统一模型存储格式） / llama.cpp 生态为什么是当下"跨平台本地推理"的事实标准
-> 3. 三条主流部署通道（`transformers` 原生 / `llama-cpp-python` / Ollama）的取舍
+> "能用"包括：能在普通显卡跑、能在 Mac 跑、能快速返回第一个 token、能塞进 Ollama 等桌面部署工具让别人 `ollama run echo` 一句话启用。
+> 
+> 本章 = 个人 Demo 小模型部署 ≠ 工业级部署
 
 ## 学习目标
 
@@ -188,6 +185,8 @@ print(out["choices"][0]["text"])
 
 ### 3.3 Ollama
 
+llama.cpp 生态衍生出多款桌面部署工具（LM Studio、Jan、Ollama 等），把"手动编译 + 命令行参数"打包成开箱即用的体验。本项目选 **Ollama** 作为 M6 主路径——它是 CLI 优先、最轻量、且自带 REST API 方便程序化调用。
+
 ```bash
 # 一次性导入 GGUF
 ollama create echo -f Modelfile
@@ -220,6 +219,10 @@ PARAMETER stop "<|im_end|>"
 | 写 Python 服务 / 自定义采样 | llama-cpp-python |
 | 给别人演示 / 桌面 chat | **Ollama**（M6 主路径） |
 | 高并发服务 | 不在本项目范围（用 vLLM） |
+
+> **本章 ≠ 工业级部署**
+>
+> 本章讲的是"单用户、本地、低延迟"的个人/demo 部署链路。工业级在线服务（多用户并发、SLA 保障、弹性扩缩）是完全不同的技术栈：vLLM / TensorRT-LLM / continuous batching / KV cache 分页 / 多卡 tensor parallel。那条线不在本项目范围内，但知道它存在很重要——别把 Ollama 搬上生产。
 
 ---
 
