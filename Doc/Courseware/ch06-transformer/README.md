@@ -20,21 +20,31 @@
 
 ## 1. 全景图
 
+原始 Transformer 有 Encoder 和 Decoder 两部分。名字来自信息论隐喻：**Encoder 把输入"编码"成紧凑的内部表示（理解），Decoder 从表示"解码"出目标序列（生成）**。具体说：Encoder 双向（每个 token 能看左右所有 token）看完整个输入生成上下文向量，Decoder 拿着这些向量单向（每个 token 只能看它左边已有的 token）逐 token 生成输出。
+
+现代 LLM 几乎全是 **Decoder-only**——只保留 Decoder（自回归生成）堆叠，把"理解"和"生成"合并到同一个续写过程中完成。原因：
+
+1. **范式统一**：把输入和输出都当作 token 序列的续写，问答/翻译/写代码用同一种 next-token-prediction（给定前文预测下一个 token）解决，不需要区分"编码端"和"解码端"。
+2. **架构简单**：砍掉 Encoder 和 cross-attention（Decoder 用来读取 Encoder 输出的注意力），只保留 causal self-attention + FFN，训练目标一个 loss 打天下。
+3. **参数效率高**：同等参数预算全集中在同一组重复堆叠的 Block 里而非分散到两套子网络，模型做大后表现优于同规模 Encoder-Decoder（GPT-3 / LLaMA / Qwen 等实证）。
+
+因此本章以及后续的 echo-mini / echo 都只涉及 Decoder-only。下面看它训练的前向传播的完整数据流：
+
 ```
-input_ids: (B, n)
-   ↓ token embedding (V × d)
+input_ids: (B, n)      ← B 条长度为 n 的 token id 序列（B = batch size）
+   ↓ token embedding (V × d)      ← 查表：每个整数 id → d 维向量
    ↓ + 位置编码（绝对正弦 / RoPE 等）
 x: (B, n, d)
    ↓
 ┌─────────────── Block × N ───────────────┐
-│  x → LN → MHA(causal) → +x  (残差 1)    │
-│  x → LN → FFN          → +x  (残差 2)   │
+│  x → LN → MHA(causal) → +x  (残差 1)   │
+│  x → LN → FFN         → +x  (残差 2)   │
 └─────────────────────────────────────────┘
    ↓
 final LN
-   ↓ lm_head: Linear(d → V)
+   ↓ lm_head: Linear(d → V)      ← lm_head（Language Model Head）：把隐状态映射为词表上的预测分布
 logits: (B, n, V)
-   ↓ shift + cross_entropy
+   ↓ shift + cross_entropy      ← shift：logits 和真实 token 错开一位，让每个位置的输出预测下一个 token
 loss
 ```
 
@@ -46,7 +56,7 @@ loss
 
 ### 2.1 为什么需要
 
-Attention 是**集合操作**——`softmax(QK^T/√d)V` 把 token 当成无序集合处理，"我爱你"和"你爱我"对它一样。语言显然不行。必须把"位置"信息塞进去。
+Attention 是**集合操作**——`softmax(QK^T/√d)V` 把 token 当成无序集合处理，打乱输入顺序结果不变，它只看内容相似度，不知道谁在前谁在后。"我爱你"和"你爱我"对它一样。语言显然不行。必须把"位置"信息塞进去。
 
 三大流派：
 
@@ -55,6 +65,8 @@ Attention 是**集合操作**——`softmax(QK^T/√d)V` 把 token 当成无序�
 | 绝对正弦位置编码 | 加在 embedding 上 | 原版 Transformer、BERT 早期 |
 | 学习式位置 embedding | 加在 embedding 上，可训练 | GPT-2、BERT |
 | **RoPE（Rotary Position Embedding，旋转位置编码）** | 在 Q、K 上做旋转 | LLaMA、Qwen、GLM、几乎所有现代 LLM |
+
+> 想直观看到 embedding 加上位置编码前后的数值变化，可运行练习 `Playground/ch06-transformer/01_pos_encoding.py`。
 
 ### 2.2 正弦位置编码
 
@@ -75,11 +87,11 @@ Attention 是**集合操作**——`softmax(QK^T/√d)V` 把 token 当成无序�
 
 > 不要把位置"加"到 embedding 上，而是让位置在 attention 计算时**直接出现在 Q·K 的相对距离里**。
 
-把 d 维 Q（或 K）按相邻两维分组成 d/2 个 2D 向量。对位置 `p` 的第 `i` 个 2D 组，乘一个旋转矩阵：
+做法：把 d 维 Q（或 K）按相邻两维分组成 d/2 个 2D 向量，对每个 2D 向量做平面旋转——旋转角度由位置决定。对位置 `p` 的第 `i` 个 2D 组，乘一个旋转矩阵（作用：把该 2D 向量绕原点旋转 `pθ_i` 角度）：
 
 \[
 R_{p, i} = \begin{pmatrix} \cos(p\theta_i) & -\sin(p\theta_i) \\ \sin(p\theta_i) & \cos(p\theta_i) \end{pmatrix},
-\quad \theta_i = 10000^{-2i/d}
+\quad \theta_i = 10000^{-2i/d} \text{（和正弦编码同一组频率）}
 \]
 
 旋转后 Q·K 算点积时，神奇的事发生：
@@ -88,9 +100,9 @@ R_{p, i} = \begin{pmatrix} \cos(p\theta_i) & -\sin(p\theta_i) \\ \sin(p\theta_i)
 (R_p q) \cdot (R_m k) = q^\top R_{m-p} k
 \]
 
-——结果**只依赖相对距离 `m-p`**（推导用到旋转矩阵正交性：`R_p^\top = R_{-p}`，所以 `R_p^\top R_m = R_{m-p}`）。这就是 RoPE 比绝对位置编码强的根本原因：注意力天然具备相对位置感知。
+——结果**只依赖相对距离 `m-p`**。这就是 RoPE 比绝对位置编码强的根本原因：注意力天然具备相对位置感知。
 
-工程实现就是对 Q、K 做几次三角函数 + 复数乘法，没有新增可学习参数。echo-mini 就用 RoPE。完整推导见 RoFormer 论文。
+工程实现就是对 Q、K 做几次三角函数运算（实际代码常用复数乘法作为等价高效写法，理解上不需要复数知识），没有新增可学习参数。echo-mini 和 echo 都用 RoPE。完整推导见 RoFormer 论文。
 
 ### 自检
 
@@ -116,7 +128,7 @@ ch04 §6.3 留过悬念，这里兑现。
 
 ```
 Post-LN（原版 Transformer，Vaswani 2017）：
-  x → MHA  → +x → LN → FFN → +x → LN
+  x → MHA → +x → LN → FFN → +x → LN
 
 Pre-LN（GPT-2 起的现代主流）：
   x → LN → MHA → +x → LN → FFN → +x
@@ -124,21 +136,39 @@ Pre-LN（GPT-2 起的现代主流）：
 
 差别就一个：**LN 在残差加法之前还是之后**。
 
+用主干/分支视角对比一个 Block：
+
+```
+Post-LN（LN 在主干上，主干被 LN 打断）：
+主干：x ─────────── +x → LN ─────────── +x → LN
+                  ↑                   ↑
+分支：    x → MHA ─┘          x → FFN ─┘
+
+Pre-LN（LN 在分支里，主干是纯加法）：
+主干：x ─────────── +x ─────────── +x
+                  ↑               ↑
+分支： x → LN → MHA ┘  x → LN → FFN ┘
+```
+
+主干 = x 原封不动传过去做加法的路径；分支 = 从 x 岔出去经过处理再加回来。
+
 ### 3.2 为什么 Pre-LN 训得稳
 
-直觉：Post-LN 把残差路径上的输出也归一化了，**残差信号被 LN 的可学习 γ/β 反复重塑**——梯度反传时必须穿过每层 LN 的 Jacobian，深堆几十层后不稳，训练初期需要精细 warmup 才能收敛。
+直觉：Post-LN 中，残差加完之后才做 LN——残差路径上的信号每过一层都被 LN 归一化一次。LN 不只是缩放：它有可学习参数 γ/β（归一化后的缩放/偏移，ch04 §6 讲过），相当于每层都对残差信号做一次非线性变换。深堆几十层后，梯度反传时必须逐层穿过这些 LN 的导数（Jacobian，即多元函数的导数矩阵），容易累积衰减或爆炸，训练初期需要精细 warmup 才能收敛。
 
-Pre-LN 的残差是**纯加法路径**，从输入到输出有一条不被任何归一化打扰的"高速公路"——梯度可以绕过 LN 沿残差直通，深层网络也能训稳。
+Pre-LN 把 LN 放在分支里（MHA/FFN 之前），而不是主干上——残差路径变成纯加法，从第一层到最后一层不经过任何归一化。梯度反传时可以沿残差路径直通回去，不会被 LN 的 Jacobian 逐层衰减，所以深层网络也能训稳。
 
-代价：模型最终输出方差会随层数累积，所以 Pre-LN 模型最末必须**额外加一个 final LN** 把输出拉回正常尺度。
+代价：残差路径上每层都是纯加法（分支输出叠加上去），没有 LN 压制方差，输出方差随层数累积。因此 Pre-LN 模型最末必须**额外加一个 final LN** 把输出拉回正常尺度。
 
 ### 3.3 现状
 
-GPT-2、GPT-3、LLaMA 1/2/3、Qwen、几乎一切 ≥2020 年的 LLM 全是 **Pre-LN**。echo-mini 跟随。
+GPT-2、GPT-3、LLaMA 1/2/3、Qwen、几乎一切 ≥2020 年的 LLM 全是 **Pre-LN**。echo-mini 与 echo 跟随。
 
 ---
 
 ## 4. Transformer Block
+
+Transformer 的主体是 N 个相同结构的 Block 重复堆叠。一个 Block 是模型的最小重复单元，内含一组 MHA + FFN + 残差 + LN。工业界说"32-layer Transformer"里的 "32-layer" 就是指 32 个 Block（如 LLaMA-2-7B），不是指 32 个 Linear。
 
 ```
 def block(x):                    # x: (B, n, d)
@@ -153,35 +183,49 @@ def block(x):                    # x: (B, n, d)
 
 ## 5. FFN（前馈网络）
 
-### 5.1 结构
+### 5.1 为什么需要 FFN
+
+attention 解决的是"看哪些 token、看多少"——它把不同位置的信息加权汇聚起来。但汇聚完之后，每个位置拿到的只是其他 token 的加权平均，缺少对信息的深层加工。
+
+FFN 解决的是"拿到信息后怎么处理"——它对每个位置独立做非线性变换，把汇聚来的信息进一步提炼、组合成更抽象的特征。
+
+两者互补：
+
+- 只有 attention 没有 FFN：模型只是反复在 token 之间混合信息，无法深层加工
+- 只有 FFN 没有 attention：每个 token 闷头变换自己，看不到上下文
+
+类比：attention 像"每个人听取其他人的发言并汇总"，FFN 像"每个人独立消化加工自己拿到的信息"。
+
+经验：FFN 占整个 Transformer **2/3 参数量**（§7 会算出来），它是模型存储事实知识的主要载体——可以简单印象化理解为 attention 负责"查找"，FFN 负责"记忆"。
+
+### 5.2 结构
 
 \[
 \mathrm{FFN}(x) = W_2 \cdot \mathrm{GELU}(W_1 x + b_1) + b_2
 \]
 
-形状：`d → d_ff → d`，其中 **d_ff 通常等于 4d**（GPT-2/3 经验）。LLaMA 系用 `SwiGLU`（Swish-Gated Linear Unit，Swish 门控线性单元）变种（gate/up/down 三个 `d × d_ff` 矩阵），取 `d_ff ≈ 8d/3` 使总参数 `3 · d · d_ff ≈ 8d²`，**与标准 d_ff=4d 双层 FFN 的 `2 · d · 4d = 8d²` 等价**（实际实现会把 d_ff 对齐到 256 等硬件友好倍数，如 LLaMA-7B d=4096 对应 d_ff=11008 而非精确的 10923）。本章先用最朴素的 GELU 双层版。
+即：本质为两 Linear 层，输入 x (d 维) → W1 升维到 d_ff 维 → GELU 激活 → W2 降回 d 维。先展开再压缩，中间的非线性（GELU）是加工的关键。
 
-### 5.2 为什么需要 FFN
+形状：`d → d_ff → d`，其中 **d_ff 通常等于 4d**（GPT-2/3 经验），两个 Linear（W1: d×4d, W2: 4d×d）共 8d² 参数。本章先用这种最朴素的 GELU 双层版。
 
-attention 是"token 之间混合"，FFN 是"每个位置独立做特征变换"。两者互补：
-
-- 没有 FFN：模型只是反复做线性混合，本质是个深的 attention 平均
-- 没有 attention：每个 token 闷头变换自己，没有上下文
-
-经验：FFN 占整个 Transformer **2/3 参数量**——它才是模型存知识的主要地方。
+> 补充：LLaMA 系改用 SwiGLU（Swish-Gated Linear Unit，Swish 门控线性单元）变种，三个矩阵（gate/up/down），取 `d_ff ≈ 8d/3` 使总参数量与标准版持平（≈ 8d²）。
 
 ### 5.3 GELU vs ReLU
 
-GELU = `x · Φ(x)`，其中 Φ 是标准正态 CDF（Cumulative Distribution Function，累积分布函数）。直觉：ReLU 的"软化版"，负半轴不是硬砍而是逐渐衰减。GPT 系一律 GELU。
+GELU = `x · Φ(x)`，其中 Φ 是标准正态（μ=0, σ=1）的 CDF（Cumulative Distribution Function，累积分布函数），值域 (0,1)。直觉：ReLU 的"软化版"，负半轴不是硬砍而是逐渐衰减。GPT-1/2/3 使用 GELU。
 
 ```python
 import torch.nn.functional as F
 F.gelu(x)              # 直接用，PyTorch 原生
 ```
 
+> 补充：2022 年后主流开源 LLM（PaLM、LLaMA、Mistral、Qwen 等）几乎全面转向 SwiGLU 等 GLU 变体，GELU 双层版已退居"经典教学结构"。
+
 ---
 
 ## 6. Embedding 与 lm_head 共享（weight tying）
+
+lm_head（Language Model Head）是模型最后一层 `Linear(d → V)`，负责把每个位置的 d 维隐状态映射到词表大小 V 维的 logits，再经 softmax 得到下一个 token 的概率分布。
 
 token embedding 形状 `(V, d)`，lm_head 形状 `(d, V)`——是同一个矩阵的转置。共享：
 
@@ -190,6 +234,8 @@ self.lm_head.weight = self.token_emb.weight
 ```
 
 省 `V × d` 参数（V=32k、d=768 → ~2500 万参数，能省一大笔），还轻微提升性能（输入空间和输出空间共享几何）。GPT-2 原版就这么做。
+
+现状：大模型（≥7B）主流已**不共享**（LLaMA、Mistral、Qwen 等）。原因是词表变大后，输入端和输出端对 embedding 的需求分化——强制共享反而互相制约；且模型够大时多出的 V×d 参数占比很小。小模型（≤1B）参数预算紧张，共享仍是合理选择。echo-mini 用共享。
 
 ---
 
@@ -250,9 +296,19 @@ class MiniGPT(nn.Module):
         for blk in self.blocks: x = blk(x)
         x = self.ln_final(x)
         return self.lm_head(x)                             # (B, n, V)
+
+    # 推理：逐 token 自回归生成（非本章节内容）
+    def generate(self, ids, max_new_tokens):
+        for _ in range(max_new_tokens):
+            logits = self.forward(ids[:, -max_len:])       # 截断到最大上下文长度
+            next_id = logits[:, -1].argmax(dim=-1, keepdim=True)  # 贪心：取概率最大的 token
+            ids = torch.cat([ids, next_id], dim=1)
+        return ids
 ```
 
-训练时把 `logits[:, :-1]` 与 `ids[:, 1:]` 算 cross_entropy——这就是 ch09 要正经讲的 **CLM（Causal Language Modeling，因果语言建模）目标**。
+整个 `def generate` 及其内部朴素贪心生成（ch07 中讲解）非本章的内容范畴，在这里以及 `03_model.py` 练习代码中引入是为了呼应本章的全景图一节。
+
+训练时把 `logits[:, :-1]` 与 `ids[:, 1:]` 做 shift 错位对齐后算 cross_entropy——这就是 ch09 要正经讲的 **CLM（Causal Language Modeling，因果语言建模）目标**。
 
 ---
 

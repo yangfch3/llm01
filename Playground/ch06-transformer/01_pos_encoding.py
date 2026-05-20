@@ -67,14 +67,25 @@ def main() -> None:
     pe = sinusoidal_pe(max_len=16, d=8)
     print(f"正弦位置编码 shape={tuple(pe.shape)}")
     torch.set_printoptions(precision=3, sci_mode=False)
-    print("前 4 个位置：")
-    print(pe[:4])
-    # 验证：每个位置编码长度应在合理范围（每两维是单位圆上的点，d/2 组 → 范数 √(d/2)）
+    # 正确性检查：每两维是 (sinθ, cosθ)，sin²+cos²=1，d/2 组 → 范数应为 √(d/2)
     norms = pe.norm(dim=-1)
     expected = (8 / 2) ** 0.5
     # torch.full_like(norms, v)：构造与 norms 同 shape/dtype/device，所有元素填充 v
     assert torch.allclose(norms, torch.full_like(norms, expected), atol=1e-5)
-    print(f"每行范数 ≈ √(d/2) = {expected:.3f}\n")
+    print(f"正确性检查：每行范数 = √(d/2) = {expected:.3f} ✓\n")
+
+    # 1.5) embedding + 位置编码 前后对比
+    # 模拟：3 个 token 的 embedding（随机初始化），加上正弦位置编码后观察变化
+    print("=" * 60)
+    print("embedding + 正弦位置编码 前后对比（d=8, 3 个位置）：")
+    print("=" * 60)
+    emb = torch.randn(2, 8) * 0.1  # 模拟小初始化的 embedding
+    pe_3 = sinusoidal_pe(max_len=2, d=8)
+    emb_with_pe = emb + pe_3
+    print(f"原始 embedding（纯内容，不含位置）：\n{emb}")
+    print(f"\n正弦位置编码（纯位置，不含内容）：\n{pe_3}")
+    print(f"\nembedding + PE（内容 + 位置，喂给模型的实际输入）：\n{emb_with_pe}")
+    print(f"\n观察：同一个 embedding 放在不同位置，加的 PE 不同 → 模型能区分位置\n")
 
     # 2) RoPE 相对性质验证
     # 构造同一对 q/k，分别放在位置 (p=2, m=5) 和 (p=10, m=13)，相对距离都是 3
@@ -92,6 +103,17 @@ def main() -> None:
         sin_p = sin[p : p + 1]
         x1, x2 = x.chunk(2, dim=-1)
         return torch.cat([x1 * cos_p - x2 * sin_p, x1 * sin_p + x2 * cos_p], dim=-1).squeeze(0)
+
+    # 2.1) 展示同一个向量在不同位置旋转后的变化
+    print("=" * 60)
+    print("RoPE：同一个 q 向量旋转前后对比（前 8 维）")
+    print("=" * 60)
+    fmt = lambda t: "[" + ", ".join(f"{v:.3f}" for v in t[:8].tolist()) + "]"
+    print(f"  原始 q（未旋转）: {fmt(q)}")
+    for pos in [0, 1, 2, 5, 10]:
+        rotated = rotate_at(q, pos)
+        print(f"  位置 {pos:>2d} 旋转后:  {fmt(rotated)}")
+    print("观察：位置 0 完全不变（旋转角 = 0），位置越大偏离原始值越多\n")
 
     # 配对 1：位置 (2, 5)
     q_rope_1 = rotate_at(q, 2)
