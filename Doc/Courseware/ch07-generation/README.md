@@ -203,7 +203,7 @@ def top_p_filter(logits: torch.Tensor, p: float) -> torch.Tensor:
 
 上面介绍完了 temperature / top-k / top-p 几种解码时的采样算法，需要强调的是这几种方法不是对立冲突的。
 
-如 GPT-2/LLaMA 等的常见配方是 **top-k=50 & top-p=0.95 & T=0.8** 三件套，先 top-k 砍掉离谱长尾、再 top-p 自适应、最后温度调锐度。
+如 GPT-2/LLaMA 等的常见配方是 **top-k=50 & top-p=0.95 & T=0.8** 三件套，先 top-k 砍掉离谱长尾、再 top-p 自适应、最后 Temperature 调锐度。
 
 回到 ch06 的 "the the the" 问题。三种解药：
 
@@ -292,9 +292,7 @@ KV cache 推理分两阶段：
 
 - **训练用不上**：训练时一次性给全长序列，并行算所有位置的 loss，没有"上一步"概念
 - **首次 prefill 走"无 cache"路径**：把 prompt 一次性 forward 进去同时填充 cache，之后才进入"每步推得下一 token"
-- **batch 内不同序列长度问题**：若 batch 内序列等长，KV cache 形状对齐；不等长需要 padding + 合理的 attention mask。
-  - **训练时（无 KV cache）通常右 padding**（loss 用 mask 忽略 pad 即可），前序章节已讲解
-  - **生成时用 left-padding**——因为右边是要新增 token 的"生成区"，pad 必须靠左才能让所有序列的"末位"对齐到同一列，新生成的 token 才好统一拼接（M3 工程细节）
+- **batch 内序列不等长**：KV cache 的 seq_len 维必须对齐，短序列需 left-padding 补齐左侧，attention 时 mask 掉 pad 位置的 K/V。为什么是 left-padding？——右侧是"生成区"，所有序列的末位必须对齐到同一列，新 token 才能统一拼接。（对比：训练时无 KV cache，通常右 padding + loss mask 忽略 pad，与此处无关）
 
 ### 自检
 
