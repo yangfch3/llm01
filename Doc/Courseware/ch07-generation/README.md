@@ -24,6 +24,12 @@ ch06 的 `forward` 输入一段 token 序列，输出每个位置的 logits。�
 
 做法叫**自回归生成（autoregressive generation）**：
 
+![Autoregressive generation](fig_autoregressive.png)
+
+> 图中弧线表示"? 位置对每个已有 token 的关注度"。`a`(.30) 和 `robot`(.50) 贡献最大，其余 token 关注度 <.01。右侧条形图为模型输出的下一词概率分布，最终采样选中 `it`。
+> 
+> 学完本章后续的内容再来看这张图，便会感觉一目了然了。
+
 ```python
 # 给定 prompt = [id_0, id_1, ..., id_k]
 # 循环：
@@ -165,9 +171,21 @@ def top_k_filter(logits: torch.Tensor, k: int) -> torch.Tensor:
 
 top-k 是"硬截断"，top-p 是"软截断"。经验值：p ∈ [0.8, 0.95]。
 
+```python
+def top_p_filter(logits: torch.Tensor, p: float) -> torch.Tensor:
+    # logits: (B, V)；返回同形状，nucleus 外的位置为 -inf
+    sorted_logits, sorted_idx = torch.sort(logits, descending=True)
+    cum_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
+    # 累计概率超过 p 的位置标记为移除（保留第一个超过 p 的 token）
+    remove_mask = cum_probs - F.softmax(sorted_logits, dim=-1) >= p
+    sorted_logits[remove_mask] = float("-inf")
+    # 还原原始顺序
+    return sorted_logits.scatter(1, sorted_idx, sorted_logits)
+```
+
 ### 自检
 
-1. top-p=1.0 等价于什么？top-k=词表大小呢？
+1. top-p=1.0 等价于什么？top-k=<词表长度>呢？
 2. 如果只能用 top-k 或 top-p 其中一种，为什么 top-p 更受青睐？
 
 <details markdown="1">
@@ -181,7 +199,7 @@ top-k 是"硬截断"，top-p 是"软截断"。经验值：p ∈ [0.8, 0.95]。
 
 ---
 
-## 6. 解码配方与 ch06 退化的解药
+## 6. 解码的配方
 
 上面介绍完了 temperature / top-k / top-p 几种解码时的采样算法，需要强调的是这几种方法不是对立冲突的。
 
@@ -234,13 +252,13 @@ attention 的 K/V 只依赖各自位置的输入 token——**之前算过的 K/
 
 每步：
 
-- 输入只是**一个 token**（不是整段历史）
+- 输入需增量计算的只有**上一步采样命中的那个 token**
 - Q 只算 1 个，K/V 只新增 1 个，与历史 K/V cache 拼起来算 attention
-- attention 矩阵形状从 `(t, t)` 退化成 `(1, t)`，对应推理时**没有 mask 也是因果的**（只有一个 query 在最末位）
+- attention 矩阵形状从 `(t, t)` 退化成 `(1, t)`——query 只有最末位一个，天然只能看到自己和之前，**无需显式 causal mask 即满足因果性**
 
 ### 7.3 复杂度对比
 
-设序列长 n，模型维 d，层数 L。
+设生成完成后总序列长 n（含 prompt），模型维 d，层数 L。
 
 | 阶段 | 无 cache | 有 cache |
 |---|---|---|
@@ -248,13 +266,18 @@ attention 的 K/V 只依赖各自位置的输入 token——**之前算过的 K/
 | 生成 n 个 token 总计 | O(n³ · d · L) | O(n² · d · L) |
 | 显存 | 仅 weights | weights + KV cache (O(L · n · d)) |
 
-> 总计复杂度的来源：把每步代价对 t=1..n 求和。无 cache 是 Σt² ≈ n³/3 → O(n³)；有 cache 是 Σt ≈ n²/2 → O(n²)。
+总计复杂度的来源：把每步代价对 t=1..n 求和。无 cache 是 Σt² ≈ n³/3 → O(n³)；有 cache 是 Σt ≈ n²/2 → O(n²)。
 
 **结论**：KV cache 用显存换计算，n 越大省得越多。生成 1k token，无 cache 算 ~10⁹ 次，有 cache ~10⁶ 次，**1000 倍**差距。
 
 ### 7.4 形状变化（必背）
 
-|  | 无 cache（训练 / 首次 prefill） | 有 cache（生成第 t 步） |
+KV cache 推理分两阶段：
+
+1. **Prefill**：把 prompt 整段一次性 forward，填充 KV cache（等价于无 cache 的 forward）
+2. **Decode**：逐 token 生成，每步只算新 token 的 Q/K/V，与 cache 拼接做 attention
+
+|  | Prefill（首次填充 cache） | Decode（第 t 步） |
 |---|---|---|
 | 输入 ids | (B, n) | (B, 1) |
 | Q | (B, H, n, d_k) | (B, H, 1, d_k) |
@@ -263,11 +286,15 @@ attention 的 K/V 只依赖各自位置的输入 token——**之前算过的 K/
 | attention 矩阵 | (B, H, n, n) | (B, H, 1, t) |
 | 输出 | (B, n, d) | (B, 1, d) |
 
+> 表中符号：B = batch size，H = 注意力头数，n = prompt 长度，d_k = 每头维度（d / H），t = 当前已有序列长度（含 prompt + 已生成）。
+
 ### 7.5 边界
 
 - **训练用不上**：训练时一次性给全长序列，并行算所有位置的 loss，没有"上一步"概念
-- **首次 prefill 走"无 cache"路径**：把 prompt 一次性 forward 进去同时填充 cache，之后才进入"每步一 token"
-- **batch 内不同序列长度问题**：若 batch 内序列等长，KV cache 形状对齐；不等长需要 padding + 合理的 attention mask。**训练时通常右 padding**（loss 用 mask 忽略 pad 即可）；**生成时用 left-padding**——因为右边是要新增 token 的"生成区"，pad 必须靠左才能让所有序列的"末位"对齐到同一列，新生成的 token 才好统一拼接（M3 工程细节）
+- **首次 prefill 走"无 cache"路径**：把 prompt 一次性 forward 进去同时填充 cache，之后才进入"每步推得下一 token"
+- **batch 内不同序列长度问题**：若 batch 内序列等长，KV cache 形状对齐；不等长需要 padding + 合理的 attention mask。
+  - **训练时（无 KV cache）通常右 padding**（loss 用 mask 忽略 pad 即可），前序章节已讲解
+  - **生成时用 left-padding**——因为右边是要新增 token 的"生成区"，pad 必须靠左才能让所有序列的"末位"对齐到同一列，新生成的 token 才好统一拼接（M3 工程细节）
 
 ### 自检
 
