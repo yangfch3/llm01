@@ -34,7 +34,7 @@ fig.patch.set_facecolor("white")
 
 # === Left panel: sequence + arrows ===
 ax_seq.set_xlim(-0.5, len(TOKENS) + 1.5)
-ax_seq.set_ylim(-1.8, 3.5)
+ax_seq.set_ylim(-2.2, 3.5)
 ax_seq.axis("off")
 ax_seq.set_aspect("equal")
 
@@ -135,6 +135,27 @@ ax_seq.annotate(
     xy=(target_x, Y_TOK - BOX_H / 2 - 0.05),
     xytext=(target_x, -0.85),
     arrowprops={"arrowstyle": "->,head_width=0.2", "color": "#2e7d32", "lw": 1.5},
+)
+
+# Bottom annotation: region labels
+Y_LABEL = -1.65
+# "Prompt + Generated Tokens" centered under existing token boxes
+ax_seq.annotate(
+    "",
+    xy=(0 - BOX_W / 2, Y_LABEL),
+    xytext=(len(TOKENS) - 1 + BOX_W / 2, Y_LABEL),
+    arrowprops={"arrowstyle": "|-|,widthA=0.3,widthB=0.3", "color": "#555555", "lw": 1.2},
+)
+ax_seq.text(
+    (len(TOKENS) - 1) / 2, Y_LABEL - 0.25,
+    "Prompt + Generated Tokens",
+    ha="center", va="top", fontsize=9, color="#555555",
+)
+# "Next Token" under the ? box
+ax_seq.text(
+    target_x, Y_LABEL - 0.25,
+    "Next Token",
+    ha="center", va="top", fontsize=9, color="#e65100",
 )
 
 # === Right panel: candidate probability bar chart ===
