@@ -30,11 +30,20 @@
 | 数据量级 | TB 级 token | MB–GB 级 token |
 | 训练时长 | 数天–数月 | 数小时–几天 |
 
-> 一句话区分：**Pretrain 让模型 "知道"，SFT 让模型 "按格式说"。**
+一句话区分：**Pretrain 让模型 "知晓规律"，SFT 让模型 "按格式表达"。**
+
+**SFT 训练流程一图流**：
+```
+原始对话 
+→ chat template 渲染成文本 
+→ tokenize 成 `input_ids`
+→ 构造 `labels`（prompt 部分置 -100） 
+→ 喂进模型算 CLM loss
+```
 
 ### 1.1 为什么 SFT 必须基于 pretrain 权重
 
-直接用 SFT 数据从零训会怎样？几万条对话样本撑不起一个语言模型——连基础语法都学不全。SFT 是**站在 pretrain 巨人肩上做轻量微调**，调的是输出风格、格式、指令跟随，不是语言能力本身。
+直接用 SFT 数据从零训会怎样？几万条对话样本撑不起一个语言模型 —— 连基础语法都学不全。SFT 是**站在 pretrain 巨人肩上做轻量微调**，调的是**输出风格、格式、指令跟随**，不是语言能力本身。
 
 ### 1.2 SFT 后还能保住通用能力吗
 
@@ -59,15 +68,13 @@
 
 </details>
 
-> **SFT 训练流程一图流**：原始对话 → chat template 渲染成文本 → tokenize 成 `input_ids` → 构造 `labels`（prompt 部分置 -100）→ 喂进模型算 CLM loss。下面 §2 讲第一步，§3 讲第二三步，§4 讲怎么把 "喂进模型" 那一步在小显存上跑起来。
-
 ---
 
 ## 2. 对话模板（chat template）
 
-### 2.1 模型怎么知道 "轮到它说话了"
+### 2.1 模型如何知道 "轮到它说话了"
 
-Pretrain 模型只见过一坨原始文本，不知道 user / assistant 的概念。SFT 阶段必须**用文本格式编码这个结构信息**——这就是 chat template。
+Pretrain 模型只见过大量原始文本，不知道 user / assistant 的概念。SFT 阶段必须**用文本格式编码这个结构信息** —— 这就是 chat template。
 
 最朴素的写法：
 
@@ -79,9 +86,11 @@ User: 再来一首
 Assistant: ...
 ```
 
-够用，但有歧义：模型不知道 "User:" 这五个字是格式还是用户真的说了 "User"。所以现代模型都用 **special token** 显式标边界。
+够用，但有歧义：模型不知道 "User:" 这五个字是格式还是用户真的说了 "User"。所以现代模型都用 **special token** 显式标记边界 —— 用户基本不会主动说的保留 token。
 
-### 2.2 ChatML 类模板（GPT-3.5 起的事实标准）
+### 2.2 ChatML 类模板
+
+ChatML 是 GPT-3.5 起的事实标准。
 
 ```
 <|im_start|>system
@@ -104,22 +113,25 @@ Assistant: ...
 
 > Qwen / Yi / 国内大多数对话模型都用 ChatML 或其变体。LLaMA-2/3 用自家 `[INST] ... [/INST]`，本质等价。
 
-### 2.3 generation prompt 是 SFT 的核心机关
+### 2.3 generation prompt
 
-训练时给模型看**完整对话**（含最后一个 `<|im_end|>`）；
-推理时给模型看**到 generation prompt 为止**，让它从 `\n` 后开始续写。
+generation prompt 是 SFT 的核心机关。训练时给模型看**完整对话**（含最后一个 `<|im_end|>`）；推理时给模型看**到 generation prompt 为止**，让它从 `\n` 后开始续写。
 
 ```
 训练样本:
 <|im_start|>user\n问<|im_end|>\n<|im_start|>assistant\n答<|im_end|>\n
-                                                         └─模型学着在这里收尾
+                                                      | └─模型学着在这里收尾
+                                                      └─模型学着在这里作答
+                                                          
 
 推理输入:
 <|im_start|>user\n问<|im_end|>\n<|im_start|>assistant\n
-                                                       └─模型从这里开始生成
+                                                      └─模型从这里开始生成
 ```
 
-如果训练时没把 `<|im_end|>` 放进 response 末尾，推理时模型不知道何时停 → 一直生成下去。**EOS 训练数据里必须出现**。
+如果训练时没把 `<|im_end|>` 放进 response 末尾，推理时模型不知道何时停 → 一直生成下去。**EOS (End of Sequence) 训练数据里必须出现**。
+
+**安全延伸：特殊 token 注入。** 用户输入里如果夹带 `<|im_end|>\n<|im_start|>assistant\n` 等字符串，且 tokenizer 将其识别为真正的 special token，模型看到的 turn 结构就被篡改（经典 prompt injection 攻击面）。防御：tokenizer encode 用户输入时设 `allowed_special=set()` 或在入口处过滤/转义控制标记，确保用户文本中的控制串只被当作普通字符拆分、不触发边界语义。
 
 ### 自检
 
@@ -144,19 +156,23 @@ Assistant: ...
 回顾 ch09 的 CLM 公式 `L = -Σ log P(x_t | x_{<t})`。SFT 沿用这个公式，但 **t 只跑 response 的位置**，prompt 与模板 token 全跳过。
 
 ```
-完整序列（拼好的训练样本）:
-  <|im_start|>user\n问<|im_end|>\n<|im_start|>assistant\n答<|im_end|>\n
-  └────── user 段（mask）──────┘└─ gen prompt ─┘└── response 正文 ──┘
-                                  （通常也 mask）  （算 loss）
+Full sequence (one training sample):
 
-input_ids: [t_user_0, ..., t_user_k,   t_gp_0, ..., t_gp_m,   t_resp_0, ..., t_resp_n]
-labels:    [   -100,  ...,    -100,     -100,  ...,   -100,    t_resp_0, ..., t_resp_n]
-            └──────── prompt + 模板全 -100 ────────┘└── 仅 response 正文 + <|im_end|> ──┘
+<|im_start|>user\nQ<|im_end|>\n<|im_start|>assistant\nAI Answer<|im_end|>\n
+|--------- user turn ---------||----- gen prompt ----||---- response ---|
+          (mask, -100)               (mask, -100)        (compute loss)
+
+input_ids: [t_user_0, ..., t_user_k,  t_gp_0, ..., t_gp_m,  t_resp_0, ..., t_resp_n, t_eos]
+labels:    [   -100,  ...,    -100,     -100,  ...,   -100,   t_resp_0, ..., t_resp_n, t_eos]
+            |--- prompt + template: all -100 ---||--- response text + <|im_end|>: loss ---|
 ```
 
-`t_gp_*` 指 `<|im_start|>assistant\n` 这段 generation prompt——它是格式标记不是模型该学的内容，所以也置 -100，只让 `答<|im_end|>` 部分进 loss。
+- user turn: `<|im_start|>user\nQ<|im_end|>\n` — mask（格式标记 + 提问）
+- gen prompt: `<|im_start|>assistant\n` — mask（格式标记，非模型输出）
+- response: `A<|im_end|>` — compute loss（`<|im_end|>` = EOS, 模型必须学会触发）
+- `<|im_end|>` 后的 `\n` 属于模板格式，非模型输出
 
-实现就一行：把 prompt 长度内的 label 都设 `-100`，cross_entropy 自动跳过（ch09 §1.3 已铺垫）。
+实现就一行：把 prompt 长度（user turn + gen prompt）内的 label 都设 `-100`，cross_entropy 自动跳过（ch09 §1.3 已铺垫）。
 
 ### 3.2 为什么不能算 prompt 的 loss
 
