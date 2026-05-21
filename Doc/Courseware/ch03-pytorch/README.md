@@ -191,7 +191,7 @@ logits = model(x)                                # 直接调 model() 等价于 m
 
 1. **参数自动注册**：所有 `nn.Linear` / `nn.Conv2d` 之类的 submodule，它们的 `weight` / `bias` 自动出现在 `model.parameters()` 里
 2. **`.to(device)` 一键搬全家**：所有子参数和 buffer 都跟着搬
-3. **`train() / eval()` 切模式**：影响 Dropout、BN（BtachNorm，批归一化） 等"训推不一致"算子（详见 ch04）
+3. **`train() / eval()` 切模式**：影响 Dropout、BN（BtachNorm，批归一化） 等 "训推不一致" 算子（详见 ch04）
 4. **`state_dict()` 标准持久化**：保存/加载权重的 lingua franca
 
 ```python

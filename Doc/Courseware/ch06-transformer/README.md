@@ -1,6 +1,6 @@
 # ch06 · Transformer 架构（Decoder-only）
 
-> ch05 把"心脏"（attention）拆开看了。本章把整副"骨架"装起来：位置编码 + 残差 + LayerNorm + FFN + lm_head，凑出一个能跑能训的 Decoder-only Transformer。
+> ch05 把 "心脏"（attention）拆开看了。本章把整副 "骨架" 装起来：位置编码 + 残差 + LayerNorm + FFN + lm_head，凑出一个能跑能训的 Decoder-only Transformer。
 > 
 > **这是 echo-mini 的原型**——本章 `MiniGPT` 类放大 10 倍换上 BPE（Byte-Pair Encoding，字节对编码）分词器，就是 M4 要做的事。
 

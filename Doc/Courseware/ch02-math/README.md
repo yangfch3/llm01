@@ -108,7 +108,7 @@ AB = [[19, 22],
 
 **Linear 层就是矩阵乘**：`nn.Linear(in_features=3, out_features=4)` 概念上等价于乘一个 $(3, 4)$ 矩阵，输入 $(N, 3)$ 出来 $(N, 4)$。
 
-> 注：PyTorch 实际把权重存为 $(\text{out}, \text{in}) = (4, 3)$，前向算的是 $y = x W^\top + b$。`print(linear.weight.shape)` 看到的是 $(4, 3)$，别慌——和上面"概念形状"互为转置，乘出来结果一样。这个存储约定是为了行优先访存友好。
+> 注：PyTorch 实际把权重存为 $(\text{out}, \text{in}) = (4, 3)$，前向算的是 $y = x W^\top + b$。`print(linear.weight.shape)` 看到的是 $(4, 3)$，别慌——和上面 "概念形状" 互为转置，乘出来结果一样。这个存储约定是为了行优先访存友好。
 >
 > ```python
 > linear = nn.Linear(3, 4)

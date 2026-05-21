@@ -1,6 +1,6 @@
 # ch09 · 预训练（Pretrain）
 
-> ch06 训过 1M 小 GPT，那不算预训练，那叫"过拟合一段莎士比亚"。
+> ch06 训过 1M 小 GPT，那不算预训练，那叫 "过拟合一段莎士比亚"。
 > 
 > 真正的预训练是：**几百 GB 文本 + 几亿到几千亿参数 + 几天到几月训练时间**。工程难度全在三个字：**省**（显存）、**稳**（不发散）、**快**（吞吐高）。
 >
@@ -22,7 +22,7 @@
 ## 1. CLM 训练目标
 
 > Causal Language Modeling = 给定前文，预测下一个 token。
-> GPT 系全用这个目标，是当下"预训练"的同义词。
+> GPT 系全用这个目标，是当下 "预训练" 的同义词。
 
 ### 1.1 loss 公式
 
@@ -42,7 +42,7 @@ L = -1/n * Σ_{t=1..n} log P_θ(x_t | x_{<t})
 
 ### 1.2 input / labels 怎么对齐
 
-公式说 "用前文预测下一个 token"，落到代码需要两样东西：喂给模型的前文（input）和每个位置的正确答案（labels）。labels 不需要人标——直接从原文右移一位自动得到，这也是"自监督"的含义。
+公式说 "用前文预测下一个 token"，落到代码需要两样东西：喂给模型的前文（input）和每个位置的正确答案（labels）。labels 不需要人标——直接从原文右移一位自动得到，这也是 "自监督" 的含义。
 
 ```
 原始 ids:  [w0, w1, w2, w3, w4]
@@ -64,7 +64,7 @@ loss      = F.cross_entropy(logits.reshape(-1, V), labels.reshape(-1))
 
 ### 1.3 ignore_index 与 padding
 
-batch 内样本长度不同，短的需要 padding 补齐。但 pad 位置没有真实内容，"预测 pad 的下一个"毫无意义——如果参与 loss，模型会学到纯噪声。
+batch 内样本长度不同，短的需要 padding 补齐。但 pad 位置没有真实内容，"预测 pad 的下一个" 毫无意义——如果参与 loss，模型会学到纯噪声。
 
 做法：把不想学的位置 label 设成 `-100`，`F.cross_entropy(ignore_index=-100)` 自动跳过（不算 loss、不回传梯度）。
 
@@ -89,7 +89,7 @@ labels:          [天, 好, <eos>, -100, -100]
 
 1. CLM 学的是 `P(之前所有 | 下一个)`。如果 input==labels，等于让模型直接抄当前位置 → 任务退化为 identity，没学到任何 "预测"
 
-2. 如果不处理：pad 位也参与 loss → 模型学会"看到 pad 后预测什么"，纯噪声，污染训练。正确做法：pad 位置的 label 设 `-100`，cross_entropy 默认 ignore，分母也跳过这些位置
+2. 如果不处理：pad 位也参与 loss → 模型学会 "看到 pad 后预测什么"，纯噪声，污染训练。正确做法：pad 位置的 label 设 `-100`，cross_entropy 默认 ignore，分母也跳过这些位置
 
 </details>
 
@@ -302,7 +302,7 @@ model.gradient_checkpointing_enable()
 | + grad accum × 4 | 0.55× | 1.5× |
 | + ckpt | 0.20× | 1.2× |
 
-grad accum 那行显存与上一行相同——这是对的：每个 micro-batch 仍要完整前向，单次显存占用不变。它省的是"想跑等效 batch=64 时显存放不下"的那份显存（你只需 batch=16 的显存就达到等效 64 的训练效果）。
+grad accum 那行显存与上一行相同——这是对的：每个 micro-batch 仍要完整前向，单次显存占用不变。它省的是 "想跑等效 batch=64 时显存放不下" 的那份显存（你只需 batch=16 的显存就达到等效 64 的训练效果）。
 
 速度列是相对纯 fp32 基线的端到端吞吐（单位 token/s）。+ckpt 这行的 1.2× 是叠加了 AMP 加速后的净效果 —— ckpt 自身让训练慢 ~30%（多一次前向重算），但 AMP 的 ~1.7× 加速能盖住它。
 
@@ -400,7 +400,7 @@ C: 算力 (FLOPs（Floating Point Operations，浮点运算次数）) ≈ 6 * N 
 | 脚本 | 内容 |
 |---|---|
 | `01_clm_loss.py` | 手动 shift 算 loss，与 HF 风格 `labels=` 自动 shift 对比；演示 `ignore_index=-100` 的效果 |
-| `02_packing.py` | 把若干变长"假文档"做 packing，对比 padding 与 packing 的有效 token 比例 |
+| `02_packing.py` | 把若干变长 "假文档" 做 packing，对比 padding 与 packing 的有效 token 比例 |
 | `03_amp_gradacc.py` | 在小 MiniGPT 上分别开 / 关 AMP + grad accumulation + checkpointing，打印显存与时间对比 |
 
 跑法：
@@ -415,8 +415,8 @@ uv run python Playground/ch09-pretrain/03_amp_gradacc.py
 
 ## 思考题
 
-1. 为什么 LLaMA-3 用 15T token 训 8B（远超 Chinchilla 的 160B），仍说"未饱和"？这违反 scaling law 吗？
-2. 你能想到哪些数据 packing 之外的"省吞吐"手段？（提示：dataloader workers / pinned memory / fused optimizer / FSDP（Fully Sharded Data Parallel，完全分片数据并行））
+1. 为什么 LLaMA-3 用 15T token 训 8B（远超 Chinchilla 的 160B），仍说 "未饱和"？这违反 scaling law 吗？
+2. 你能想到哪些数据 packing 之外的 "省吞吐" 手段？（提示：dataloader workers / pinned memory / fused optimizer / FSDP（Fully Sharded Data Parallel，完全分片数据并行））
 3. 推理阶段（ch07 KV cache）和训练阶段（本章 packing）对显存的诉求完全不同，能从这种差异看出什么工程哲学？
 
 ## 参考资料

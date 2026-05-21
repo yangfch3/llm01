@@ -1,8 +1,8 @@
 # ch10 · 监督微调（SFT）
 
-> Pretrain 教模型"接龙"，但接出来的东西不一定是你想要的——它可能续写一段维基、丢一串代码、或者陷入复读。
+> Pretrain 教模型 "接龙"，但接出来的东西不一定是你想要的——它可能续写一段维基、丢一串代码、或者陷入复读。
 >
-> **SFT（Supervised Fine-Tuning）** 把模型从"会接龙"调教成"会按对话格式回答问题"。
+> **SFT（Supervised Fine-Tuning）** 把模型从 "会接龙" 调教成 "会按对话格式回答问题"。
 >
 > 本章是 M5 echo 微调的理论基础——数据怎么拼、loss 怎么算、显存不够怎么办，全在这里。
 
@@ -24,13 +24,13 @@
 | 维度 | Pretrain | SFT |
 |---|---|---|
 | 数据 | 海量原始文本（爬虫/书/代码），无结构 | 几千–几十万条 (prompt, response) 对话样本，**人工或合成** |
-| 目标 | 学语言分布 P(token \| 前文) | 学"在 prompt 后输出符合期望的 response" |
+| 目标 | 学语言分布 P(token \| 前文) | 学 "在 prompt 后输出符合期望的 response" |
 | Loss | 全序列 CLM | **只对 response 部分算 CLM**，prompt 部分 mask 掉 |
 | 模型变动 | 从随机初始化训起 | **基于 pretrain 权重继续训**，lr 小一两个量级 |
 | 数据量级 | TB 级 token | MB–GB 级 token |
 | 训练时长 | 数天–数月 | 数小时–几天 |
 
-> 一句话区分：**Pretrain 让模型"知道"，SFT 让模型"按格式说"。**
+> 一句话区分：**Pretrain 让模型 "知道"，SFT 让模型 "按格式说"。**
 
 ### 1.1 为什么 SFT 必须基于 pretrain 权重
 
@@ -53,19 +53,19 @@
 <details markdown="1">
 <summary>答案速查</summary>
 
-1. 模型把"复述用户提问"也当成训练目标 → 推理时容易把 prompt 又输出一遍，且把宝贵的容量浪费在学习 user 输入的分布上，response 学不专心
+1. 模型把 "复述用户提问" 也当成训练目标 → 推理时容易把 prompt 又输出一遍，且把宝贵的容量浪费在学习 user 输入的分布上，response 学不专心
 
 2. SFT 在 pretrain 权重附近做小幅修正，lr 大了会把 pretrain 学到的语言能力冲掉（catastrophic forgetting）；典型 SFT lr 在 `1e-5` ~ `5e-5`，pretrain 常 `1e-4` ~ `6e-4`
 
 </details>
 
-> **SFT 训练流程一图流**：原始对话 → chat template 渲染成文本 → tokenize 成 `input_ids` → 构造 `labels`（prompt 部分置 -100）→ 喂进模型算 CLM loss。下面 §2 讲第一步，§3 讲第二三步，§4 讲怎么把"喂进模型"那一步在小显存上跑起来。
+> **SFT 训练流程一图流**：原始对话 → chat template 渲染成文本 → tokenize 成 `input_ids` → 构造 `labels`（prompt 部分置 -100）→ 喂进模型算 CLM loss。下面 §2 讲第一步，§3 讲第二三步，§4 讲怎么把 "喂进模型" 那一步在小显存上跑起来。
 
 ---
 
 ## 2. 对话模板（chat template）
 
-### 2.1 模型怎么知道"轮到它说话了"
+### 2.1 模型怎么知道 "轮到它说话了"
 
 Pretrain 模型只见过一坨原始文本，不知道 user / assistant 的概念。SFT 阶段必须**用文本格式编码这个结构信息**——这就是 chat template。
 
@@ -99,7 +99,7 @@ Assistant: ...
 
 - `<|im_start|>` / `<|im_end|>` 是分词器里**预留的 special token**（不是 BPE 出来的子串），单 token id
 - 每个 turn 形如 `<|im_start|>{role}\n{content}<|im_end|>\n`
-- **末尾有意不闭合**：以 `<|im_start|>assistant\n` 结尾告诉模型"该你说了"。这叫 **generation prompt**
+- **末尾有意不闭合**：以 `<|im_start|>assistant\n` 结尾告诉模型 "该你说了"。这叫 **generation prompt**
 - system 是可选的全局指令，约定放最前
 
 > Qwen / Yi / 国内大多数对话模型都用 ChatML 或其变体。LLaMA-2/3 用自家 `[INST] ... [/INST]`，本质等价。
@@ -131,7 +131,7 @@ Assistant: ...
 
 1. 普通子串会被 BPE 拆成多个 token（`<`, `|`, `im`, ...），模型必须凑齐这串才能识别边界，鲁棒性差；special token 是单 id，分词器永远把它整体输出，模型一眼就识别
 
-2. 模型学不到"该停了"的信号，推理时会续写无止境，直到撞上 max_new_tokens。`<|im_end|>` 既是边界也是 EOS，必须算进 response 部分让模型学
+2. 模型学不到 "该停了" 的信号，推理时会续写无止境，直到撞上 max_new_tokens。`<|im_end|>` 既是边界也是 EOS，必须算进 response 部分让模型学
 
 </details>
 
@@ -162,7 +162,7 @@ labels:    [   -100,  ...,    -100,     -100,  ...,   -100,    t_resp_0, ..., t_
 
 - **目标错位**：你要的是模型学回答，不是学复述用户输入
 - **数据浪费**：prompt 在不同样本里是各色用户提问，分布很杂；让模型学拟合它会把容量浪费在无用方向
-- **推理偏移**：训练时学过"看到 user 输入就接着输出 user 风格的话" → 推理时容易把 user 的话再重复一遍
+- **推理偏移**：训练时学过 "看到 user 输入就接着输出 user 风格的话" → 推理时容易把 user 的话再重复一遍
 
 ### 3.3 多轮对话的 mask
 
@@ -195,7 +195,7 @@ ch09 讲过 pretrain 必做 packing。SFT 数据通常较短（几百–几千 t
 
 1. 200 个（prompt 部分），加上前面的 system / 模板 token；response 50 个 token 对应 50 个真实 label
 
-2. 多轮样本前几轮的 assistant 答提供了**上下文**，让模型学会"在已经聊过 N 轮的状态下继续合理回复"。每一轮 response 都是独立的训练信号，多轮样本相当于一次训了 N 个有递进上下文的小样本
+2. 多轮样本前几轮的 assistant 答提供了**上下文**，让模型学会 "在已经聊过 N 轮的状态下继续合理回复"。每一轮 response 都是独立的训练信号，多轮样本相当于一次训了 N 个有递进上下文的小样本
 
 </details>
 
@@ -234,7 +234,7 @@ B: (out, r)                # 低秩矩阵，初始化为 0
 
 **关键直觉**：
 
-- 微调过程中权重的"变化量"`ΔW` 在低秩子空间里就够表达——大模型参数高度冗余
+- 微调过程中权重的 "变化量" `ΔW` 在低秩子空间里就够表达——大模型参数高度冗余
 - B 初始化为 0 → 训练开始时旁路输出 = 0 → 等价于完全用原模型
 - 训练只更新 B、A，参数量从 `out×in` 降到 `r×(in+out)`
 
@@ -260,7 +260,7 @@ activations: 与全参差不多       # 前向还是要走全网络
 总计 ~14.5GB，3060 紧但能上
 ```
 
-> 注意 weights 那行还是 14GB——LoRA 不省 base model 的存储，只省**梯度 + 优化器状态**。activations 也不省，因为前向必须走完整 W。**LoRA 不是"压缩模型"，是"压缩可训参数"。**
+> 注意 weights 那行还是 14GB——LoRA 不省 base model 的存储，只省**梯度 + 优化器状态**。activations 也不省，因为前向必须走完整 W。**LoRA 不是 "压缩模型"，是 "压缩可训参数"。**
 >
 > 想再砍 activations？叠 ch09 §3.3 的 gradient checkpointing，LoRA + ckpt 是 7B 微调的标配组合。
 
@@ -324,7 +324,7 @@ QLoRA 做了三件事：
 
 - **回答完整、格式一致**：每条 response 都按预期 markdown / 段落组织
 - **指令多样性**：覆盖问答、改写、总结、推理、代码、拒绝等不同任务
-- **拒答样本**：教模型说"我不知道"或拒绝越界请求
+- **拒答样本**：教模型说 "我不知道" 或拒绝越界请求
 - **难度梯度**：既有简单事实也有需要多步推理的复杂问题
 
 ### 5.2 常见数据来源
@@ -341,7 +341,7 @@ echo 系列：M4 echo-mini 用公开 + 少量 GPT 生成补足；M5 echo 用 Tü
 ### 自检
 
 1. SFT 数据 5000 条但全是闲聊，跟 500 条覆盖 10 类任务，哪个效果好？
-2. "拒答样本"在 SFT 里起什么作用？
+2. "拒答样本" 在 SFT 里起什么作用？
 
 <details markdown="1">
 <summary>答案速查</summary>
@@ -375,7 +375,7 @@ uv run python Playground/ch10-sft/03_lora_demo.py
 ## 思考题
 
 1. 为什么 LoRA 通常只挂在 attention 的 q/k/v/o 上，不挂 FFN？挂 FFN 会怎样？
-2. SFT 之后再做对齐（ch11 DPO（Direct Preference Optimization，直接偏好优化））能进一步提升，反过来"先 DPO 再 SFT"行不行？为什么？
+2. SFT 之后再做对齐（ch11 DPO（Direct Preference Optimization，直接偏好优化））能进一步提升，反过来 "先 DPO 再 SFT" 行不行？为什么？
 3. 数据混合时 pretrain 数据该占多大比例？小了没用，大了 SFT 信号被淹没
 
 ## 参考资料

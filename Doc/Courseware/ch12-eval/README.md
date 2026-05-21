@@ -9,7 +9,7 @@
 ## 学习目标
 
 1. 能写出 PPL 公式与 CLM loss 的关系，知道两个模型能不能直接比 PPL
-2. 理解 MMLU/C-Eval 这类多选题 benchmark 的"打分"机制（loglikelihood scoring）
+2. 理解 MMLU/C-Eval 这类多选题 benchmark 的 "打分" 机制（loglikelihood scoring）
 3. 知道开源 benchmark 的常见坑：污染、prompt 敏感、多选 vs 生成
 4. 能为自己的模型设计一份 minimal 评测套件（PPL + 小 benchmark + 人工抽样）
 
@@ -111,7 +111,7 @@ ppl = math.exp(total_nll / total_tokens)
 
 ### 2.2 多选题怎么"考" LLM：loglikelihood scoring
 
-直觉做法是让模型自由生成"A"/"B"/"C"/"D"再解析，但模型可能输出 `"A."`、`" A"`、`"我觉得是 A"` 等无数变体，解析脆弱。
+直觉做法是让模型自由生成 "A"/"B"/"C"/"D" 再解析，但模型可能输出 `"A."`、`" A"`、`"我觉得是 A"` 等无数变体，解析脆弱。
 主流做法换个角度：把"选哪个"转成"4 个候选答案谁的条件概率最高"——**loglikelihood scoring**：
 
 ```

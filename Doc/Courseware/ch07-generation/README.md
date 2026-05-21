@@ -30,7 +30,7 @@ ch06 的 `forward` 输入一段 token 序列，输出每个位置的 logits。�
 # 循环：
 #   1. forward(prompt) → logits: (1, len, V)
 #   2. 取最后一个位置的 logits[:, -1, :] → (1, V)
-#   3. 从这个分布里"选"一个 token id（怎么选 = 解码策略）
+#   3. 从这个分布里 "选" 一个 token id（怎么选 = 解码策略）
 #   4. 把选出的 id 拼到 prompt 末尾
 #   5. 重复，直到满足停止条件（达到最大长度 / 生成了结束符）
 
