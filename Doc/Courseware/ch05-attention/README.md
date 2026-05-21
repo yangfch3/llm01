@@ -197,7 +197,7 @@ logits = logits.masked_fill(mask == 0, float("-inf"))
 
 ### 3.3 两种 mask 同时存在
 
-实战训练里两者通常**一起**应用：causal mask 防偷看 + padding mask 排除补位。实现上只需合并成一个 mask——某位置只要任一条件说"不可看"，最终就不可看（实现方式：两个 Mask 矩阵相 AND / 加性 MASK 相加）。
+实战训练里两者通常**一起**应用：causal mask 防偷看 + padding mask 排除补位。实现上只需合并成一个 mask——某位置只要任一条件说 "不可看"，最终就不可看（实现方式：两个 Mask 矩阵相 AND / 加性 MASK 相加）。
 
 ### 自检
 

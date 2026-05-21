@@ -120,8 +120,8 @@ generation prompt 是 SFT 的核心机关。训练时给模型看**完整对话*
 ```
 训练样本:
 <|im_start|>user\n问<|im_end|>\n<|im_start|>assistant\n答<|im_end|>\n
-                                                      | └─模型学着在这里收尾
-                                                      └─模型学着在这里作答
+                                                      |           └─模型学着在这里收尾
+                                                      └─模型学着在这里续写
                                                           
 
 推理输入:
@@ -170,27 +170,34 @@ labels:    [   -100,  ...,    -100,     -100,  ...,   -100,   t_resp_0, ..., t_r
 - user turn: `<|im_start|>user\nQ<|im_end|>\n` — mask（格式标记 + 提问）
 - gen prompt: `<|im_start|>assistant\n` — mask（格式标记，非模型输出）
 - response: `A<|im_end|>` — compute loss（`<|im_end|>` = EOS, 模型必须学会触发）
-- `<|im_end|>` 后的 `\n` 属于模板格式，非模型输出
+- `<|im_end|>` 后的 `\n`：属于模板格式，非模型输出
 
 实现就一行：把 prompt 长度（user turn + gen prompt）内的 label 都设 `-100`，cross_entropy 自动跳过（ch09 §1.3 已铺垫）。
 
 ### 3.2 为什么不能算 prompt 的 loss
 
-- **目标错位**：你要的是模型学回答，不是学复述用户输入
-- **数据浪费**：prompt 在不同样本里是各色用户提问，分布很杂；让模型学拟合它会把容量浪费在无用方向
-- **推理偏移**：训练时学过 "看到 user 输入就接着输出 user 风格的话" → 推理时容易把 user 的话再重复一遍
+SFT 时不算 prompt 的 loss == 不贡献梯度 ≠ 不需要看到 prompt 部分。
+
+prompt 部分虽然不贡献梯度（label=-100），但它参与前向计算 —— 模型通过 attention 看到完整 prompt 才能在 response 位置产出正确的条件概率 **P (response_t | prompt, response_{<t})**。
+
+如果 prompt 算了 loss: 
+
+- **目标错位**：算 prompt loss -> 会让模型学着拟合问题的表述，你要的是模型学回答，不是学习 user 提问口吻以及复述用户输入
+- **容量浪费**：模型有限容量被迫同时拟合 user 输入分布（高噪声、每条不同）和 response 分布，后者空间被挤压、浪费
+- **推理偏移**：训练时如果学过 "看到 user 输入就概率输出 user 风格的话、概率输出问题中的字眼" → 推理时容易把 user 的话再重复一遍
+- **生成污染**：turn 含义的 special token 也被拟合进去了，到时模型就有概率生成伪 turn 标记
 
 ### 3.3 多轮对话的 mask
 
-多轮样本里 assistant 会出现多次。**所有 assistant 的 response 部分都算 loss**，所有 user / system / 模板 token 都 mask：
+为了让模型能学习到合理的多轮对话回复，SFT 的训练语料中会有多轮对话样本。多轮样本里 assistant 会出现多次。**所有 assistant 的 response 部分都算 loss**，所有 user / system / 模板 token 都 mask：
 
 ```
-<|im_start|>system\n你是助手<|im_end|>\n          ← 全 mask
-<|im_start|>user\n问1<|im_end|>\n                 ← 全 mask
-<|im_start|>assistant\n  答1<|im_end|>\n          ← 前缀 mask，仅 "答1<|im_end|>" 算 loss
-                  └ generation prompt 通常 mask ┘
-<|im_start|>user\n问2<|im_end|>\n                 ← 全 mask
-<|im_start|>assistant\n  答2<|im_end|>\n          ← 同上
+<|im_start|>system\n你是助手<|im_end|>\n    ← 全 mask
+<|im_start|>user\n问1<|im_end|>\n           ← 全 mask
+<|im_start|>assistant\n  答1<|im_end|>\n    ← generation prompt mask，仅 "答1<|im_end|>" 算 loss
+└---------------------┘---generation prompt
+<|im_start|>user\n问2<|im_end|>\n           ← 全 mask
+<|im_start|>assistant\n  答2<|im_end|>\n    ← 同上
 ```
 
 > `<|im_start|>assistant\n` 这段 generation prompt 是格式而非内容，**通常也 mask 掉**。HF 的 `apply_chat_template` 配 `return_assistant_tokens_mask=True` 能直接拿到 mask。
@@ -221,22 +228,24 @@ ch09 讲过 pretrain 必做 packing。SFT 数据通常较短（几百–几千 t
 
 ### 4.1 全参微调贵在哪
 
-7B 模型 SFT 全参训：
+我们先来算一下一个 7B 模型全参 SFT 的资源开销：
 
 ```
 weights:    7B × 2B (bf16)   = 14GB
 gradients:  7B × 2B (bf16)   = 14GB
 optimizer:  7B × 8B (Adam fp32 m+v) = 56GB
-activations: 与 batch×seq 成正比，几 GB
+activations: 与 batch×seq 成正比，2-15GB (seq 512~4096)
 ─────────────────────────────────────
-总计 ~85GB+，A100 80GB 都嫌挤
+总计：85GB + activations，A100 80GB 都嫌挤
 ```
 
-3060 12GB 想都别想。**LoRA 把可训参数砍掉 99%。**
+监督微调，既然叫微调了，直观上其资源还需要和 Pretrain 相同的量级似乎不太合理，业内有何解决方案呢？
+
+下面会先介绍 LoRA，**LoRA 把可训参数砍掉 99%。**
 
 ### 4.2 LoRA 核心公式
 
-> 论文：Hu et al. 2021。一句话：**冻结原矩阵 W，旁路加一个低秩分解 BA 学增量。**
+思路来自论文：Hu et al. 2021。一句话描述便是：**冻结原矩阵 W，旁路加一个低秩分解 BA 学增量。**"低秩分解" = 用两个瘦矩阵（B、A）的乘积代替一个大矩阵（W 的规模），牺牲表达能力（秩被限制）换取参数量大幅缩减。
 
 对一个线性层 `y = Wx`，LoRA 改成：
 
@@ -248,13 +257,17 @@ B: (out, r)                # 低秩矩阵，初始化为 0
 α: 缩放系数（超参）
 ```
 
-**关键直觉**：
+**关键直觉/假设**：
 
-- 微调过程中权重的 "变化量" `ΔW` 在低秩子空间里就够表达——大模型参数高度冗余
+- 微调过程中权重的 "变化量" `ΔW` 在低秩子空间（8~64）里就够表达 —— 大模型参数高度冗余
 - B 初始化为 0 → 训练开始时旁路输出 = 0 → 等价于完全用原模型
-- 训练只更新 B、A，参数量从 `out×in` 降到 `r×(in+out)`
+- 训练只更新 B、A，待训参数量从 `out×in` 降到 `r×(in+out)`
 
-**`α/r` 是干嘛的**：经验上调大 r 会推大旁路输出尺度，`α/r` 缩放让你**调 r 时不必重调 lr**。约定 α 与初始 r 一起定（如 α=16, r=8 → scale=2），后续只动 r、α 不动。这是 LoRA 论文的工程经验，不是数学必然。
+旁路中的 **`α/r` 是干嘛的**：经验上调大 r 会推大旁路输出尺度，`α/r` 缩放让你 **调 r 时不必重调 lr**。约定 α 与初始 r 一起定（如 α=16, r=8 → scale=2），后续只动 r、α 不动。这是 LoRA 论文的工程经验，不是数学必然。
+
+> 为什么能抵消：r 增大 → A 行数增加 → `Ax` 方差与 r 成正比 → 旁路输出尺度线性增长；同时 `α/r` 线性缩小，两者相消 → 输出尺度（从而梯度尺度）对 r 不敏感 → 同一 lr 基本可沿用。
+>
+> 简版：r↑ → Ax 方差 ∝ r → α/r 线性抵消 → lr 不敏感
 
 参数量对比（7B 模型 attention 的 q/k/v/o 全加 LoRA，r=8）：
 
@@ -267,22 +280,24 @@ LoRA r=8： 4 × r × 2d ≈ 4 × 8 × 8192 = 0.26M（×32 层 = 8.4M）
 
 ### 4.3 显存账重新算
 
+继续用上面 7B 模型的例子，算算 LoRA 下的开销：
+
 ```
-weights:    7B × 2B = 14GB     # 冻结但仍要存
-gradients:  8.4M × 2B = 17MB   # 只对 LoRA 算梯度
-optimizer:  8.4M × 8B = 67MB   # Adam 状态只对 LoRA
-activations: 与全参差不多       # 前向还是要走全网络
+weights:        7B × 2B = 14GB      # 冻结但仍要存
+gradients:      8.4M × 2B = 17MB    # 只对 LoRA 算梯度
+optimizer:      8.4M × 8B = 67MB    # Adam 状态只对 LoRA
+activations:    与全参差不多          # 前向还是要走全网络
 ─────────────────────────────
-总计 ~14.5GB，3060 紧但能上
+总计 14.5GB + activations
 ```
 
-> 注意 weights 那行还是 14GB——LoRA 不省 base model 的存储，只省**梯度 + 优化器状态**。activations 也不省，因为前向必须走完整 W。**LoRA 不是 "压缩模型"，是 "压缩可训参数"。**
->
-> 想再砍 activations？叠 ch09 §3.3 的 gradient checkpointing，LoRA + ckpt 是 7B 微调的标配组合。
+注意 weights 那行还是 14GB —— LoRA 不省 base model 的存储，只省**梯度 + 优化器状态**。activations 也不省，因为前向必须走完整 W。**LoRA 不是 "压缩模型"，是 "压缩 SFT 的可训参数"。**
+
+想再砍 activations？可叠 ch09 §3.3 的 gradient checkpointing，LoRA + ckpt 是 7B 微调的标配组合。
 
 ### 4.4 QLoRA 多走一步
 
-> Dettmers et al. 2023。LoRA + 把 base model 量化到 4bit。
+来自 Dettmers et al. 2023，思路是 LoRA + 把 base model 量化到 4bit。
 
 ```
 weights:    7B × 0.5B (NF4 4bit) = 3.5GB    ← 砍 4 倍
@@ -290,7 +305,7 @@ gradients:  8.4M × 2B = 17MB
 optimizer:  8.4M × 8B = 67MB
 activations: 与 LoRA 同
 ─────────────────────────────
-总计 ~4GB，3060 轻松，连 7B 都能微调
+总计：4GB + activations
 ```
 
 QLoRA 做了三件事：
