@@ -1,4 +1,4 @@
-# ch05 · 注意力机制
+# ch05 · 注意力机制（Attention）
 
 > M2 起步章。注意力是 Transformer 的心脏，也是 LLM 全部能力的源头。
 > 
