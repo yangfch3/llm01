@@ -308,6 +308,10 @@ grad accum 那行显存与上一行相同——这是对的：每个 micro-batch
 
 消费卡上想训 100M+ 模型，这三件套基本都得开。
 
+实测对比（3060，d=512 12 层模型，bench 脚本 `03_amp_gradacc_bench.py` 产出）：
+
+![三件套对比](03_bench_compare.png)
+
 ### 自检
 
 1. bf16 比 fp16 安全在哪？为什么仍有项目坚持 fp16？
