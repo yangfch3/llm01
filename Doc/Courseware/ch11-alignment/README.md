@@ -1,9 +1,9 @@
 # ch11 · 对齐（Alignment）
 
-> SFT 之后的模型已经能"按格式回答"，但回答的**好坏**还没人教过它。
-> "好"是个主观概念——同一个问题两个回答，A 比 B 好在哪？这种偏好信号 SFT 学不到。
+> SFT 之后的模型已经能 "按格式回答"，但回答的**好坏**还没人教过它。
+> "好"是个主观概念 —— 同一个问题两个回答，A 比 B 好在哪？这种偏好信号 SFT 学不到。
 > 
-> **对齐（alignment）** 就是把"人类偏好"塞进模型的过程。
+> **对齐（alignment）** 就是把 "人类评委的偏好" 塞进模型的过程。
 >
 > 本章以理论 + 公式推导为主，echo 项目 M5 对齐阶段会回来把 DPO 落地。
 
@@ -17,7 +17,7 @@
 ## 前置依赖
 
 - ch10（SFT、loss mask、LoRA）；ch09 的 CLM loss
-- 对"概率模型对一段序列的对数似然"`log P(y|x) = Σ log P(y_t|x, y_<t)` 要熟
+- 对 "概率模型对一段序列的对数似然" `log P(y|x) = Σ log P(y_t|x, y_<t)` 要熟
 
 ---
 
@@ -25,7 +25,7 @@
 
 ### 1.1 SFT 的天花板
 
-SFT 数据形如 `(prompt, response)`，是一种"模仿学习"——告诉模型**这样答**，但**不告诉模型为什么这样比那样好**。
+SFT 数据形如 `(prompt, response)`，是一种 "模仿学习" —— 告诉模型**这样答**，但**不告诉模型为什么这样比那样好**。
 
 实际场景里同一个 prompt 可以有许多合理回答：
 
@@ -36,11 +36,11 @@ A2: 学 Python 没有标准答案，要看你目标...        ← 详细
 A3: 先 print('hello world')                    ← 偷懒
 ```
 
-哪个最好？看场景、看用户、看心情。SFT 数据里每条 prompt 通常只配一个 response，模型学到的只是"某种合理回答的样本"，不是"哪种回答更被偏好"。
+哪个最好？看场景、看用户、看心情。SFT 数据里每条 prompt 通常只配一个 response，模型学到的只是 "某种合理回答的样本"，不是 "哪种回答更被偏好"。
 
-### 1.2 偏好信号比"金标准"便宜
+### 1.2 偏好信号比 "金标准" 便宜
 
-让人写一条理想 response 很贵（要写、要校）；让人在两条候选里**选一个更好**很便宜（点击一下）。所以对齐数据通常是 **成对偏好**：
+让人写一条理想的 response 很贵（要写、要校）；让人在两条候选里**选一个更好**很便宜（点击一下）。所以对齐数据通常是 **成对偏好**：
 
 ```
 (prompt, chosen, rejected)
@@ -50,12 +50,12 @@ A3: 先 print('hello world')                    ← 偷懒
 
 ### 自检
 
-1. 已经做了 SFT 的模型为什么还可能"礼貌但不正确"或"胡乱讨好"？对齐能解什么、不能解什么？
+1. 已经做了 SFT 的模型为什么还可能 "礼貌但不正确" 或 "胡乱讨好"？对齐能解什么、不能解什么？
 
 <details markdown="1">
 <summary>答案速查</summary>
 
-1. SFT 学的是"格式 + 风格"，质量上限取决于训练数据中的 response 质量。对齐通过偏好信号让模型在多个候选里**选更好的方向**，能改善"哪种回答更好"的判断。但若偏好数据本身有偏（如标注员偏爱长回答、偏爱讨好语气），模型会学到这些偏。**对齐不能创造新知识，只能重新加权已有能力**
+1. SFT 学的是 "格式 + 风格"，质量上限取决于训练数据中的 response 质量。对齐通过偏好信号让模型在多个候选里**选更好的方向**，能改善 "哪种回答更好" 的判断。但若偏好数据本身有偏（如标注员偏爱长回答、偏爱讨好语气），模型便会学到这些偏好。**对齐不能创造新知识，只能重新加权已有能力**
 
 </details>
 
@@ -63,43 +63,82 @@ A3: 先 print('hello world')                    ← 偷懒
 
 ## 2. RLHF 三段式
 
-> Christiano 2017 / OpenAI InstructGPT 2022 把 RLHF 推到主流。结构清晰但工程复杂。
+RLHF —— Reinforcement Learning from Human Feedback，中译「基于人类反馈的强化学习」。Christiano 2017 / OpenAI InstructGPT 2022 把 RLHF 推到主流。结构清晰但工程复杂。
+
+RLHF 把流程拆成三段：
+
+- SFT 打底获得基本对话能力（π_SFT）
+- 用人类标注的偏好对比数据基于 π_SFT 训出一个 Reward Model（RM）来量化 "好坏"
+- 最后用 RL 算法 PPO（Proximal Policy Optimization，近端策略优化；一种通过限制每步更新幅度来保证训练稳定的强化学习算法）以 RM 打分为奖励信号，驱动 SFT 模型持续改进输出质量。
 
 ```
 阶段 1: SFT
   数据: (prompt, response)
-  产出: π_SFT —— 一个"会按格式说话"的模型
+  目标：见 ch10
+  产出: π_SFT —— 一个"会按格式说话" 的模型
 
 阶段 2: RM（reward model）
   数据: (prompt, chosen, rejected)
-  从 π_SFT 起改头：把 LM head 换成 scalar head
-  目标: RM(prompt, chosen) > RM(prompt, rejected)
-  loss: -log σ(RM(p, c) - RM(p, r))    ← Bradley-Terry 模型
+  目标: 好回答得分 > 差回答得分，即 RM(prompt, chosen) > RM(prompt, rejected)
+  产物：RM —— 能对任意 (prompt, response) 输出标量分数的评分模型
 
 阶段 3: PPO
-  用 RM 的打分作为 reward 训 π_RL
+  从 π_SFT 的拷贝出发，以 RM 打分为奖励信号，用 PPO 持续优化
   目标: maximize E[RM(p, π_RL(p))] - β · KL(π_RL || π_SFT)
-                  ↑ 让回答更被偏好          ↑ 别跑离原模型太远
+                    ↑ 让 π_RL 的回答拿更高分      ↑ 不让 π_RL 偏离 π_SFT 太远
+  产出：π_RL —— 经过 RL 优化后的对话模型
 ```
 
-### 2.1 为什么要 KL 惩罚
+其中，对于阶段 2 的主要技术细节有：
 
-PPO 优化 reward 时模型会**钻 RM 的漏洞**——RM 是个有限模型，存在"它给高分但人看着差"的样本。模型一旦发现这种 hack，会迅速收敛到这种 degenerate 输出（如重复某种讨好话术）。
-KL（Kullback-Leibler divergence，KL 散度，衡量两个概率分布差异）项把策略约束在 π_SFT 附近，防止漂太远。β 控制约束强度：β 大 → 偏保守；β 小 → 偏激进。
+- RM 为基于 π_SFT 改造：把 lm_head（输出词表预测分布，见 ch06）换成 scalar head（只输出一个标量分数）
+- loss: -log σ(RM(p, c) - RM(p, r))
+        σ = sigmoid；两个分数做差过 sigmoid 再取负对数 → pairwise ranking loss
+        理论来源：Bradley-Terry 模型（经典的成对比较概率模型）
 
-### 2.2 PPO 在 LLM 上为什么难
+其中，阶段 3 的拆解如下：
 
-| 难点 | 来源 |
+- `E[RM(p, π_RL(p))]`: π_RL 生成的回答平均能拿多高的 RM 分
+  - `π_RL(p)` = 当前模型对 prompt 生成的回答
+  - E[RM(...)] = 在很多 prompt 上的回答的 RM 得分期望（平均）
+- `β · KL(π_RL || π_SFT)`：π_RL 偏离 π_SFT 越多，扣分（惩罚）越多
+  - KL 散度 = 衡量 π_RL 和 π_SFT 两个分布的差异程度
+  - β = 控制惩罚力度的系数
+
+### 2.1 PPO 的 KL 惩罚
+
+KL（Kullback-Leibler divergence，KL 散度）是信息论中衡量两个概率分布差异的经典度量。
+
+$$KL(P \| Q) = \sum_x P(x) \cdot \log \frac{P(x)}{Q(x)}$$
+
+在 RLHF 语境下：P = π_RL 的 token 分布，Q = π_SFT 的 token 分布。对每个位置计算这个值，衡量 π_RL 输出偏离 π_SFT 多少。
+
+PPO 优化 reward 时模型会**钻 RM 的漏洞**（reward hacking）—— RM 从有限数据训出，评分能力有盲区，存在 "RM 打高分但人类觉得差" 的输出模式（如堆砌套话、重复讨好句式）。模型一旦发现这类捷径，没有拉回策略的话会迅速收敛到这种退化输出。
+
+KL 项把策略约束在 π_SFT 附近，飘越远施加惩罚越大，抑制大幅偏离，也间接 **"缓解"** 了 reward hacking。β 控制约束强度：β 大 → 偏保守；β 小 → 偏激进。
+
+### 2.2 PPO 的问题
+
+PPO 的问题有哪些呢？
+
+| 问题 | 来源 |
 |---|---|
-| 显存爆炸 | 训练时同时活着 4 个模型：π_RL（训练）、π_ref（KL 参考）、RM（打分）、value head |
+| 显存爆炸 | 训练时同时活着 4 个模型：π_RL、π_ref、RM、value head |
 | 超参敏感 | β / clip_eps / lr / KL 目标值，调一组花几天 |
 | 训练不稳 | RL 信号高方差，loss 曲线像心电图，崩盘频繁 |
 | 实现复杂 | rollout、advantage 估计、ratio clip、value loss 全要写对 |
 | Reward hacking | 模型钻 RM 漏洞，输出讨好但实质差 |
 
-> **value head 是什么**：PPO 是 actor-critic 算法，需要一个 value function 估计每个状态的期望回报（用来算 advantage = reward − value）。在 LM 上的实现是给 base model 再挂一个 scalar 输出头，与 LM head 并列共享 backbone。这就是表格里第 4 个"模型"。
+> **PPO 内部术语简介：**：
+>
+> - **π_ref**：π_SFT 的冻结副本，专门用来算 KL 散度，训练中不更新
+> - **value head**：挂在 base model 上的 scalar 输出头（与 lm_head 并列共享 backbone），用来估计每个状态的期望回报，算 advantage 时当 baseline
+> - **clip_eps**：PPO 裁剪阈值，限制单步策略更新幅度，防止一步跨太大崩盘
+> - **rollout**：让 π_RL 对一批 prompt 生成回答，收集（prompt, response, reward）作为训练数据
+> - **advantage 估计**：reward − value（实际回报 − baseline），衡量 "这个回答比平均水平好多少"
+> - **ratio clip**：新旧策略输出同一 token 的概率之比，裁剪到 [1-ε, 1+ε] 范围内，是 PPO 保证稳定的核心机制
 
-> "学术界的 PPO 论文很美，工业界的 PPO 训练日志很丑。"
+"学术界的 PPO 论文很美，工业界的 PPO 训练日志很丑。"
 
 ### 自检
 

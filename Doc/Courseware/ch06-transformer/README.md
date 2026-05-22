@@ -42,9 +42,9 @@ x: (B, n, d)
 └─────────────────────────────────────────┘
    ↓
 final LN
-   ↓ lm_head: Linear(d → V)      ← lm_head（Language Model Head）：把隐状态映射为词表上的预测分布
+   ↓ lm_head: Linear(d → V)  ← lm_head（Language Model Head）：把隐状态映射为词表上的预测分布
 logits: (B, n, V)
-   ↓ shift + cross_entropy      ← shift：logits 和真实 token 错开一位，让每个位置的输出预测下一个 token
+   ↓ shift + cross_entropy   ← shift：logits 和真实 token 错开一位，让每个位置的输出预测下一个 token
 loss
 ```
 
