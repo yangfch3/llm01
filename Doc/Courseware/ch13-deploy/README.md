@@ -324,9 +324,9 @@ PARAMETER stop "<|im_end|>"
 <details markdown="1">
 <summary>答案速查</summary>
 
-1. 自回归生成时每一步都要"看完"前面所有 token 的 KV cache。序列越长，KV cache 越大，每步要做的 attention 计算量与显存读取量越大，tok/s 自然下降。这也是为什么超长上下文模型推理慢
+1. 自回归生成时每一步都要 "看完" 前面所有 token 的 KV cache。序列越长，KV cache 越大，每步要做的 attention 计算量与显存读取量越大，tok/s 自然下降。这也是为什么超长上下文模型推理慢
 
-2. ① "6 tok/s"是单用户、短对话、小模型场景，多人 / 长对话立刻拖到 1 tok/s ② 大模型（70B+）CPU 跑不动 ③ 真实产品需要并发，CPU 没法堆并发 ④ batch 推理 GPU 优势倍数级。CPU 跑 LLM 是"够用底线"，GPU 是"产品基线"
+2. ① "6 tok/s" 是单用户、短对话、小模型场景，多人 / 长对话立刻拖到 1 tok/s ② 大模型（70B+）CPU 跑不动 ③ 真实产品需要并发，CPU 没法堆并发 ④ batch 推理 GPU 优势倍数级。CPU 跑 LLM 是 "够用底线"，GPU 是 "产品基线"
 
 </details>
 
@@ -338,8 +338,8 @@ PARAMETER stop "<|im_end|>"
 
 | 脚本 | 内容 |
 |---|---|
-| `01_quant_simulation.py` | 玩具版量化：手动把一组 fp32 权重量化到 int8 / int4，看舍入误差分布；模拟"权重越多层叠加误差越大"现象 |
-| `02_inference_compare.py` | 用 GPT-2 small 对比 fp32 vs fp16 vs int8（动态量化，PyTorch 内置）的输出差异与单 token 推理耗时；说明"量化省的不只是空间，还有时间" |
+| `01_quant_simulation.py` | 玩具版量化：手动把一组 fp32 权重量化到 int8 / int4，看舍入误差分布；模拟 "权重越多层叠加误差越大" 现象 |
+| `02_inference_compare.py` | 用 GPT-2 small 对比 fp32 vs fp16 vs int8（动态量化，PyTorch 内置）的输出差异与单 token 推理耗时；说明 "量化省的不只是空间，还有时间" |
 
 跑法：
 
