@@ -113,6 +113,32 @@ ChatML 是 GPT-3.5 起的事实标准。
 
 > Qwen / Yi / 国内大多数对话模型都用 ChatML 或其变体。LLaMA-2/3 用自家 `[INST] ... [/INST]`，本质等价。
 
+代码示意（HF tokenizer 的 `apply_chat_template`）：
+
+```python
+from transformers import AutoTokenizer
+
+tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-0.5B-Instruct")
+
+messages = [
+    {"role": "system", "content": "你是一个简洁的助手。"},
+    {"role": "user", "content": "帮我写一首关于秋天的诗"},
+]
+
+# 推理时：add_generation_prompt=True → 末尾拼上 <|im_start|>assistant\n
+prompt_text = tokenizer.apply_chat_template(
+    messages, tokenize=False, add_generation_prompt=True
+)
+
+# 训练时：补上 response + <|im_end|>，不加 generation prompt（完整对话已含）
+messages_with_response = messages + [
+    {"role": "assistant", "content": "秋风扫落叶，孤雁向南飞。"}
+]
+train_text = tokenizer.apply_chat_template(
+    messages_with_response, tokenize=False, add_generation_prompt=False
+)
+```
+
 ### 2.3 generation prompt
 
 generation prompt 是 SFT 的核心机关。训练时给模型看**完整对话**（含最后一个 `<|im_end|>`）；推理时给模型看**到 generation prompt 为止**，让它从 `\n` 后开始续写。
@@ -173,6 +199,18 @@ labels:    [   -100,  ...,    -100,     -100,  ...,   -100,   t_resp_0, ..., t_r
 - `<|im_end|>` 后的 `\n`：属于模板格式，非模型输出
 
 实现就一行：把 prompt 长度（user turn + gen prompt）内的 label 都设 `-100`，cross_entropy 自动跳过（ch09 §1.3 已铺垫）。
+
+```python
+# prompt_len = len(user_turn_ids) + len(gen_prompt_ids)
+labels = input_ids.clone()
+labels[:prompt_len] = -100  # prompt + gen prompt 全部 mask
+
+loss = F.cross_entropy(
+    logits.view(-1, vocab_size),
+    labels.view(-1),
+    ignore_index=-100,
+)
+```
 
 ### 3.2 为什么不能算 prompt 的 loss
 
@@ -257,6 +295,28 @@ B: (out, r)                # 低秩矩阵，初始化为 0
 α: 缩放系数（超参）
 ```
 
+最简 PyTorch 实现：
+
+```python
+import torch
+import torch.nn as nn
+
+class LoRALinear(nn.Module):
+    def __init__(self, original: nn.Linear, r: int = 8, alpha: int = 16):
+        super().__init__()
+        self.original = original
+        self.original.weight.requires_grad_(False)  # 冻结 W
+        out_dim, in_dim = original.weight.shape
+        self.A = nn.Parameter(torch.randn(r, in_dim) * 0.01)
+        self.B = nn.Parameter(torch.zeros(out_dim, r))
+        self.scale = alpha / r
+
+    def forward(self, x):
+        base_out = self.original(x)             # Wx
+        lora_out = (x @ self.A.T) @ self.B.T    # xA^T B^T = (BA)x 的等价写法
+        return base_out + self.scale * lora_out
+```
+
 **关键直觉/假设**：
 
 - 微调过程中权重的 "变化量" `ΔW` 在低秩子空间（8~64）里就够表达 —— 大模型参数高度冗余
@@ -297,7 +357,7 @@ activations:    与全参差不多          # 前向还是要走全网络
 
 ### 4.4 QLoRA 多走一步
 
-来自 Dettmers et al. 2023，思路是 LoRA + 把 base model 量化到 4bit。
+来自 Dettmers et al. 2023，思路是 LoRA（旁路仍用 bf16 正常训练） + 把 base model 量化到 4bit。
 
 ```
 weights:    7B × 0.5B (NF4 4bit) = 3.5GB    ← 砍 4 倍
@@ -311,20 +371,26 @@ activations: 与 LoRA 同
 QLoRA 做了三件事：
 
 1. **NF4（NormalFloat 4-bit）**：针对正态分布权重设计的非均匀 4bit 量化，比对称 int4 损失更小
-2. **double quantization**：对量化用的 scale 再做一次量化，再省 ~0.5 GB
-3. **paged optimizer**：把 optimizer 状态放 CPU 内存，按需 swap 到 GPU，防止 OOM 尖峰
+2. **double quantization**：量化时每组权重需要存一个 fp32 scale（缩放因子，用于把 int4 还原回浮点），这些 scale 本身也占显存；double quant 对 scale 再做一次量化，再省 ~0.5 GB
+3. **paged optimizer**：将 optimizer 状态存放在主机 RAM 而非 GPU 显存，`step()` 时按需 swap 到 GPU 完成更新。以 PCIe 带宽换显存空间，适合显存紧张的场景开启
+
+> 注意区分：ch09 的混合精度（AMP）是用 bf16 浮点加速训练，不叫量化；量化特指把权重离散化到 int8/int4 等整数格式，QLoRA 是主流方案中**唯一把量化用在训练阶段**的做法。
 
 代价：
 
 - 前向反向都要把 4bit 解量化回 bf16 算，吞吐略降（~10–30%）
-- base model 量化是有损的，最终性能比全精度 LoRA 略差（多数 benchmark 差 1–2 个点）
+- base model 量化是有损的，最终模型效果比全精度 LoRA 训练略差（多数 benchmark 差 1–2 个点）
+
+**训练产出物**：QLoRA 的 4bit 只是训练过程中的运行时状态（加载时即时量化到显存），**不改变磁盘上的 base model 权重**。训练结束后你拿到的是原始全精度 base + 几十 MB 的 LoRA adapter（bf16）。
+
+> 部署时先 merge adapter 回 base 得到全精度微调模型，再按需做独立的 PTQ 量化（GGUF/GPTQ 等）。
 
 ### 4.5 选型速查
 
 | 场景 | 选 |
 |---|---|
-| <1B 模型，3060 12GB | 全参 SFT 没问题 |
-| 7B 模型，3060 12GB | **QLoRA**（必须 4bit） |
+| <1B 模型，单卡 12GB | 全参 SFT 没问题 |
+| 7B 模型，单卡 12GB | **QLoRA**（必须 4bit） |
 | 7B 模型，单卡 24GB+ | LoRA bf16 |
 | 70B 模型，单卡 24GB | QLoRA + offload，能跑但慢 |
 | Mac MPS | LoRA（bf16/fp16）；bitsandbytes 对 MPS 支持不成熟，QLoRA 不建议在 Mac 上跑 |
@@ -349,7 +415,7 @@ QLoRA 做了三件事：
 
 ## 5. 数据质量 > 数量
 
-> LIMA 论文（Zhou et al. 2023）：用 1000 条**精挑细选**的样本 SFT，效果接近 5 万条平均质量数据。后续 Tülu / OpenHermes 都验证了这个倾向。
+LIMA 论文（Zhou et al. 2023）：用 1000 条**精挑细选**的样本 SFT，效果接近 5 万条平均质量数据。后续 Tülu / OpenHermes 都验证了 "数据质量 > 数量" 这个倾向。
 
 ### 5.1 高质量 SFT 数据的特征
 
@@ -363,11 +429,11 @@ QLoRA 做了三件事：
 | 来源 | 量级 | 质量 | 备注 |
 |---|---|---|---|
 | 人工标注 | 千–万 | 高 | 贵，慢 |
-| GPT-4 蒸馏 | 万–几十万 | 中–高 | Alpaca/WizardLM 路线，注意 license |
+| 从 SOTA 模型蒸馏 | 万–几十万 | 中–高 | Alpaca/WizardLM 路线，注意 license |
 | 公开数据集组合 | 万–百万 | 参差 | OpenHermes/Tülu 系，过滤后用 |
 | 真实日志 | 海量 | 低 | 需重度清洗 + 反馈打分 |
 
-echo 系列：M4 echo-mini 用公开 + 少量 GPT 生成补足；M5 echo 用 Tülu/Alpaca 子集 + 自构 Echo 人设样本。
+> echo 系列：M4 echo-mini 用公开 + 少量 GPT 生成补足；M5 echo 用 Tülu/Alpaca 子集 + 自构 Echo 人设样本。
 
 ### 自检
 
