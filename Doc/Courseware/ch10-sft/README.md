@@ -41,11 +41,11 @@
 → 喂进模型算 CLM loss
 ```
 
-### 1.1 为什么 SFT 必须基于 pretrain 权重
+### 1.1 为什么必须基于 pretrain
 
 直接用 SFT 数据从零训会怎样？几万条对话样本撑不起一个语言模型 —— 连基础语法都学不全。SFT 是**站在 pretrain 巨人肩上做轻量微调**，调的是**输出风格、格式、指令跟随**，不是语言能力本身。
 
-### 1.2 SFT 后还能保住通用能力吗
+### 1.2 通用能力会丢吗
 
 不一定。SFT 数据若分布太窄（如全是问答），模型会**遗忘** pretrain 学到的部分能力（如续写、代码、长文）。这叫 **catastrophic forgetting / alignment tax**。
 缓解办法：
@@ -72,7 +72,7 @@
 
 ## 2. 对话模板（chat template）
 
-### 2.1 模型如何知道 "轮到它说话了"
+### 2.1 模型怎么知道该它说了
 
 Pretrain 模型只见过大量原始文本，不知道 user / assistant 的概念。SFT 阶段必须**用文本格式编码这个结构信息** —— 这就是 chat template。
 
@@ -177,7 +177,7 @@ generation prompt 是 SFT 的核心机关。训练时给模型看**完整对话*
 
 ## 3. Loss mask（SFT 的灵魂）
 
-### 3.1 什么不该算 loss
+### 3.1 哪些位置不算 loss
 
 回顾 ch09 的 CLM 公式 `L = -Σ log P(x_t | x_{<t})`。SFT 沿用这个公式，但 **t 只跑 response 的位置**，prompt 与模板 token 全跳过。
 
@@ -212,7 +212,7 @@ loss = F.cross_entropy(
 )
 ```
 
-### 3.2 为什么不能算 prompt 的 loss
+### 3.2 为什么 prompt 不算 loss
 
 SFT 时不算 prompt 的 loss == 不贡献梯度 ≠ 不需要看到 prompt 部分。
 
@@ -240,7 +240,7 @@ prompt 部分虽然不贡献梯度（label=-100），但它参与前向计算 �
 
 > `<|im_start|>assistant\n` 这段 generation prompt 是格式而非内容，**通常也 mask 掉**。HF 的 `apply_chat_template` 配 `return_assistant_tokens_mask=True` 能直接拿到 mask。
 
-### 3.4 packing 在 SFT 里还做不做
+### 3.4 SFT 还要 packing 吗
 
 ch09 讲过 pretrain 必做 packing。SFT 数据通常较短（几百–几千 token），且不希望跨样本污染（一个对话的尾巴影响下一个对话的开头），**默认不做 packing**，每个样本独立 padding 到 batch 最大长度即可。
 
