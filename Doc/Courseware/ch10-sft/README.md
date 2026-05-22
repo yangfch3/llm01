@@ -387,11 +387,13 @@ QLoRA 做了三件事：
 
 ### 4.5 选型速查
 
+消费卡 SFT 规模承载速查表：
+
 | 场景 | 选 |
 |---|---|
 | <1B 模型，单卡 12GB | 全参 SFT 没问题 |
 | 7B 模型，单卡 12GB | **QLoRA**（必须 4bit） |
-| 7B 模型，单卡 24GB+ | LoRA bf16 |
+| 7B 模型，单卡 24GB | LoRA bf16 |
 | 70B 模型，单卡 24GB | QLoRA + offload，能跑但慢 |
 | Mac MPS | LoRA（bf16/fp16）；bitsandbytes 对 MPS 支持不成熟，QLoRA 不建议在 Mac 上跑 |
 

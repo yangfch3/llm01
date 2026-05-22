@@ -300,7 +300,7 @@ DPO 解决了 PPO 的工程难题，但仍依赖**成对偏好数据**（来自�
 | **IPO**（Identity Preference Optimization，恒等偏好优化） | (prompt, chosen, rejected) | DPO 的 loss 改良，缓解过拟合偏好对 |
 | **SimPO**（Simple Preference Optimization，简化偏好优化） | (prompt, chosen, rejected) | 也无需 π_ref，把 logp **平均**（除以 response 长度）当作隐式 reward —— 平均化让模型自己充当"长度归一"的参考点，省掉 π_ref |
 
-工程选型决策树：
+以 7B 量级模型的对齐，工程选型决策树如下：
 
 ```
 有 (chosen, rejected) 偏好对？

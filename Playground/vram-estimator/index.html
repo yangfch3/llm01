@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM 显存占用估算器</title>
+<style>
+:root {
+  --bg: #f9f7f4;
+  --surface: #ffffff;
+  --border: #e5e0da;
+  --accent: #c96442;
+  --accent-light: #f4e8e2;
+  --text: #2d2b28;
+  --text-dim: #6b6560;
+  --cell-bg: #ffffff;
+  --hover: #f5f2ee;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Söhne', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  padding: 32px;
+  min-height: 100vh;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+h1 { font-size: 1.4rem; font-weight: 600; margin-bottom: 4px; color: var(--text); }
+.subtitle { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 24px; }
+
+/* Filter area */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 28px;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.filter-group { display: flex; flex-direction: column; gap: 8px; }
+.filter-group label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500; }
+.filter-group select, .multi-select { font-size: 0.85rem; padding: 6px 10px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; }
+.filter-group select { padding: 7px 12px; cursor: pointer; }
+.filter-group select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.multi-select { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  padding: 5px 12px;
+  border-radius: 16px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-dim);
+  user-select: none;
+  transition: all 0.15s;
+}
+.chip.active { background: var(--accent-light); color: var(--accent); border-color: var(--accent); font-weight: 500; }
+
+/* Tabs */
+.tabs { display: flex; gap: 4px; margin-bottom: 0; }
+.tab {
+  padding: 10px 20px;
+  cursor: pointer;
+  background: var(--bg);
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+.tab:hover { background: var(--hover); }
+.tab.active { background: var(--surface); color: var(--accent); border-color: var(--border); box-shadow: 0 -1px 3px rgba(0,0,0,0.03); }
+
+/* Table */
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 0 12px 12px 12px;
+  background: var(--cell-bg);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+th, td { padding: 10px 14px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th { background: var(--bg); color: var(--text-dim); font-weight: 500; position: sticky; top: 0; border-bottom: 1px solid var(--border); }
+td { border-right: none; border-left: none; }
+td:first-child, th:first-child { text-align: left; position: sticky; left: 0; background: var(--surface); z-index: 1; font-weight: 500; }
+th:first-child { background: var(--bg); }
+tr:hover td { background: var(--hover); }
+tr:hover td:first-child { background: var(--hover); }
+.over-12 { color: var(--accent); font-weight: 600; }
+.warn-cell { background: var(--accent-light); }
+
+.legend { margin-top: 12px; font-size: 0.75rem; color: var(--text-dim); }
+.legend span { color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>LLM 显存占用估算器</h1>
+<p class="subtitle">纯公式估算，适合快速判断单卡能否装下。<span class="legend"> <span>红色</span> = 超出显存红线</span></p>
+
+<div class="filters">
+  <div class="filter-group">
+    <label>模型规模</label>
+    <div class="multi-select" id="model-select"></div>
+  </div>
+  <div class="filter-group">
+    <label>精度</label>
+    <div class="multi-select" id="precision-select"></div>
+  </div>
+  <div class="filter-group">
+    <label>Batch Size</label>
+    <select id="bs-select"></select>
+  </div>
+  <div class="filter-group">
+    <label>序列长度</label>
+    <select id="seq-select"></select>
+  </div>
+  <div class="filter-group">
+    <label>LoRA Rank</label>
+    <select id="lora-rank-select"></select>
+  </div>
+  <div class="filter-group">
+    <label>显存红线</label>
+    <select id="vram-limit-select"></select>
+  </div>
+</div>
+
+<div class="tabs" id="tabs"></div>
+<div class="table-wrap" id="table-wrap"></div>
+
+<script>
+// === Model configs ===
+const MODEL_CONFIGS = {
+  '1B':  { params: 1e9,  layers: 24, hidden: 2048, heads: 16 },
+  '3B':  { params: 3e9,  layers: 32, hidden: 3200, heads: 32 },
+  '7B':  { params: 7e9,  layers: 32, hidden: 4096, heads: 32 },
+  '13B': { params: 13e9, layers: 40, hidden: 5120, heads: 40 },
+  '34B': { params: 34e9, layers: 48, hidden: 6656, heads: 52 },
+  '70B': { params: 70e9, layers: 80, hidden: 8192, heads: 64 },
+};
+
+const PRECISIONS = ['FP32', 'FP16/BF16', 'INT8', 'INT4'];
+const BYTES_MAP = { FP32: 4, 'FP16/BF16': 2, INT8: 1, INT4: 0.5 };
+
+const BS_OPTIONS = [1, 2, 4, 8, 16, 32, 64];
+const SEQ_OPTIONS = [512, 1024, 2048, 4096, 8192];
+const LORA_RANK_OPTIONS = [8, 16, 32, 64, 128];
+const VRAM_LIMIT_OPTIONS = [8, 12, 16, 24, 48, 80];
+
+const DEFAULT_MODELS = ['1B', '7B'];
+const DEFAULT_PRECISIONS = [...PRECISIONS];
+
+// === State ===
+let selectedModels = [...DEFAULT_MODELS];
+let selectedPrecisions = [...DEFAULT_PRECISIONS];
+let batchSize = 1;
+let seqLen = 2048;
+let loraRank = 16;
+let vramLimit = 12;
+let activeTab = 0;
+
+const TABS = ['Pretrain', 'SFT', '对齐 (DPO)', '部署 (推理)'];
+
+// === Init UI ===
+function initChips(containerId, options, defaults, stateKey) {
+  const container = document.getElementById(containerId);
+  options.forEach(opt => {
+    const chip = document.createElement('span');
+    chip.className = 'chip' + (defaults.includes(opt) ? ' active' : '');
+    chip.textContent = opt;
+    chip.onclick = () => {
+      chip.classList.toggle('active');
+      if (stateKey === 'models') {
+        selectedModels = [...container.querySelectorAll('.chip.active')].map(c => c.textContent);
+      } else {
+        selectedPrecisions = [...container.querySelectorAll('.chip.active')].map(c => c.textContent);
+      }
+      render();
+    };
+    container.appendChild(chip);
+  });
+}
+
+function initSelect(id, options, defaultVal, setter, suffix) {
+  const sel = document.getElementById(id);
+  options.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v; opt.textContent = suffix ? v + suffix : v;
+    if (v === defaultVal) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  sel.onchange = () => { setter(Number(sel.value)); render(); };
+}
+
+function initTabs() {
+  const container = document.getElementById('tabs');
+  TABS.forEach((name, i) => {
+    const tab = document.createElement('div');
+    tab.className = 'tab' + (i === 0 ? ' active' : '');
+    tab.textContent = name;
+    tab.onclick = () => { activeTab = i; updateTabUI(); render(); };
+    container.appendChild(tab);
+  });
+}
+
+function updateTabUI() {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', i === activeTab);
+  });
+}
+
+// === Calculation ===
+function toGB(bytes) { return bytes / (1024 ** 3); }
+
+function modelWeight(params, precision) {
+  return params * BYTES_MAP[precision];
+}
+
+// Activation memory estimation (simplified)
+// ≈ 2 * bs * seq * hidden * layers * bytes_per_act (FP16 in AMP, else same as weight precision)
+function activationMem(cfg, bs, seq, actBytes) {
+  return 2 * bs * seq * cfg.hidden * cfg.layers * actBytes;
+}
+
+function kvCache(cfg, bs, seq) {
+  // 2 (K+V) * layers * 2 * head_dim * seq * bs, stored in FP16
+  const headDim = cfg.hidden / cfg.heads;
+  return 2 * cfg.layers * cfg.heads * headDim * seq * bs * 2;
+}
+
+const NA = null; // marks invalid combination
+
+function calcPretrain(modelKey, precision) {
+  const cfg = MODEL_CONFIGS[modelKey];
+  const P = cfg.params;
+  const bpp = BYTES_MAP[precision];
+
+  // INT8/INT4 cannot do conventional pretraining
+  if (precision === 'INT8' || precision === 'INT4') {
+    return { 'Naive': NA, '+ AMP': NA, '+ Grad Ckpt': NA, '+ AMP + Grad Ckpt': NA };
+  }
+
+  const isHalf = (precision === 'FP16/BF16');
+
+  // Naive: weight + grad + optimizer(AdamW: fp32 copy + m + v = 12 bytes/param) + activation
+  const naive_w = P * bpp;
+  const naive_grad = P * bpp;
+  const naive_opt = P * 12; // AdamW always FP32
+  const naive_act = activationMem(cfg, batchSize, seqLen, bpp);
+  const naive = naive_w + naive_grad + naive_opt + naive_act;
+
+  // AMP only meaningful when base is FP32 (FP32 → BF16 mixed)
+  const amp_w = P * 2;
+  const amp_grad = P * 2;
+  const amp_opt = P * 12;
+  const amp_act = activationMem(cfg, batchSize, seqLen, 2);
+  const amp = amp_w + amp_grad + amp_opt + amp_act;
+
+  // Grad Ckpt: activation * 0.3
+  const gc_act_factor = 0.3;
+  const naive_gc = naive_w + naive_grad + naive_opt + naive_act * gc_act_factor;
+  const amp_gc = amp_w + amp_grad + amp_opt + amp_act * gc_act_factor;
+
+  return {
+    'Naive': toGB(naive),
+    '+ AMP': isHalf ? NA : toGB(amp),               // already half → AMP meaningless
+    '+ Grad Ckpt': toGB(naive_gc),
+    '+ AMP + Grad Ckpt': isHalf ? NA : toGB(amp_gc), // same
+  };
+}
+
+function calcSFT(modelKey, precision) {
+  const cfg = MODEL_CONFIGS[modelKey];
+  const P = cfg.params;
+  const bpp = BYTES_MAP[precision];
+  // LoRA trainable params: 2 (down+up) * target_modules (q,v = 2) * layers * hidden * rank
+  const loraParams = 2 * 2 * cfg.layers * cfg.hidden * loraRank;
+  const isHalf = (precision === 'FP16/BF16');
+  const isQuant = (precision === 'INT8' || precision === 'INT4');
+
+  // Full + AMP + Grad Ckpt (most common full-param SFT) — only FP32 base makes sense
+  const full_w = P * 2;
+  const full_grad = P * 2;
+  const full_opt = P * 12;
+  const full_act = activationMem(cfg, batchSize, seqLen, 2) * 0.3;
+  const full = full_w + full_grad + full_opt + full_act;
+
+  // LoRA: frozen weight at selected precision + LoRA FP16 trained
+  const lora_w = P * bpp; // frozen base
+  const lora_grad = loraParams * 2;
+  const lora_opt = loraParams * 12;
+  const lora_act = activationMem(cfg, batchSize, seqLen, 2) * 0.3;
+  const lora = lora_w + lora_grad + lora_opt + lora_act;
+
+  // LoRA + AMP: only meaningful when base is FP32
+  const lora_amp_w = P * 2;
+  const lora_amp = lora_amp_w + lora_grad + lora_opt + lora_act;
+
+  // QLoRA: always INT4 base + LoRA FP16, independent of precision selection
+  const qlora_w = P * 0.5;
+  const qlora = qlora_w + lora_grad + lora_opt + lora_act;
+
+  return {
+    'Full (AMP+Grad Ckpt)': isQuant ? NA : (isHalf ? toGB(full) : toGB(full)), // FP32/BF16/FP16 ok; INT8/4 N/A
+    'LoRA': isQuant ? NA : toGB(lora),          // INT quantized base + LoRA not standard
+    'LoRA + AMP': (isHalf || isQuant) ? NA : toGB(lora_amp), // only FP32 base
+    'QLoRA': toGB(qlora),                        // always valid (fixed INT4 base)
+  };
+}
+
+function calcAlign(modelKey, precision) {
+  const cfg = MODEL_CONFIGS[modelKey];
+  const P = cfg.params;
+  const bpp = BYTES_MAP[precision];
+  const loraParams = 2 * 2 * cfg.layers * cfg.hidden * loraRank;
+  const isQuant = (precision === 'INT8' || precision === 'INT4');
+
+  // Reference model (frozen, inference only) = weight at selected precision
+  const ref_w = P * bpp;
+
+  // Full DPO: train model (full AMP+Grad Ckpt) + ref model — not possible with INT quantized weights
+  const train_w = P * 2;
+  const train_grad = P * 2;
+  const train_opt = P * 12;
+  const train_act = activationMem(cfg, batchSize, seqLen, 2) * 0.3;
+  const full = train_w + train_grad + train_opt + train_act + ref_w;
+
+  // LoRA DPO: LoRA train + ref at selected precision
+  const lora_w = P * bpp;
+  const lora_grad = loraParams * 2;
+  const lora_opt = loraParams * 12;
+  const lora_act = activationMem(cfg, batchSize, seqLen, 2) * 0.3;
+  const lora = lora_w + lora_grad + lora_opt + lora_act + ref_w;
+
+  // QLoRA DPO: INT4 base + LoRA + INT4 ref (always fixed)
+  const qlora_w = P * 0.5;
+  const qlora_ref = P * 0.5;
+  const qlora = qlora_w + lora_grad + lora_opt + lora_act + qlora_ref;
+
+  return {
+    'Full (含 ref)': isQuant ? NA : toGB(full),
+    'LoRA (含 ref)': isQuant ? NA : toGB(lora),
+    'QLoRA (含 ref)': toGB(qlora),  // always valid
+  };
+}
+
+function calcDeploy(modelKey, precision) {
+  const cfg = MODEL_CONFIGS[modelKey];
+  const P = cfg.params;
+  const bpp = BYTES_MAP[precision];
+
+  const w = P * bpp;
+  const kv = kvCache(cfg, batchSize, seqLen);
+  const total = w + kv;
+
+  return {
+    '模型权重': toGB(w),
+    'KV Cache': toGB(kv),
+    '总计': toGB(total),
+  };
+}
+
+// === Render ===
+function render() {
+  const calcFn = [calcPretrain, calcSFT, calcAlign, calcDeploy][activeTab];
+  const wrap = document.getElementById('table-wrap');
+
+  if (selectedModels.length === 0 || selectedPrecisions.length === 0) {
+    wrap.innerHTML = '<p style="padding:20px;color:var(--text-dim)">请至少选择一个模型规模和一个精度。</p>';
+    return;
+  }
+
+  // Get columns from first valid calculation
+  const sampleResult = calcFn(selectedModels[0], selectedPrecisions[0]);
+  const columns = Object.keys(sampleResult);
+
+  let html = '<table><thead><tr><th>模型 / 精度</th>';
+  columns.forEach(c => { html += `<th>${c}</th>`; });
+  html += '</tr></thead><tbody>';
+
+  selectedModels.forEach(model => {
+    selectedPrecisions.forEach(prec => {
+      const result = calcFn(model, prec);
+      html += `<tr><td>${model} / ${prec}</td>`;
+      columns.forEach(col => {
+        const val = result[col];
+        if (val === null) {
+          html += `<td style="color:var(--text-dim);font-style:italic;">N/A</td>`;
+        } else {
+          const isOver = val > vramLimit;
+          html += `<td class="${isOver ? 'over-12 warn-cell' : ''}">${val.toFixed(1)} GB</td>`;
+        }
+      });
+      html += '</tr>';
+    });
+  });
+
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+// === Boot ===
+initChips('model-select', Object.keys(MODEL_CONFIGS), DEFAULT_MODELS, 'models');
+initChips('precision-select', PRECISIONS, DEFAULT_PRECISIONS, 'precisions');
+initSelect('bs-select', BS_OPTIONS, 1, v => { batchSize = v; });
+initSelect('seq-select', SEQ_OPTIONS, 2048, v => { seqLen = v; });
+initSelect('lora-rank-select', LORA_RANK_OPTIONS, 16, v => { loraRank = v; });
+initSelect('vram-limit-select', VRAM_LIMIT_OPTIONS, 12, v => { vramLimit = v; }, ' GB');
+initTabs();
+render();
+</script>
+</body>
+</html>
