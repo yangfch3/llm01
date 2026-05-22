@@ -83,7 +83,7 @@ RLHF 把流程拆成三段：
   产物：RM —— 能对任意 (prompt, response) 输出标量分数的评分模型
 
 阶段 3: PPO
-  从 π_SFT 的拷贝出发，以 RM 打分为奖励信号，用 PPO 持续优化
+  从 π_SFT 的拷贝（π_ref）出发，以 RM 打分为奖励信号，用 PPO 持续优化
   目标: maximize E[RM(p, π_RL(p))] - β · KL(π_RL || π_SFT)
                     ↑ 让 π_RL 的回答拿更高分      ↑ 不让 π_RL 偏离 π_SFT 太远
   产出：π_RL —— 经过 RL 优化后的对话模型
@@ -93,14 +93,16 @@ RLHF 把流程拆成三段：
 
 - RM 为基于 π_SFT 改造：把 lm_head（输出词表预测分布，见 ch06）换成 scalar head（只输出一个标量分数）
 - loss: -log σ(RM(p, c) - RM(p, r))
-        σ = sigmoid；两个分数做差过 sigmoid 再取负对数 → pairwise ranking loss
-        理论来源：Bradley-Terry 模型（经典的成对比较概率模型）
+
+  σ = sigmoid；两个分数做差过 sigmoid 再取负对数 → pairwise ranking loss
+  
+  理论来源：Bradley-Terry 模型（经典的成对比较概率模型）
 
 其中，阶段 3 的拆解如下：
 
 - `E[RM(p, π_RL(p))]`: π_RL 生成的回答平均能拿多高的 RM 分
   - `π_RL(p)` = 当前模型对 prompt 生成的回答
-  - E[RM(...)] = 在很多 prompt 上的回答的 RM 得分期望（平均）
+  - `E[RM(...)]` = 在很多 prompt 上的回答的 RM 得分期望（平均）
 - `β · KL(π_RL || π_SFT)`：π_RL 偏离 π_SFT 越多，扣分（惩罚）越多
   - KL 散度 = 衡量 π_RL 和 π_SFT 两个分布的差异程度
   - β = 控制惩罚力度的系数
@@ -156,40 +158,49 @@ PPO 的问题有哪些呢？
 
 ---
 
-## 3. DPO（Direct Preference Optimization）
+## 3. DPO
 
-> Rafailov et al. 2023。把 RLHF 三段简化成一段：**RM 不要了，PPO 不要了，直接对偏好数据做有监督训练**。
+Rafailov et al. 2023。把 RLHF 三段简化成一段：**RM 不要了，PPO 不要了，直接对偏好数据做有监督训练** —— DPO（Direct Preference Optimization）
 
 ### 3.1 关键洞察
 
-RLHF 优化的目标是：
+回忆一下上面 RLHF 优化的目标是：
 
 ```
-max  E[r(x, y)]  - β · KL(π || π_ref)
+# r = RM, x = p, y = π_RL(p), π = π_RL
+max E[r(x, y)]  - β · KL(π || π_ref)
 ```
+
+目标里 `r` 想把概率推向高 reward 的 y，KL 想把概率拉回 π_ref，二者平衡解就是"以 π_ref 为先验，按 reward 指数加权重新归一化"。
 
 数学上这个优化问题有**闭式最优解**：
 
 ```
+# 式 1
 π*(y|x) ∝ π_ref(y|x) · exp(r(x, y) / β)
 ```
 
-> **直觉**：这是带 KL 约束最大化问题的标准结论（最大熵 / 玻尔兹曼分布同源）。目标里 `r` 想把概率推向高 reward 的 y，KL 想把概率拉回 π_ref，二者平衡解就是"以 π_ref 为先验，按 reward 指数加权重新归一化"。β 控制两边的权重比。完整推导见 DPO 论文附录 A.1。
+> **（数科的）直觉**：这是带 KL 约束最大化问题的标准结论（与最大熵 / 玻尔兹曼分布同源），完整推导见 DPO 论文附录 A.1。
 
-反过来，已知 π* 和 π_ref 就能反推 reward：
+反过来，如果已知 π*（理论最优模型）和 π_ref 就能反推 reward：
 
 ```
+# 式 2
 r(x, y) = β · log(π*(y|x) / π_ref(y|x)) + const(x)
 ```
 
-把这个 r 代回 RM 的 Bradley-Terry loss `-log σ(r_chosen - r_rejected)`：
+把这个 r 代回 RM 的 Bradley-Terry loss `-log σ(r_chosen - r_rejected)`，`const(x)` 抵消了：
 
 ```
+# 式 3
+# π = 当前训练中的模型，目标是逼近 π*
 L_DPO = -E[ log σ( β · (log π(y_c|x)/π_ref(y_c|x) - log π(y_r|x)/π_ref(y_r|x)) ) ]
-                       └─────── chosen 的 logp ratio ──┘  └─── rejected 的 logp ratio ──┘
+                       └─ chosen 的 logp ratio ──┘   └─ rejected 的 logp ratio ─┘
 ```
 
-**const(x) 在差分里抵消**。β 来自原 RLHF 目标里的 KL 系数 —— 它**同时是隐式 KL 约束强度**：β 大 → 约束强，π 留在 π_ref 附近；β 小 → 约束弱，π 可以漂很远。不再需要显式 RM。
+- β 来自原 RLHF 目标里的 KL 系数 —— 它**同时是隐式 KL 约束强度**：β 大 → 约束强，π 留在 π_ref 附近；β 小 → 约束弱，π 可以漂很远
+- 训练时 minimize L_DPO，让 π 往设想的 π* 逼近
+- **不再需要显式 RM 了**
 
 ### 3.2 公式直觉
 
@@ -198,24 +209,30 @@ DPO loss 想让模型干的事：
 - **拉高** `log π(chosen|x) - log π_ref(chosen|x)` —— 比参考模型更倾向输出 chosen
 - **压低** `log π(rejected|x) - log π_ref(rejected|x)` —— 比参考模型更不倾向输出 rejected
 
-整个 loss 形如二元交叉熵，**完全监督训练**，没有采样、没有 RL 信号、没有 advantage 估计。一个常规的 forward + backward 即可。
+整个 loss 形如二元交叉熵，**完全监督学习**，没有采样、没有 RL 信号、没有 advantage 估计。
 
-### 3.3 为什么 π_ref 必须冻结
+DPO 把 RL 问题降级成了普通的监督学习问题，工程上和训 SFT 一样简单，一个常规的 forward + backward 即可。
 
-π_ref 是"参考点"——通常就是 SFT 后的模型。它的作用：
+### 3.3 必须冻结的 π_ref
+
+π_ref 是 "参考点" —— 通常就是 SFT 后的模型。它的作用：
 
 - **防漂移**：DPO 隐式包含 KL 约束，π 跑离 π_ref 太远会被惩罚
-- **基准**：`log π(y) - log π_ref(y)` 衡量的是"相对参考模型，π 在 y 上变了多少"
+- **基准**：`log π(y) - log π_ref(y)` 衡量的是 "相对参考模型，π 在 y 上变了多少"
 
-实现上 π_ref 冻结，前向产出 logp 不参与反向。代价：训练时显存里要有两个模型副本。LoRA 场景下可以省掉——直接用"关闭 LoRA 的 π" 当 π_ref（同一份 base，零额外显存）。
+实现上 π_ref 冻结，前向产出 logp 供 loss 计算但不参与反向传播（梯度只流过 π）。代价：训练时显存里要同时放两个模型副本。
 
-### 3.4 训练数据形态
+LoRA（见 ch09）场景下可省掉 —— base 权重 W 本身就是 SFT 后的状态且冻结不动，关闭 LoRA 旁路走纯 W 即为 π_ref，打开旁路走 W+BA 即为 π，同一份 base 按需切换身份，零额外显存。
+
+### 3.4 训练示例
+
+训练用的样本大致格式：
 
 ```
 样本: { "prompt": "...", "chosen": "...", "rejected": "..." }
 ```
 
-需要先把 chosen / rejected 各拼成完整对话送进模型，分别算 `log π(chosen|prompt)` 与 `log π(rejected|prompt)`：
+计算流程中，需要先把 chosen / rejected 各拼成完整对话送进模型，分别算 m=π/π_ref 的 `log m(chosen|prompt)` 与 `log m(rejected|prompt)`：
 
 ```python
 # 伪代码
@@ -246,8 +263,6 @@ for batch in loader:
 
 实务上 DPO **几乎完全替代了 PPO** 在开源界的位置。Llama-3、Qwen、Yi 系列正式版的对齐都是 DPO 或其变体。
 
-> "PPO 是写论文用的，DPO 是真在生产里用的。"
-
 ### 自检
 
 1. DPO 公式里 β 调大调小分别会怎样？
@@ -270,28 +285,36 @@ for batch in loader:
 
 ## 4. KTO / ORPO 简提
 
-DPO 解决了 PPO 的工程难题，但仍依赖**成对偏好数据**。许多场景这种数据不易得：
+DPO 解决了 PPO 的工程难题，但仍依赖**成对偏好数据**（来自用户真实反馈或标注员）。许多场景这种数据不易得：
 
-- 用户日志通常是"点赞 / 不点赞"（二元单点信号）
-- 真实标注员有时只能说"这个还行"或"这个不行"（不在两个间选）
+- 用户日志通常是 "点赞 / 不点赞"（二元单点信号）
+- 真实标注员有时只能说 "这个还行" 或 "这个不行"（不在/难以在两个间选）
 
 后续工作针对不同数据形态扩展：
 
 | 算法 | 数据形态 | 一句话 |
 |---|---|---|
 | DPO | (prompt, chosen, rejected) | 成对偏好 |
-| **KTO** | (prompt, response, ±1) | 单点二元信号，每条样本独立打"好/坏" |
+| **KTO** | (prompt, response, ±1) | 单点二元信号，每条样本独立打 "好/坏" |
 | **ORPO** | (prompt, chosen, rejected) | DPO + SFT 合并成一阶段，无需 π_ref |
 | **IPO**（Identity Preference Optimization，恒等偏好优化） | (prompt, chosen, rejected) | DPO 的 loss 改良，缓解过拟合偏好对 |
 | **SimPO**（Simple Preference Optimization，简化偏好优化） | (prompt, chosen, rejected) | 也无需 π_ref，把 logp **平均**（除以 response 长度）当作隐式 reward —— 平均化让模型自己充当"长度归一"的参考点，省掉 π_ref |
 
-工程选型直觉：
+工程选型决策树：
 
-- 有成对偏好 → DPO（首选）/ ORPO / SimPO
-- 只有单点点赞数据 → KTO
-- 想省显存（去掉 π_ref）→ ORPO / SimPO
+```
+有 (chosen, rejected) 偏好对？
+├─ 是 ─── 显存够（>20GB）？
+│         ├─ 是 ─── DPO（首选，社区最稳）
+│         └─ 否 ─── ORPO 或 SimPO（无 π_ref，省一份显存）
+└─ 否 ─── 数据是"赞/踩"二元？
+          ├─ 是 ─── KTO
+          └─ 否 ─── 回去标偏好对，或回到 SFT 多迭代数据
+```
 
-> echo（M6）的对齐路线：先用 DPO 跑通主流程，需要时再切 ORPO / SimPO 省显存。
+工业界几乎不再考虑 PPO（除非你是 OpenAI/Anthropic 这种有专门 RL 团队的）。学术界 PPO 仍有研究价值（探索 + 在线学习）。
+
+> echo-mini / echo 的对齐路线：先用 DPO 跑通主流程，需要时再切 ORPO / SimPO 省显存。
 
 ### 自检
 
@@ -309,23 +332,7 @@ DPO 解决了 PPO 的工程难题，但仍依赖**成对偏好数据**。许多�
 
 ---
 
-## 5. 选型决策树
-
-```
-有 (chosen, rejected) 偏好对？
-├─ 是 ─── 显存够（>20GB）？
-│         ├─ 是 ─── DPO（首选，社区最稳）
-│         └─ 否 ─── ORPO 或 SimPO（无 π_ref，省一份显存）
-└─ 否 ─── 数据是"赞/踩"二元？
-          ├─ 是 ─── KTO
-          └─ 否 ─── 回去标偏好对，或回到 SFT 多迭代数据
-```
-
-工业界几乎不再考虑 PPO（除非你是 OpenAI/Anthropic 这种有专门 RL 团队的）。学术界 PPO 仍有研究价值（探索 + 在线学习），但**入门 echo 项目的 M6 就是 DPO**。
-
----
-
-## 6. 练习
+## 5. 练习
 
 落到 `Playground/ch11-alignment/`：
 
