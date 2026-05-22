@@ -1,6 +1,18 @@
 {% extends "base.html" %}
 
 {% block extrahead %}
+<style>
+/* 隐藏侧栏导航中根目录生成的顶层 section 标题 */
+.md-nav--primary > .md-nav__title {
+  display: none;
+}
+.md-sidebar--primary .md-nav__list .md-nav__item {
+  margin-top: 0;
+}
+.md-main__inner {
+  margin-top: 0.5rem;
+}
+</style>
 <script>
 window.MathJax = {
   tex: {
