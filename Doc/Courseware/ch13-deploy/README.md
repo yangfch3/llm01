@@ -319,7 +319,7 @@ PARAMETER stop "<|im_end|>"
 ### 自检
 
 1. 同一模型同一量化级别，序列长度 4k 和 32k 时 tok/s 差很多。为什么？
-2. "纯 CPU 跑 7B Q4 也有 6 tok/s"——这数字看着挺实用，那为什么开源界还在卷 GPU 推理？
+2. "纯 CPU 跑 7B Q4 也有 6 tok/s" —— 这数字看着挺实用，那为什么开源界还在卷 GPU 推理？
 
 <details markdown="1">
 <summary>答案速查</summary>

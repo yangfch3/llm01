@@ -19,6 +19,7 @@
 - [x] T0.10 `scripts/doctor.py`：双平台自检脚本（见策划案 §7.5）
 - [x] T0.11 编写大文件同步 SOP 文档（`Doc/DesignDoc/03-sync-strategy.md`）：策略已在策划案 §7.4 确定，本文档只补操作层（HF Hub 仓库命名规则、`huggingface-cli` 上传/下载常用命令、断点续传、数据下载脚本骨架）
 - [x] T0.12 在 Win/Mac 各自 `uv sync` + `python scripts/doctor.py` 通过
+- [x] T0.13 ch00 导论课件（AI 全景与概念速查）
 <!-- M0 END -->
 
 <!-- M1 START -->

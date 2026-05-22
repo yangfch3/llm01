@@ -3,6 +3,10 @@
 > 本文是课件总目录骨架。每章 markdown 落到 `Doc/Courseware/chNN-xxx/README.md`，配套练习落到 `Playground/chNN-xxx/`。
 > 章节内容随里程碑推进逐步补全，详见 [`../DesignDoc/01-project-plan.md`](../DesignDoc/01-project-plan.md)。
 
+## 导论
+
+- [x] **ch00 · AI 全景与概念速查** — AI 演进时间线、概念分类树、架构路线、LLM 全链路地图 · 无配套练习
+
 ## M1 · 前置知识
 
 - [x] **ch01 · 环境与工具** — uv / PyTorch 安装（CUDA vs MPS）/ Jupyter / VSCode 调试 · 练习：环境自检脚本

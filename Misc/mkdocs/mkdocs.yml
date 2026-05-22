@@ -34,7 +34,8 @@ theme:
 
 plugins:
   - search
-  - awesome-pages
+  - awesome-pages:
+      collapse_single_pages: true
 
 markdown_extensions:
   # 让嵌套列表按 2 空格识别（对齐 GitHub / 编辑器渲染），避免 3 空格被捋平
@@ -47,6 +48,8 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.arithmatex:
       generic: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
   - tables
   - toc:
       permalink: true
