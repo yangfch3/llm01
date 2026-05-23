@@ -98,6 +98,79 @@ tr:hover td:first-child { background: var(--hover); }
 
 .legend { margin-top: 12px; font-size: 0.75rem; color: var(--text-dim); }
 .legend span { color: var(--accent); font-weight: 600; }
+
+/* Help button */
+.help-btn {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.help-btn:hover { background: var(--accent-light); border-color: var(--accent); }
+
+/* Modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-title { font-weight: 600; font-size: 0.95rem; }
+.modal-close {
+  background: none; border: none;
+  font-size: 1.4rem; cursor: pointer;
+  color: var(--text-dim);
+  line-height: 1;
+}
+.modal-close:hover { color: var(--accent); }
+.modal-body {
+  padding: 20px;
+  font-size: 0.83rem;
+  line-height: 1.7;
+  color: var(--text);
+}
+.modal-body code {
+  background: var(--bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+.modal-body pre {
+  background: var(--bg);
+  padding: 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  margin: 8px 0;
+}
 </style>
 </head>
 <body>
@@ -132,8 +205,22 @@ tr:hover td:first-child { background: var(--hover); }
   </div>
 </div>
 
-<div class="tabs" id="tabs"></div>
+<div style="display:flex;align-items:center;justify-content:space-between;">
+  <div class="tabs" id="tabs"></div>
+  <button class="help-btn" id="help-btn" title="查看计算公式">?</button>
+</div>
 <div class="table-wrap" id="table-wrap"></div>
+
+<!-- Help modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title"></span>
+      <button class="modal-close" id="modal-close">&times;</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
 
 <script>
 // === Model configs ===
@@ -332,17 +419,16 @@ function calcAlign(modelKey, precision) {
   const train_act = activationMem(cfg, batchSize, seqLen, 2) * 0.3;
   const full = train_w + train_grad + train_opt + train_act + ref_w;
 
-  // LoRA DPO: LoRA train + ref at selected precision
+  // LoRA DPO: single base + LoRA adapter, ref = disable adapter (no extra weight)
   const lora_w = P * bpp;
   const lora_grad = loraParams * 2;
   const lora_opt = loraParams * 12;
   const lora_act = activationMem(cfg, batchSize, seqLen, 2) * 0.3;
-  const lora = lora_w + lora_grad + lora_opt + lora_act + ref_w;
+  const lora = lora_w + lora_grad + lora_opt + lora_act;
 
-  // QLoRA DPO: INT4 base + LoRA + INT4 ref (always fixed)
+  // QLoRA DPO: INT4 base + LoRA, ref = disable adapter (no extra weight)
   const qlora_w = P * 0.5;
-  const qlora_ref = P * 0.5;
-  const qlora = qlora_w + lora_grad + lora_opt + lora_act + qlora_ref;
+  const qlora = qlora_w + lora_grad + lora_opt + lora_act;
 
   return {
     'Full (含 ref)': isQuant ? NA : toGB(full),
@@ -405,6 +491,84 @@ function render() {
   html += '</tbody></table>';
   wrap.innerHTML = html;
 }
+
+// === Help Modal ===
+const HELP_CONTENT = [
+  // Pretrain
+  `<p><b>Pretrain 显存估算公式</b></p>
+<pre>显存 = 权重 + 梯度 + 优化器状态 + 激活
+
+权重      = P × bytes_per_param
+梯度      = P × bytes_per_param
+优化器    = P × 12 bytes (AdamW: FP32副本 + m + v)
+激活      ≈ 2 × bs × seq_len × hidden × layers × act_bytes</pre>
+<p><b>各列含义：</b></p>
+<p><code>Naive</code> — 原始精度全量训练，无任何优化</p>
+<p><code>+ AMP</code> — 混合精度：前向/激活用 FP16，梯度+优化器保持 FP32（仅 FP32 基础有意义）</p>
+<p><code>+ Grad Ckpt</code> — 梯度检查点：丢弃中间激活，反向时重算，激活显存 ×0.3</p>
+<p><code>+ AMP + Grad Ckpt</code> — 两者叠加，最省显存的全参训练方式</p>`,
+
+  // SFT
+  `<p><b>SFT 显存估算公式</b></p>
+<pre>Full (AMP+Grad Ckpt):
+  显存 = P×2 + P×2 + P×12 + 激活×0.3
+
+LoRA:
+  显存 = 冻结权重(P×bpp) + LoRA梯度 + LoRA优化器 + 激活
+  LoRA参数 = 2 × target_modules(2) × layers × hidden × rank
+
+QLoRA:
+  显存 = INT4权重(P×0.5) + LoRA梯度 + LoRA优化器 + 激活</pre>
+<p><b>各列含义：</b></p>
+<p><code>Full (AMP+Grad Ckpt)</code> — 全参微调 + 混合精度 + 梯度检查点</p>
+<p><code>LoRA</code> — 冻结基座，只训低秩适配层（~2-4% 参数）</p>
+<p><code>LoRA + AMP</code> — LoRA + 混合精度（仅 FP32 基座有意义）</p>
+<p><code>QLoRA</code> — 4bit 量化基座 + FP16 LoRA 训练，固定 INT4</p>`,
+
+  // 对齐 (DPO)
+  `<p><b>DPO 对齐显存估算公式</b></p>
+<pre>Full (含 ref, 训练侧固定 AMP):
+  显存 = P×2 + P×2 + P×12 + 激活×0.3 + P×bpp
+       = 训练权重(FP16) + 梯度(FP16) + AdamW优化器(FP32) + 激活 + ref权重(选定精度)
+
+LoRA (共享基座):
+  显存 = P×bpp + loraParams×2 + loraParams×12 + 激活×0.3
+       = 基座权重 + LoRA梯度 + LoRA优化器 + 激活
+  (ref 通过禁用 adapter 实现，不额外占显存)
+
+QLoRA (共享基座):
+  显存 = P×0.5 + loraParams×2 + loraParams×12 + 激活×0.3
+       = INT4基座 + LoRA梯度 + LoRA优化器 + 激活
+
+其中:
+  loraParams = 2 × target_modules(2) × layers × hidden × rank
+  激活 ≈ 2 × bs × seq_len × hidden × layers × 2 bytes</pre>
+<p><b>注意：</b></p>
+<p><code>Full</code> — 需要独立 ref 模型（全参训练无法共享权重），ref 以选定精度加载</p>
+<p><code>LoRA / QLoRA</code> — ref = 禁用 adapter 的同一基座，零额外开销（TRL/Unsloth 默认行为）</p>`,
+
+  // 部署 (推理)
+  `<p><b>推理部署显存估算公式</b></p>
+<pre>显存 = 模型权重 + KV Cache
+
+模型权重 = P × bytes_per_param
+KV Cache  = 2(K+V) × layers × heads × head_dim × seq_len × bs × 2 bytes</pre>
+<p><code>模型权重</code> — 静态占用，取决于参数量和精度</p>
+<p><code>KV Cache</code> — 动态占用，随 batch size 和序列长度线性增长</p>
+<p>KV Cache 默认以 FP16 存储（与模型精度无关）。</p>`,
+];
+
+const overlay = document.getElementById('modal-overlay');
+const modalTitle = document.getElementById('modal-title');
+const modalBody = document.getElementById('modal-body');
+
+document.getElementById('help-btn').onclick = () => {
+  modalTitle.textContent = TABS[activeTab] + ' — 计算说明';
+  modalBody.innerHTML = HELP_CONTENT[activeTab];
+  overlay.classList.add('open');
+};
+document.getElementById('modal-close').onclick = () => { overlay.classList.remove('open'); };
+overlay.onclick = (e) => { if (e.target === overlay) overlay.classList.remove('open'); };
 
 // === Boot ===
 initChips('model-select', Object.keys(MODEL_CONFIGS), DEFAULT_MODELS, 'models');

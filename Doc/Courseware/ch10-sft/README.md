@@ -365,7 +365,7 @@ gradients:  8.4M × 2B = 17MB
 optimizer:  8.4M × 8B = 67MB
 activations: 与 LoRA 同
 ─────────────────────────────
-总计：4GB + activations
+总计：3.6GB + activations
 ```
 
 QLoRA 做了三件事：
