@@ -10,7 +10,7 @@
 ## 仓库与配套资源
 
 - **GitHub 仓库**：<https://github.com/yangfch3/llm01>
-- **课件配套练习代码**：与课件章节一一对应，存放于仓库的 [`Playground/`](https://github.com/yangfch3/llm01/tree/main/Playground) 目录下（`chNN-xxx/` 形式命名）。
+- **课件配套练习代码**：存放于仓库的 [`Playground/`](https://github.com/yangfch3/llm01/tree/main/Playground) 目录。
 - **工具**：
   - [LLM 显存计算器](/llm01/tools/vram-estimator.html)
 - **Echo 模型代码**：见仓库的 [`Echo/`](https://github.com/yangfch3/llm01/tree/main/Echo) 目录，含 `echo-mini/`、`echo/` 与共享工具 `shared/`。

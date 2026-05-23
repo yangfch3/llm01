@@ -204,7 +204,7 @@ activations:   B * L * d * num_layers * (常数)
   activations       = X GB (fp32)
   合计: 16GB + X（典型配置下 X 可达数十 GB，远超参数项）
 
-启 AMP 后:
+启 AMP 后（概念简化，实际 PyTorch 内存布局可能合并部分副本）:
   fp16 *weights         1B × 2B = 2GB  ← 计算用
   fp32 master weights   1B × 4B = 4GB  ← 保留，更新精度需要
   fp16 *grads           1B × 2B = 2GB

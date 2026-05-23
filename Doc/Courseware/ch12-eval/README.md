@@ -112,7 +112,7 @@ ppl = math.exp(total_nll / total_tokens)
 | **CMMLU** | 中文 67 学科多选 | 4 选 1 | 中 |
 | **GSM8K** | 小学数学题 | 生成数字答案 | 中 |
 | **HumanEval** | Python 代码补全 | 生成函数体 | 中 |
-| **MT-Bench** | 两轮对话（一问一追问） | 生成 + GPT-4 打分 | 综合 |
+| **MT-Bench** | 80 道两轮对话（一问一追问） | 生成 + GPT-4 两轮合并打分（1–10） | 综合 |
 | **AlpacaEval** | 单轮指令 | 生成 + GPT-4 对比 | 综合 |
 
 > M3 阶段你只需要认识它们；M5/M6 落 echo 时，最少跑 **C-Eval 子集 + MT-Bench 中文子集**。

@@ -3,7 +3,7 @@
 > ch06 训出来的 MiniGPT，其临时的自回归生成用的贪心解码下输出 "the the the the..."。本章解决两件事：
 > 
 > 1. **怎么解码** — 让生成的文本既不傻（贪心退化）也不乱（纯随机崩坏）
-> 2. **怎么提速** — KV cache（Key/Value cache，键值缓存）让生成 n 个 token 的复杂度从 O(n³) 降到 O(n²)
+> 2. **怎么提速** — KV cache（Key/Value cache，键值缓存）让生成 n 个 token 的累计复杂度从 O(n³) 降到 O(n²)
 >
 > 本章是 M2 收官，也是 echo-mini 推理 CLI 的全部理论基础。
 
@@ -181,7 +181,7 @@ def top_p_filter(logits: torch.Tensor, p: float) -> torch.Tensor:
     remove_mask = cum_probs - F.softmax(sorted_logits, dim=-1) >= p
     sorted_logits[remove_mask] = float("-inf")
     # 还原原始顺序
-    return sorted_logits.scatter(1, sorted_idx, sorted_logits)
+    return logits.scatter(1, sorted_idx, sorted_logits)
 ```
 
 ### 自检

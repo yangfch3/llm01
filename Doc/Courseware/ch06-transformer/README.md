@@ -212,7 +212,7 @@ FFN 解决的是"拿到信息后怎么处理"——它对每个位置独立做�
 
 ### 5.3 GELU vs ReLU
 
-GELU = `x · Φ(x)`，其中 Φ 是标准正态（μ=0, σ=1）的 CDF（Cumulative Distribution Function，累积分布函数），值域 (0,1)。直觉：ReLU 的"软化版"，负半轴不是硬砍而是逐渐衰减。GPT-1/2/3 使用 GELU。
+GELU = `x · Φ(x)`，其中 Φ 是标准正态（μ=0, σ=1）的 CDF（Cumulative Distribution Function，累积分布函数），Φ 的值域为 (0,1)。直觉：ReLU 的"软化版"，负半轴不是硬砍而是逐渐衰减。GPT-1/2/3 使用 GELU。
 
 ```python
 import torch.nn.functional as F
@@ -282,6 +282,7 @@ final LN + 其它：          忽略
 class MiniGPT(nn.Module):
     def __init__(self, vocab_size, d_model, n_heads, n_layers, max_len, d_ff=None):
         ...
+        self.max_len   = max_len
         self.token_emb = nn.Embedding(vocab_size, d_model)
         self.pos_emb   = nn.Embedding(max_len, d_model)   # 教学简化：学习式位置；echo-mini 实际用 RoPE，见练习 01
         self.blocks    = nn.ModuleList([Block(...) for _ in range(n_layers)])
@@ -300,7 +301,7 @@ class MiniGPT(nn.Module):
     # 逐 token 自回归生成（详见 ch07）
     def generate(self, ids, max_new_tokens):
         for _ in range(max_new_tokens):
-            logits = self.forward(ids[:, -max_len:])       # 截断到最大上下文长度
+            logits = self.forward(ids[:, -self.max_len:])  # 截断到最大上下文长度
             next_id = logits[:, -1].argmax(dim=-1, keepdim=True)  # 贪心：取概率最大的 token
             ids = torch.cat([ids, next_id], dim=1)
         return ids

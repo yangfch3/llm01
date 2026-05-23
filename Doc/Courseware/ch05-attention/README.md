@@ -127,7 +127,7 @@ i=1    [0.71  0.71  0.00  0.35]
 i=2    [0.71  0.00  0.71  0.35]
 i=3    [0.71  0.35  0.35  0.35]
 
-Step 3: softmax（逐行归一化，以 token 0 为例，其余行同理）
+Step 3: softmax（逐行归一化，以 token 0 为例，其余行同理；以下为近似值）
 i=0    [0.40  0.20  0.20  0.20]    ← token 0 对自己关注最多
 ...
 
@@ -234,14 +234,14 @@ logits = logits.masked_fill(mask == 0, float("-inf"))
 **真相**：把 d 维**拆**成 H 段，每段 `d_k = d / H` 维：
 
 ```
-输入 X: (n, d=512) -> n 行 × 512 列 的矩阵
+输入 X: (B, n, d=512)
   ↓ W^Q (512 × 512)
-Q: (n, 512)
-  ↓ reshape: (n, H=8, d_k=64) → transpose: (H=8, n, d_k=64)
-对 H 个头并行算 attention，每个头算出 (n, d_v=64)
-  ↓ concat 头维度: (n, H × d_v = 512)
+Q: (B, n, 512)
+  ↓ reshape: (B, n, H=8, d_k=64) → transpose(1,2): (B, H=8, n, d_k=64)
+对 H 个头并行算 attention，每个头算出 (B, H, n, d_v=64)
+  ↓ transpose + reshape 合头: (B, n, H × d_v = 512)
   ↓ W^O (512 × 512) 输出投影
-output: (n, 512)
+output: (B, n, 512)
 ```
 
 **总参数量与单头同维相同**——只是把同一份 d 维表示分给多头分工。参数量没多花一分，**表达力却更强**：每个头在自己的 d_k 维子空间独立学一种注意力模式，互不打架。
@@ -267,8 +267,8 @@ k_heads = [x @ W_K_list[i] for i in range(H)]
 v_heads = [x @ W_V_list[i] for i in range(H)]
 
 # 工程写法：1 个大矩阵一次算完 + reshape 切头（快，实际都这么写）
-Q = x @ W_Q                             # (n, d) → (n, d)
-Q = Q.reshape(n, H, d_k).transpose(0, 1)  # → (H, n, d_k)
+Q = x @ W_Q                             # (B, n, d) → (B, n, d)
+Q = Q.reshape(B, n, H, d_k).transpose(1, 2)  # → (B, H, n, d_k)
 # K、V 同理
 ```
 

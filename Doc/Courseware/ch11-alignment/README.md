@@ -125,7 +125,7 @@ PPO 的问题有哪些呢？
 
 | 问题 | 来源 |
 |---|---|
-| 显存爆炸 | 训练时同时活着 4 个模型：π_RL、π_ref、RM、value head |
+| 显存爆炸 | 训练时同时活着 3 个独立模型副本 + 1 个轻量头：π_RL（含 value head，共享 backbone）、π_ref、RM |
 | 超参敏感 | β / clip_eps / lr / KL 目标值，调一组花几天 |
 | 训练不稳 | RL 信号高方差，loss 曲线像心电图，崩盘频繁 |
 | 实现复杂 | rollout、advantage 估计、ratio clip、value loss 全要写对 |
@@ -189,7 +189,7 @@ max E[r(x, y)]  - β · KL(π || π_ref)
 r(x, y) = β · log(π*(y|x) / π_ref(y|x)) + const(x)
 ```
 
-把这个 r 代回 RM 的 Bradley-Terry loss `-log σ(r_chosen - r_rejected)`，`const(x)` 抵消了：
+把这个 r 代回 RM 的 Bradley-Terry loss `-log σ(r_chosen - r_rejected)`，`const(x)` 抵消了（chosen 和 rejected 共享同一 prompt x，const(x) 相减为 0）。然后用当前训练模型 π 替代理论最优 π*（训练目标即让 π 逼近 π*）：
 
 ```
 # 式 3
@@ -222,7 +222,7 @@ DPO 把 RL 问题降级成了普通的监督学习问题，工程上和训 SFT �
 
 实现上 π_ref 冻结，前向产出 logp 供 loss 计算但不参与反向传播（梯度只流过 π）。代价：训练时显存里要同时放两个模型副本。
 
-LoRA（见 ch09）场景下可省掉 —— base 权重 W 本身就是 SFT 后的状态且冻结不动，关闭 LoRA 旁路走纯 W 即为 π_ref，打开旁路走 W+BA 即为 π，同一份 base 按需切换身份，零额外显存。
+LoRA（见 ch10 §4）场景下可省掉 —— base 权重 W 本身就是 SFT 后的状态且冻结不动，关闭 LoRA 旁路走纯 W 即为 π_ref，打开旁路走 W+BA 即为 π，同一份 base 按需切换身份，零额外显存。
 
 ### 3.4 训练示例
 

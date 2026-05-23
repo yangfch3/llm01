@@ -127,7 +127,7 @@ th e
 
 - 与 BPE 几乎一致，唯一差别在选合并 pair 的 **打分函数**
 - BPE 选 `count(xy)` 最高，WordPiece 选 `count(xy) / (count(x) * count(y))` 最高
-- 直觉：不只看共现频次，还看 "是否互相独立的两个 token 凑巧在一起" —— 分母惩罚高频通用字符。这本质是 **PMI（Pointwise Mutual Information，点互信息）** 的非对数形式，要求两个 token 共现频次高且各自独立频次低才值得合并
+- 直觉：不只看共现频次，还看 "是否互相独立的两个 token 凑巧在一起" —— 分母惩罚高频通用字符。这本质是**联合频率与边际频率乘积之比**（与 PMI 相关但未取 log），要求两个 token 共现频次高且各自独立频次低才值得合并
 - **推理也不一样**：BPE 按 merge 优先级反复合并；WordPiece 按**最长前缀贪心**从左切（找词表里最长匹配前缀，砍掉，剩下加 `##` 前缀继续）。匹配不上就 `[UNK]` —— 这是 BERT 偶尔吐 `[UNK]` 的根源
 - 直觉上更合理，但实测下游任务差异不大 —— BPE 的迭代过程本身足够让有意义的组合浮出来；BERT 时代选它纯属历史路径
 
@@ -140,7 +140,7 @@ th e
 
 ### v.s BPE 选哪个
 
-工程上**默认 BPE**。GPT 系全用，LLaMA 系（含 LLaMA-1/2/3）全用 SentencePiece-BPE，HuggingFace `tokenizers` 库 BPE 支持也最稳。Unigram 在多语言场景偶尔略好。
+工程上**默认 BPE**。GPT 系全用，LLaMA-1/2 用 SentencePiece-BPE，LLaMA-3 改用 tiktoken（词表从 32k 扩到 128k），HuggingFace `tokenizers` 库 BPE 支持也最稳。Unigram 在多语言场景偶尔略好。
 
 ---
 

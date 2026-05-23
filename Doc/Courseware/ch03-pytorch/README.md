@@ -119,8 +119,8 @@ print(w.grad)                                     # tensor(-8.) ← dL/dw = 2(y-
 **坑 1：梯度会累加**
 
 ```python
-loss.backward()                # w.grad = -4.0
-loss2.backward()               # w.grad = -4.0 + 新梯度，**不是覆盖**
+loss.backward()                # w.grad 被填入梯度值
+loss2.backward()               # w.grad += 新梯度，**不是覆盖**
 ```
 
 PyTorch 设计成累加是为了支持 grad accumulation（小显存模拟大 batch）。代价是**普通训练每步必须 `optimizer.zero_grad()` 清零**，否则梯度爆炸。
@@ -304,7 +304,7 @@ Win 上 `num_workers > 0` + 没用 `if __name__ == "__main__":` 守卫 → multi
 1. 教学代码 / 单文件脚本：`num_workers=0`，省心
 2. 真要并行：脚本入口必须 `if __name__ == "__main__": main()`
 
-Mac/Linux 用 fork（不 spawn），没这问题。
+Linux 默认 fork，没这问题。Mac Python 3.8+ 同样默认 spawn，但不需要 `if __name__` 守卫即可正常运行（multiprocessing 安全机制与 Win 不同）。
 
 ### 自检
 
@@ -367,7 +367,7 @@ for epoch in range(num_epochs):
 <details markdown="1">
 <summary>答案速查</summary>
 
-1. 第一个 batch 没问题；第二个 batch 的 `loss.backward()` 会把梯度加在第一个 batch 已 step 过的"残留梯度"上，等价于隐式 grad accumulation 但你没意识到，loss 会偏高/震荡。**位置写在 `backward()` 之前最稳**
+1. 初始 `.grad` 为 `None`，第一步 `backward()` 直接赋值（碰巧正确）；但第二步起 `backward()` 会把新梯度加在上一步 `step()` 已用过的残留梯度上，等价于隐式 grad accumulation，loss 会偏高/震荡。**位置写在 `backward()` 之前最稳**
 
 2. 不行，两者管的事不同。`eval()` 切 Dropout/BN 等算子的训推模式；`no_grad()` 关计算图、省显存提速。少前者会导致 Dropout 仍随机丢神经元、BN 用 batch 统计而非 running 统计，指标偏差；少后者只是慢且费显存，结果还是对的
 

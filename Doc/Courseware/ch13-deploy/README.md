@@ -56,7 +56,7 @@
 实际上 12GB 显存跑 7B 模型：
 
 - fp16 权重 14GB 已超 12GB 显存，必须 CPU offload 一部分，吞吐通常掉到 10—15 tok/s（tokens per second，每秒生成 token 数）
-- int4 GGUF（GPT-Generated Unified Format, LLM 存储格式，见 §2.2）通过 llama.cpp 全程显卡跑，约 60 tok/s
+- int4 GGUF（GGML Universal File Format，llama.cpp 的模型存储格式，见 §2.2）通过 llama.cpp 全程显卡跑，约 60 tok/s
 - **fp16 在 12GB 卡上跑 7B 实际不可行**，量化在这个量级是必选项
 
 ### 1.3 精度损失从哪来
@@ -97,7 +97,7 @@ int4:  16 个离散级别（-8 到 7）
 | 类别 | 代表 | 何时做 | 难度 |
 |---|---|---|---|
 | **PTQ**（Post-Training Quantization） | GGUF / GPTQ / AWQ | 训完后离线量化 | 低，社区主流 |
-| **QAT**（Quantization-Aware Training） | bitsandbytes 的 8bit/4bit 训练 | 训练过程感知量化误差 | 高，少用 |
+| **QAT**（Quantization-Aware Training） | PyTorch `torch.ao.quantization` 等 | 训练过程插入 fake quant 节点感知量化误差 | 高，少用 |
 | **QLoRA** | bitsandbytes 4bit + LoRA | 把底座 4bit 冻结 + 训 LoRA | 中，省显存训练（NF4 / double quantization 细节见 ch10 §4.4） |
 
 > echo-mini/echo 项目用 PTQ：训练阶段保持 fp16/bf16，训完后导出 GGUF int4 部署。QLoRA 用在 M5 微调底座阶段（省显存训练，不是部署）。
@@ -180,7 +180,7 @@ print(tok.decode(out[0]))
 ```
 
 - **优点**：训练后第一时间能跑，与训练代码同栈，方便调试
-- **缺点**：跑得慢（无 KV cache 优化时）、显存占用高（fp16）、Mac 上 MPS 路径偶有 op fallback
+- **缺点**：跑得慢（Python 调度开销、无 kernel 融合、无 continuous batching）、显存占用高（fp16）、Mac 上 MPS 路径偶有 op fallback
 - **适用**：开发调试、训练后立即推理验证
 
 ### 3.2 `llama-cpp-python`
