@@ -61,3 +61,6 @@ extra:
     - icon: fontawesome/brands/github
       link: https://github.com/yangfch3/llm01
       name: GitHub 仓库
+    - icon: fontawesome/solid/calculator
+      link: /llm01/tools/vram-estimator.html
+      name: 显存估算器

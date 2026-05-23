@@ -171,10 +171,20 @@ tr:hover td:first-child { background: var(--hover); }
   line-height: 1.6;
   margin: 8px 0;
 }
+.back-link {
+  position: absolute;
+  top: 24px;
+  right: 32px;
+  font-size: 0.82rem;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+.back-link:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
-
+<a href="/" class="back-link">&larr; 返回主站</a>
 <h1>LLM 显存占用估算器</h1>
 <p class="subtitle">纯公式估算，适合快速判断单卡能否装下。<span class="legend"> <span>红色</span> = 超出显存红线</span></p>
 
