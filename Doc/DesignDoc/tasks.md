@@ -55,7 +55,7 @@
 
 - [ ] T4.1 数据：中英双语（或先英文）小规模语料采集与清洗脚本
 - [ ] T4.2 训练 BPE 分词器，词表 ~16k
-- [ ] T4.3 写 echo-mini 模型（参数 ~30M，Decoder-only + RoPE）
+- [ ] T4.3 写 echo-mini 模型（参数 ~60M，Llama 风格 Decoder-only + RoPE + GQA + SwiGLU）
 - [ ] T4.4 Pretrain 训练脚本（支持混合精度、checkpointing、断点续训）
 - [ ] T4.5 产出 Pretrain `config-full.yaml` + `config-tiny.yaml`，Mac 跑 tiny 验证代码不崩
 - [ ] T4.6 在 3060 12GB 上跑 Pretrain full 配置，记录 loss 曲线
