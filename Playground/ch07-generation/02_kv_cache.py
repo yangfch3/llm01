@@ -147,7 +147,7 @@ def main() -> None:
     print(f"device: {device}")
     torch.manual_seed(0)
 
-    V, d, H, L, max_len = 64, 384, 6, 6, 1024
+    V, d, H, L, max_len = 64, 768, 12, 8, 2048
     # 用同一份初始化构造两个模型：一个无 cache 走 ch06 原版，一个带 cache
     model_no_cache = MiniGPT(V, d, H, L, max_len).to(device).eval()
     torch.manual_seed(0)
@@ -176,9 +176,9 @@ def main() -> None:
     assert diff == 0, "KV cache 与无 cache 路径必须输出完全一致的 token 序列"
 
     # ---- 验证 2：性能加速 ----
-    print("\n性能对比：生成 400 个 token（序列足够长 attention 才主导耗时）")
+    print("\n性能对比：生成 800 个 token（序列足够长 attention 才主导耗时）")
     prompt = torch.randint(0, V, (1, 4), device=device)
-    n_new = 400
+    n_new = 800
 
     # warm up（避免首次 CUDA kernel 编译开销混入计时）
     _ = model_kv.generate_kv(prompt.clone(), max_new_tokens=10)
