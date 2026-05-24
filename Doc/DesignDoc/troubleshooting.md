@@ -18,6 +18,12 @@
 
 ---
 
+## 2026-05-24 · Win · echo-mini scripts 报 `No module named 'echo_mini'`
+
+- **现象**：`uv run python scripts/prepare_data.py ...` 报 ModuleNotFoundError
+- **根因**：`src/echo_mini/` 不是 pip 安装的包，`sys.path` 中没有 `src/` 目录
+- **解决**：scripts 顶部加 `sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))`
+
 ## 2026-05-14 · Win · `bitsandbytes` 自检子进程输出 GBK 编码
 
 - **现象**：`import bitsandbytes` 时 doctor 主进程 reader thread 报 `UnicodeDecodeError: 'utf-8' codec can't decode byte 0xb2`

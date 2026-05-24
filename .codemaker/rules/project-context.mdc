@@ -38,7 +38,8 @@ alwaysApply: true
 
 ### 代码
 
-- Python 3.12（minor 锁定；Win 3.12.10 / Mac 3.12.13）；依赖管理 **uv**（禁用 pip/conda）
+- Python 3.12（minor 锁定；Win 3.12.10 / Mac 3.12.13）
+- 课件、练习代码、echo-mini / echo 的开发训练部署的依赖管理都使用 **uv**（禁用 pip/conda）
 - 格式化与 lint：**ruff**；类型注解建议但不强制
 - 禁止硬编码 `cuda` / `mps` / `cpu`，一律走 `Echo/shared/device.py::get_device()`
 - 路径一律 `pathlib.Path`，不做字符串拼接
