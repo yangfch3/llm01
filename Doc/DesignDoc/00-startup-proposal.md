@@ -32,7 +32,7 @@
 | 决策项 | 选择 | 理由 |
 |---|---|---|
 | 技术路线 | 双产物并行：`echo-mini` 从零 Pretrain + `echo` 微调开源底座 | 前者保证全链路学习完整，后者保证最终产品可用 |
-| 开源底座候选 | Qwen2.5-0.5B / 1.5B（待定 Pretrain 阶段再拍板） | 中英友好、尺寸合适、3060 可训可推 |
+| 开源底座候选 | Qwen2.5-0.5B / 1.5B（待定 Pretrain 阶段再拍板） | 中英友好、尺寸合适、3060 12GB 可训可推 |
 | 课程起点 | PyTorch + Transformer + 浅层数学 | 用户已有 Python/NumPy 基础 |
 | 训练链路 | 数据清洗 → 分词器训练 → Pretrain → SFT → DPO/RLHF → 评测 → 量化部署 | 完整覆盖全链路 |
 | 语言 | 中英双语 | 语料丰富、受众更广 |
@@ -45,7 +45,7 @@
 
 ### 4.1 echo-mini —— 教学产物
 
-- 参数量：~10M–100M 级，可在 3060 上从零训练
+- 参数量：~10M–100M 级，可在 3060 12GB 上从零训练
 - 用途：走完全链路，验证每一步管线
 - 预期智力：极弱，能续写常见句式即可，不追求对话质量
 - 价值：**学懂每个环节**
@@ -95,7 +95,7 @@ echo-mini 的训练过程中会沉淀大量"配方"（数据清洗参数、超�
 #### echo final（M6 完，量化后）
 
 - 上述指标量化后衰减不超过 5%
-- 在 3060 上推理 ≥ 20 tokens/s（int4）；在 Mac M 系列 ≥ 15 tokens/s（GGUF Q4_K_M）
+- 在 3060 12GB 上推理 ≥ 20 tokens/s（int4）；在 Mac M 系列 ≥ 15 tokens/s（GGUF Q4_K_M）
 - Ollama `ollama run echo` 一行命令可启动对话
 
 > 评测集落到 `Echo/echo/eval/` 下，详细方案在 M5 启动时落 `Doc/DesignDoc/04-eval-spec.md`（届时按需新建，不强求 M0 产出）。
@@ -168,7 +168,7 @@ llm01/
 
 ### 7.1 活动 × 平台矩阵
 
-| 活动 | Windows (3060) | Mac (Apple Silicon) | 切换策略 |
+| 活动 | Windows (3060 12GB) | Mac (Apple Silicon) | 切换策略 |
 |---|---|---|---|
 | 学习 / 读课件 | ✅ | ✅ | 随时切 |
 | Playground 练习 | ✅ | ✅ | 随时切，代码必须 device 无关 |
@@ -192,7 +192,7 @@ llm01/
 
 所有训练任务（Pretrain / SFT / DPO）都要提供两套配置：
 
-- `config-full.yaml`：生产配置，3060 上跑，大 batch、长步数
+- `config-full.yaml`：生产配置，3060 12GB 上跑，大 batch、长步数
 - `config-tiny.yaml`：验证配置，Mac/CPU 可跑，~100 步内完成，只为验证代码正确性
 
 切换机器时，Mac 用 tiny 配置跑一遍确认不崩，然后推回 Win 跑 full 配置。
@@ -225,7 +225,7 @@ llm01/
 
 | 风险 | 影响 | 应对 |
 |---|---|---|
-| 3060 显存不足以做 Pretrain | echo-mini 训练卡住 | 控制参数量在 10M–100M，启用 gradient checkpointing / 混合精度 |
+| 3060 12GB 显存不足以做 Pretrain | echo-mini 训练卡住 | 控制参数量在 10M–100M，启用 gradient checkpointing / 混合精度 |
 | 中英双语稀释小模型效果 | echo-mini 效果差 | 允许 echo-mini 偏英文/单语，中英双语在 `echo` 上实现 |
 | 开源底座许可证限制 | echo 无法开源权重 | 只开源训练脚本与配置，权重走 HF 链接引导下载 |
 | 学习节奏拖长 | 项目烂尾 | 计划书按"里程碑 + 可交付物"驱动，见 `01-project-plan.md` |

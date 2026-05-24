@@ -397,7 +397,7 @@ QLoRA 做了三件事：
 | 70B 模型，单卡 24GB | QLoRA + offload，能跑但慢 |
 | Mac MPS | LoRA（bf16/fp16）；bitsandbytes 对 MPS 支持不成熟，QLoRA 不建议在 Mac 上跑 |
 
-> echo（M5）走 Qwen2.5-0.5B/1.5B 底座，3060 上**纯 LoRA 即可**，QLoRA 在这个量级反而吞吐亏；Mac 也能直接 LoRA。
+> echo（M5）走 Qwen2.5-0.5B/1.5B 底座，3060 12GB 上**纯 LoRA 即可**，QLoRA 在这个量级反而吞吐亏；Mac 也能直接 LoRA。
 
 ### 自检
 

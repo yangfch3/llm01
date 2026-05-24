@@ -494,7 +494,7 @@ ch06 会画图详解，这里先记结论。
 | `03_lr_schedule.py` | 固定 / Step / Cosine / Warmup+Cosine 四种 lr 曲线可视化（加 `--plot` 出走势图） |
 | `04_dropout_bn_ln.py` | Dropout 训/推差异；小 batch 下 BN 翻车 vs LN 稳定 |
 
-跑法同 ch03。所有脚本不依赖外部数据，3060 / Mac / CPU 都秒级跑完。
+跑法同 ch03。所有脚本不依赖外部数据，3060 12GB / Mac / CPU 都秒级跑完。
 
 ## 思考题
 

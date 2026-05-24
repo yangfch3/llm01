@@ -334,7 +334,7 @@ loss = F.cross_entropy(
 | `03_model.py` | 完整 `MiniGPT` 类（~1M 参数），forward + 朴素贪心 generate |
 | `04_train_shakespeare.py` | char-level tiny shakespeare 过拟合训练，loss 显著下降，能续写 |
 
-数据：tiny shakespeare（~1MB）首次运行自动下载到 `Playground/ch06-transformer/data/`（已被 `.gitignore` 排除）。3060 上 ~30 秒训完，CPU/Mac 上 3-5 分钟。
+数据：tiny shakespeare（~1MB）首次运行自动下载到 `Playground/ch06-transformer/data/`（已被 `.gitignore` 排除）。3060 12GB 上 ~30 秒训完，CPU/Mac 上 3-5 分钟。
 
 ## 思考题
 

@@ -306,14 +306,14 @@ PARAMETER stop "<|im_end|>"
 | M2 Pro Mac | 7B | Q8_0 (Metal) | ~18 |
 | 纯 CPU (i7) | 7B | Q4_K_M | ~6 |
 
-> **关于 3060 + 7B fp16**：约 14GB 权重显存占用，超 12GB 显存，必须做 CPU offload，瓶颈从 GPU 显存带宽变成 PCIe（Peripheral Component Interconnect Express，外设互联标准）传输，吞吐通常掉到 10—15 tok/s，且严格说不算"GPU 原生推理"——所以没列进表。**这正是为什么 7B 在 3060 上量化是必选项，而非"想省显存才量化"**。
+> **关于 3060 12GB + 7B fp16**：约 14GB 权重显存占用，超 12GB 显存，必须做 CPU offload，瓶颈从 GPU 显存带宽变成 PCIe（Peripheral Component Interconnect Express，外设互联标准）传输，吞吐通常掉到 10—15 tok/s，且严格说不算"GPU 原生推理"——所以没列进表。**这正是为什么 7B 在 3060 12GB 上量化是必选项，而非"想省显存才量化"**。
 >
 > 上面的数字为假设短上下文（≤ 2k）、无 batch、未启用 Flash Attention 类加速。长上下文（如 8k+）tok/s 通常掉一半。
 
 **echo final 验收**（出自 `00-startup-proposal.md`）：
 
 - 量化后效果衰减 ≤ 5%
-- 3060 ≥ 20 tok/s（int4）
+- 3060 12GB ≥ 20 tok/s（int4）
 - Mac ≥ 15 tok/s（GGUF Q4_K_M）
 
 ### 自检

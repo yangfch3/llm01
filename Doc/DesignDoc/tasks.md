@@ -58,7 +58,7 @@
 - [ ] T4.3 写 echo-mini 模型（参数 ~30M，Decoder-only + RoPE）
 - [ ] T4.4 Pretrain 训练脚本（支持混合精度、checkpointing、断点续训）
 - [ ] T4.5 产出 Pretrain `config-full.yaml` + `config-tiny.yaml`，Mac 跑 tiny 验证代码不崩
-- [ ] T4.6 在 3060 上跑 Pretrain full 配置，记录 loss 曲线
+- [ ] T4.6 在 3060 12GB 上跑 Pretrain full 配置，记录 loss 曲线
 - [ ] T4.7 构造小规模 SFT 对话数据（可借助公开数据集或 GPT 生成）
 - [ ] T4.8 SFT 训练脚本 + full/tiny 两份配置
 - [ ] T4.9 推理 CLI（带 KV cache，跨平台可用）
@@ -71,7 +71,7 @@
 ## M5 · echo 落地
 
 - [ ] T5.1 底座选型确认（Qwen2.5-0.5B / 1.5B / 其他）
-- [ ] T5.2 下载底座、在 3060 **和** Mac 上各跑通推理基线
+- [ ] T5.2 下载底座、在 3060 12GB **和** Mac 上各跑通推理基线
 - [ ] T5.3 整理 SFT 数据（中英对话，重点关注 Echo 人设一致性）
 - [ ] T5.4 LoRA/QLoRA 微调脚本（QLoRA 走 CUDA-only 分支，Mac 用纯 LoRA）
 - [ ] T5.5 产出 SFT `config-full.yaml` + `config-tiny.yaml`

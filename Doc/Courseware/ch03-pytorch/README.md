@@ -8,7 +8,7 @@
 
 1. 能用 PyTorch 表达 ch02 的 MLP，理解 `nn.Module` / `autograd` / `optimizer` 三件套各自的职责
 2. 写出标准训练循环模板：`forward → loss → zero_grad → backward → step`
-3. 用 `Dataset / DataLoader` 喂数据，跑通 MNIST 分类（3060 上 1 分钟内 ≥ 97% 测试集准确率）
+3. 用 `Dataset / DataLoader` 喂数据，跑通 MNIST 分类（3060 12GB 上 1 分钟内 ≥ 97% 测试集准确率）
 
 ## 前置依赖
 
@@ -394,7 +394,7 @@ uv run python Playground/ch03-pytorch/01_tensor_basics.py
 # ... 依次 02 ~ 05
 ```
 
-通过标准：每个脚本独立跑通，最后打印 `PASS`。`05_mnist_mlp.py` 首次运行会自动下载 MNIST 到 `./data/mnist/`（约 11MB，已被 `.gitignore`），3060 上约 30 秒、Mac M 系列约 1 分钟、纯 CPU 约 2 分钟。
+通过标准：每个脚本独立跑通，最后打印 `PASS`。`05_mnist_mlp.py` 首次运行会自动下载 MNIST 到 `./data/mnist/`（约 11MB，已被 `.gitignore`），3060 12GB 上约 30 秒、Mac M 系列约 1 分钟、纯 CPU 约 2 分钟。
 
 ## 思考题
 

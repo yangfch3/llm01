@@ -37,7 +37,7 @@
 
 **章节列表**：见 [`Doc/Courseware/outline.md` → M1](../Courseware/outline.md#m1--前置知识)（ch01–ch04）。
 
-**交付物**：4 章课件 markdown + 对应 Playground/ch01~ch04 练习代码；所有练习在 3060 上 1 分钟内可跑完。
+**交付物**：4 章课件 markdown + 对应 Playground/ch01~ch04 练习代码；所有练习在 3060 12GB 上 1 分钟内可跑完。
 
 **任务清单**：见 [`tasks.md` → M1](tasks.md#m1--前置知识)。
 
@@ -71,7 +71,7 @@
 
 **目标**：走通"数据 → 分词 → Pretrain → SFT → 评测"完整管线，产出 echo-mini。
 
-**跨平台约定**：所有训练任务产出 `config-full.yaml`（Win 3060 生产配置）与 `config-tiny.yaml`（Mac/CPU ~100 步验证配置）两份，同一入口读配置。
+**跨平台约定**：所有训练任务产出 `config-full.yaml`（Win 3060 12GB 生产配置）与 `config-tiny.yaml`（Mac/CPU ~100 步验证配置）两份，同一入口读配置。
 
 **交付物**：`Echo/echo-mini` 下完整代码与配置；训练日志与 loss 曲线；弱但能续写的迷你模型权重（HF Hub 分发）。
 
@@ -97,7 +97,7 @@
 
 **交付物**：Echo 最终版（量化后）；本地可启动的 chat demo（Ollama）。
 
-**验收**：满足 [`00-startup-proposal.md` §4.5 echo final 指标](00-startup-proposal.md#echo-finalm6-完量化后)（量化后衰减 ≤5%、3060 ≥20 tok/s int4、Mac ≥15 tok/s GGUF Q4_K_M、`ollama run echo` 可启）。
+**验收**：满足 [`00-startup-proposal.md` §4.5 echo final 指标](00-startup-proposal.md#echo-finalm6-完量化后)（量化后衰减 ≤5%、3060 12GB ≥20 tok/s int4、Mac ≥15 tok/s GGUF Q4_K_M、`ollama run echo` 可启）。
 
 **任务清单**：见 [`tasks.md` → M6](tasks.md#m6--对齐与优化)。
 

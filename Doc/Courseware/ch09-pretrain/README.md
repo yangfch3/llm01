@@ -230,7 +230,7 @@ for x, y in loader:
 要点：
 
 - **bf16 优于 fp16**：动态范围与 fp32 一样，几乎不会溢出。bf16 不需要 `GradScaler`，上面就是完整写法
-- 训练卡 A100/H100 等上 bf16 是标配；本课程的目标卡 3060 也支持
+- 训练卡 A100/H100 等上 bf16 是标配；本课程的目标卡 3060 12GB 也支持
 - **如果你只能用 fp16**（V100 之前的老卡 / 某些推理框架）：fp16 容易下溢，要套 `GradScaler` 把 loss 放大 K 倍 → backward 后梯度也放大 K 倍 → 跳过 fp16 下溢区间 → step 前再 unscale。代码：
 
   ```python
@@ -308,7 +308,7 @@ grad accum 那行显存与上一行相同——这是对的：每个 micro-batch
 
 消费卡上想训 100M+ 模型，这三件套基本都得开。
 
-实测对比（3060，d=512 12 层模型，bench 脚本 `03_amp_gradacc_bench.py` 产出）：
+实测对比（3060 12GB，d=512 12 层模型，bench 脚本 `03_amp_gradacc_bench.py` 产出）：
 
 ![三件套对比](03_bench_compare.png)
 
@@ -373,21 +373,21 @@ C: 算力 (FLOPs（Floating Point Operations，浮点运算次数）) ≈ 6 * N 
 - 参数 ~30M → Chinchilla 目标 D ≈ 600M token；实际能弄到的语料量级约 100M（几十 GB 中英纯文本不容易凑），**已知会欠训**，目标只是 "能续写" 而非 "质量好"
 - 算力预估（按实际 D=100M 算，欠训跑完）：
   - C ≈ 6 × 30M × 100M = 1.8e16 FLOPs
-  - 3060 ~10 TFLOPS（Tera FLOPS，每秒万亿次浮点运算）bf16 理论值，训练实际利用率 ~30% → 有效 ~3 TFLOPS = 3e12 FLOPs/s
+  - 3060 12GB ~10 TFLOPS（Tera FLOPS，每秒万亿次浮点运算）bf16 理论值，训练实际利用率 ~30% → 有效 ~3 TFLOPS = 3e12 FLOPs/s
   - 训练时：1.8e16 / 3e12 ≈ 6000 秒 ≈ 1.7 小时（不计 dataloader / checkpoint IO 等开销）
 - batch / lr / 训练步数：抄 nanoGPT/MiniMind 的配方，别从零调
 
 ### 自检
 
 1. C ≈ 6ND 这个 6 的来源是什么？
-2. 给你 1×3060 语料充足训 24 小时，你能训多大模型？（给出量级估算）
+2. 给你 1×3060 12GB 语料充足训 24 小时，你能训多大模型？（给出量级估算）
 
 <details markdown="1">
 <summary>答案速查</summary>
 
 1. 一次前向 ~2ND FLOPs（每 token、每参数算 1 次乘 + 1 次加 = 2 次浮点）；反向约前向的 2 倍 → 4ND。前+反共 6ND
 
-2. 3060 bf16 ~10 TFLOPS 理论值，训练实际利用率 ~30% → 有效 ~3 TFLOPS = 3e12 FLOPs/s。24h = 8.6e4s。总算力 ~2.6e17 FLOPs。按 C=6ND 且 D=20N（Chinchilla），算出 N ≈ √(C/120) ≈ 1.5e7 = 15M 参数。所以**3060 24 小时只够训 echo-mini 量级**（注意与上方启示中欠训前提计算的区别），不可能训 1B+。这是为什么本项目把 "从零训" 和 "微调底座" 分两线
+2. 3060 12GB bf16 ~10 TFLOPS 理论值，训练实际利用率 ~30% → 有效 ~3 TFLOPS = 3e12 FLOPs/s。24h = 8.6e4s。总算力 ~2.6e17 FLOPs。按 C=6ND 且 D=20N（Chinchilla），算出 N ≈ √(C/120) ≈ 1.5e7 = 15M 参数。所以**3060 12GB 24 小时只够训 echo-mini 量级**（注意与上方启示中欠训前提计算的区别），不可能训 1B+。这是为什么本项目把 "从零训" 和 "微调底座" 分两线
 
 </details>
 
