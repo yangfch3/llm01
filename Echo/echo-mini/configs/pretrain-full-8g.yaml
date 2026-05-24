@@ -1,0 +1,38 @@
+# echo-mini pretrain — 8GB 显卡配置 (如 RTX 3060 8GB / RTX 4060 等)
+
+model:
+  vocab_size: 16384
+  d_model: 512
+  n_layers: 16
+  n_heads: 8
+  n_kv_heads: 4
+  d_ff: 1376
+  max_seq_len: 1024
+  dropout: 0.0
+  rope_theta: 10000.0
+
+data:
+  train_bin: "data/bin/train.bin"
+  fineweb_docs: 80000
+  wiki_zh_docs: 50000
+  skypile_docs: 30000
+
+training:
+  seed: 42
+  mixed_precision: "bf16"
+  batch_size: 8
+  grad_accum_steps: 8          # effective batch = 8 * 8 = 64 seqs
+  max_steps: 10000
+  peak_lr: 3.0e-4
+  min_lr: 3.0e-5
+  beta1: 0.9
+  beta2: 0.95
+  weight_decay: 0.1
+  warmup_steps: 200
+  max_grad_norm: 1.0
+  log_interval: 10
+  save_interval: 1000
+  num_workers: 2
+  ckpt_dir: "checkpoints/pretrain"
+
+tokenizer_path: "tokenizer/tokenizer.json"

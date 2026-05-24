@@ -26,8 +26,21 @@ uv run python tokenizer/train_tokenizer.py
 # 3. Tokenize → binary
 uv run python scripts/prepare_data.py tokenize --config configs/pretrain-full.yaml
 
-# 4. 启动预训练
-uv run accelerate launch scripts/pretrain.py --config configs/pretrain-full.yaml
+# 4. 启动预训练（按显存选配置）
+#    12GB 显卡 (RTX 3060 12GB):
+uv run accelerate launch --mixed_precision bf16 scripts/pretrain.py --config configs/pretrain-full.yaml
+#    8GB 显卡:
+uv run accelerate launch --mixed_precision bf16 scripts/pretrain.py --config configs/pretrain-full-8g.yaml
+#    CPU/Mac 快速验证:
+uv run accelerate launch scripts/pretrain.py --config configs/pretrain-tiny.yaml
 ```
 
-> tiny 配置验证：把 `pretrain-full.yaml` 换成 `pretrain-tiny.yaml` 即可。
+### 配置说明
+
+| 配置文件 | 显存 | batch × accum | 等效 batch |
+|---|---|---|---|
+| `pretrain-full.yaml` | 12GB | 16 × 4 | 64 |
+| `pretrain-full-8g.yaml` | 8GB | 8 × 8 | 64 |
+| `pretrain-tiny.yaml` | CPU/MPS | 4 × 1 | 4 |
+
+> `--mixed_precision bf16` 必须通过 accelerate launch 命令行传入，否则会被 launch 默认值覆盖为 fp32。tiny 配置不需要（已设 `"no"`）。

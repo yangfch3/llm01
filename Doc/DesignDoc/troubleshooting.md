@@ -18,6 +18,12 @@
 
 ---
 
+## 2026-05-24 · Win · pretrain OOM: accelerate launch 忽略代码中 mixed_precision
+
+- **现象**：pretrain.py 配置了 `mixed_precision="bf16"`，但 launch 日志显示 `'no'`，模型跑 fp32 导致 OOM
+- **根因**：`accelerate launch` 命令行未传 `--mixed_precision`，其默认值 `no` 覆盖了 `Accelerator()` 构造函数的参数
+- **解决**：launch 命令显式带 `--mixed_precision bf16`
+
 ## 2026-05-24 · Win · echo-mini scripts 报 `No module named 'echo_mini'`
 
 - **现象**：`uv run python scripts/prepare_data.py ...` 报 ModuleNotFoundError
