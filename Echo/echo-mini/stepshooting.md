@@ -27,6 +27,7 @@ uv run python tokenizer/train_tokenizer.py
 uv run python scripts/prepare_data.py tokenize --config configs/pretrain-full.yaml
 
 # 4. 启动预训练（按显存选配置）
+# 每 1000 有一个 ckpt，可中断，后续加 --resume 接续训练
 #    12GB 显卡 (RTX 3060 12GB):
 uv run accelerate launch --mixed_precision bf16 scripts/pretrain.py --config configs/pretrain-full.yaml
 #    8GB 显卡:

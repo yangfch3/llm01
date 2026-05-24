@@ -117,49 +117,53 @@ def train(args: argparse.Namespace) -> None:
         disable=not accelerator.is_main_process,
     )
 
-    for step_idx in pbar:
-        step = step_idx + 1
+    try:
+        for step_idx in pbar:
+            step = step_idx + 1
 
-        # Get batch (循环 DataLoader)
-        try:
-            batch = next(data_iter)
-        except StopIteration:
-            data_iter = iter(dataloader)
-            batch = next(data_iter)
+            # Get batch (循环 DataLoader)
+            try:
+                batch = next(data_iter)
+            except StopIteration:
+                data_iter = iter(dataloader)
+                batch = next(data_iter)
 
-        # LR schedule
-        lr = get_lr(step_idx, max_steps, peak_lr, warmup_steps, min_lr)
-        for pg in optimizer.param_groups:
-            pg["lr"] = lr
+            # LR schedule
+            lr = get_lr(step_idx, max_steps, peak_lr, warmup_steps, min_lr)
+            for pg in optimizer.param_groups:
+                pg["lr"] = lr
 
-        # Forward + backward
-        with accelerator.accumulate(model):
-            _, loss = model(batch["input_ids"], batch["targets"])
-            accelerator.backward(loss)
-            if train_cfg.get("max_grad_norm"):
-                accelerator.clip_grad_norm_(model.parameters(), train_cfg["max_grad_norm"])
-            optimizer.step()
-            optimizer.zero_grad()
+            # Forward + backward
+            with accelerator.accumulate(model):
+                _, loss = model(batch["input_ids"], batch["targets"])
+                accelerator.backward(loss)
+                if train_cfg.get("max_grad_norm"):
+                    accelerator.clip_grad_norm_(model.parameters(), train_cfg["max_grad_norm"])
+                optimizer.step()
+                optimizer.zero_grad()
 
-        total_loss += loss.item()
+            total_loss += loss.item()
 
-        # Logging
-        if step % log_interval == 0 and accelerator.is_main_process:
-            avg_loss = total_loss / log_interval
-            elapsed = timer.elapsed()
-            tokens_per_sec = (log_interval * batch_size * seq_len) / elapsed
-            pbar.set_postfix(
-                loss=f"{avg_loss:.4f}",
-                lr=f"{lr:.2e}",
-                tok_s=f"{tokens_per_sec:.0f}",
-            )
-            total_loss = 0.0
-            timer.reset()
+            # Logging
+            if step % log_interval == 0 and accelerator.is_main_process:
+                avg_loss = total_loss / log_interval
+                elapsed = timer.elapsed()
+                tokens_per_sec = (log_interval * batch_size * seq_len) / elapsed
+                pbar.set_postfix(
+                    loss=f"{avg_loss:.4f}",
+                    lr=f"{lr:.2e}",
+                    tok_s=f"{tokens_per_sec:.0f}",
+                )
+                total_loss = 0.0
+                timer.reset()
 
-        # Save checkpoint
-        if step % save_interval == 0 and accelerator.is_main_process:
-            unwrapped = accelerator.unwrap_model(model)
-            save_checkpoint(unwrapped, optimizer, step, loss.item(), ckpt_dir)
+            # Save checkpoint
+            if step % save_interval == 0 and accelerator.is_main_process:
+                unwrapped = accelerator.unwrap_model(model)
+                save_checkpoint(unwrapped, optimizer, step, loss.item(), ckpt_dir)
+
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Interrupted.[/yellow] Saving checkpoint...")
 
     # Final save
     if accelerator.is_main_process:
