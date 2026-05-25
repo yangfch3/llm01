@@ -1,7 +1,6 @@
 ---
-description: echo-mini 开发约定，Agent 编写 Echo/echo-mini/ 下代码时自动加载。
-globs: 
-  - "**/Echo/echo-mini/**"
+description: echo-mini 开发约定
+alwaysApply: true
 ---
 <rule>
 

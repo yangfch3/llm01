@@ -53,14 +53,14 @@
 <!-- M4 START -->
 ## M4 · echo-mini 落地
 
-- [ ] T4.1 数据：中英双语（或先英文）小规模语料采集与清洗脚本
-- [ ] T4.2 训练 BPE 分词器，词表 ~16k
-- [ ] T4.3 写 echo-mini 模型（参数 ~60M，Llama 风格 Decoder-only + RoPE + GQA + SwiGLU）
-- [ ] T4.4 Pretrain 训练脚本（支持混合精度、checkpointing、断点续训）
-- [ ] T4.5 产出 Pretrain `config-full.yaml` + `config-tiny.yaml`，Mac 跑 tiny 验证代码不崩
-- [ ] T4.6 在 3060 12GB 上跑 Pretrain full 配置，记录 loss 曲线
-- [ ] T4.7 构造小规模 SFT 对话数据（可借助公开数据集或 GPT 生成）
-- [ ] T4.8 SFT 训练脚本 + full/tiny 两份配置
+- [x] T4.1 数据：中英双语（或先英文）小规模语料采集与清洗脚本
+- [x] T4.2 训练 BPE 分词器，词表 ~16k
+- [x] T4.3 写 echo-mini 模型（参数 ~60M，Llama 风格 Decoder-only + RoPE + GQA + SwiGLU）
+- [x] T4.4 Pretrain 训练脚本（支持混合精度、checkpointing、断点续训）
+- [x] T4.5 产出 Pretrain `config-full.yaml` + `config-tiny.yaml`，Mac 跑 tiny 验证代码不崩
+- [x] T4.6 在 3060 12GB 上跑 Pretrain full 配置，记录 loss 曲线
+- [x] T4.7 构造小规模 SFT 对话数据（可借助公开数据集或 GPT 生成）
+- [x] T4.8 SFT 训练脚本 + full/tiny 两份配置
 - [ ] T4.9 推理 CLI（带 KV cache，跨平台可用）
 - [ ] T4.10 评测：PPL + 若干人工对话样例
 - [ ] T4.11 Checkpoint 上传 HuggingFace Hub

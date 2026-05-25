@@ -1,8 +1,11 @@
-"""echo-mini 预训练入口 (Accelerate 手写 training loop)。
+"""echo-mini SFT 训练入口 (Accelerate 手写 training loop)。
+
+基于 pretrain checkpoint 继续训练，使用对话数据 + user mask。
 
 用法：
-    accelerate launch scripts/pretrain.py --config configs/pretrain-full.yaml
-    accelerate launch scripts/pretrain.py --config configs/pretrain-tiny.yaml
+    cd Echo/echo-mini
+    uv run accelerate launch scripts/sft.py --config configs/sft-full.yaml
+    uv run accelerate launch scripts/sft.py --config configs/sft-tiny.yaml
 """
 
 from __future__ import annotations
@@ -13,16 +16,19 @@ import sys
 from pathlib import Path
 
 import torch
+import torch.nn.functional as F
 from accelerate import Accelerator
 from accelerate.utils import set_seed
 from rich.console import Console
 from tqdm import tqdm
 
-# 允许从 scripts/ 直接运行时找到 src
+# 将 src/ 加入搜索路径
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
+from tokenizers import Tokenizer
+
 from echo_mini.config import EchoMiniConfig
-from echo_mini.data import create_dataloader
+from echo_mini.data import create_sft_dataloader
 from echo_mini.model import EchoMini
 from echo_mini.utils import (
     Timer,
@@ -45,8 +51,15 @@ def build_model(cfg: dict) -> EchoMini:
     return model
 
 
+def load_pretrain_weights(model: EchoMini, ckpt_path: Path) -> None:
+    """从 pretrain checkpoint 加载模型权重（不加载 optimizer）。"""
+    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+    model.load_state_dict(ckpt["model"])
+    console.print(f"[cyan]Loaded pretrain weights:[/cyan] {ckpt_path} (step {ckpt['step']})")
+
+
 def train(args: argparse.Namespace) -> None:
-    """主训练循环。"""
+    """SFT 训练循环。"""
     cfg = load_config(args.config)
     train_cfg = cfg["training"]
     seed = train_cfg.get("seed", 42)
@@ -61,13 +74,24 @@ def train(args: argparse.Namespace) -> None:
     # Model
     model = build_model(cfg)
 
+    # 加载 pretrain checkpoint
+    pretrain_ckpt = train_cfg.get("pretrain_ckpt")
+    if pretrain_ckpt:
+        load_pretrain_weights(model, Path(pretrain_ckpt))
+
+    # Tokenizer
+    tokenizer_path = Path(cfg.get("tokenizer_path", "tokenizer/tokenizer.json"))
+    tokenizer = Tokenizer.from_file(str(tokenizer_path))
+
     # Data
-    data_path = Path(cfg["data"]["train_bin"])
-    seq_len = cfg["model"].get("max_seq_len", 1024)
+    sft_cfg = cfg.get("sft_data", {})
+    jsonl_path = Path(sft_cfg["train_jsonl"])
+    max_seq_len = cfg["model"].get("max_seq_len", 1024)
     batch_size = train_cfg["batch_size"]
-    dataloader = create_dataloader(
-        data_path,
-        seq_len=seq_len,
+    dataloader = create_sft_dataloader(
+        jsonl_path=jsonl_path,
+        tokenizer=tokenizer,
+        max_seq_len=max_seq_len,
         batch_size=batch_size,
         shuffle=True,
         num_workers=train_cfg.get("num_workers", 0),
@@ -90,12 +114,12 @@ def train(args: argparse.Namespace) -> None:
     peak_lr = train_cfg["peak_lr"]
     min_lr = train_cfg.get("min_lr", 0.0)
     log_interval = train_cfg.get("log_interval", 10)
-    save_interval = train_cfg.get("save_interval", 1000)
-    ckpt_dir = Path(train_cfg.get("ckpt_dir", "checkpoints/pretrain"))
+    save_interval = train_cfg.get("save_interval", 500)
+    ckpt_dir = Path(train_cfg.get("ckpt_dir", "checkpoints/sft"))
 
     # CSV loss 日志
     log_dir = Path(train_cfg.get("log_dir", "logs"))
-    log_csv = log_dir / "pretrain_loss.csv"
+    log_csv = log_dir / "sft_loss.csv"
     csv_file = None
     csv_writer = None
     if accelerator.is_main_process:
@@ -106,7 +130,7 @@ def train(args: argparse.Namespace) -> None:
         if write_header:
             csv_writer.writerow(["step", "loss", "lr", "tokens_per_sec"])
 
-    # Resume
+    # Resume from SFT checkpoint (not pretrain)
     start_step = 0
     if args.resume:
         ckpt_path = find_latest_checkpoint(ckpt_dir)
@@ -115,7 +139,7 @@ def train(args: argparse.Namespace) -> None:
             start_step = load_checkpoint(ckpt_path, unwrapped, optimizer)
 
     # Training loop
-    console.print(f"[bold green]Starting training:[/bold green] steps {start_step} → {max_steps}")
+    console.print(f"[bold green]Starting SFT:[/bold green] steps {start_step} → {max_steps}")
     console.print(f"  batch_size={batch_size}, grad_accum={train_cfg.get('grad_accum_steps', 1)}")
     console.print(f"  peak_lr={peak_lr}, warmup={warmup_steps}")
 
@@ -127,7 +151,7 @@ def train(args: argparse.Namespace) -> None:
 
     pbar = tqdm(
         range(start_step, max_steps),
-        desc="Pretrain",
+        desc="SFT",
         disable=not accelerator.is_main_process,
     )
 
@@ -147,9 +171,19 @@ def train(args: argparse.Namespace) -> None:
             for pg in optimizer.param_groups:
                 pg["lr"] = lr
 
-            # Forward + backward
+            input_ids = batch["input_ids"]
+            labels = batch["labels"]
+
+            # Shift: model 预测下一个 token
+            # input: ids[:, :-1], target: labels[:, 1:]
             with accelerator.accumulate(model):
-                _, loss = model(batch["input_ids"], batch["targets"])
+                logits, _ = model(input_ids[:, :-1])
+                shift_labels = labels[:, 1:].contiguous()
+                loss = F.cross_entropy(
+                    logits.reshape(-1, logits.size(-1)),
+                    shift_labels.reshape(-1),
+                    ignore_index=-100,
+                )
                 accelerator.backward(loss)
                 if train_cfg.get("max_grad_norm"):
                     accelerator.clip_grad_norm_(model.parameters(), train_cfg["max_grad_norm"])
@@ -162,7 +196,7 @@ def train(args: argparse.Namespace) -> None:
             if step % log_interval == 0 and accelerator.is_main_process:
                 avg_loss = total_loss / log_interval
                 elapsed = timer.elapsed()
-                tokens_per_sec = (log_interval * batch_size * seq_len) / elapsed
+                tokens_per_sec = (log_interval * batch_size * (max_seq_len - 1)) / elapsed
                 pbar.set_postfix(
                     loss=f"{avg_loss:.4f}",
                     lr=f"{lr:.2e}",
@@ -186,15 +220,15 @@ def train(args: argparse.Namespace) -> None:
     if accelerator.is_main_process:
         unwrapped = accelerator.unwrap_model(model)
         save_checkpoint(unwrapped, optimizer, step, loss.item(), ckpt_dir)
-        console.print("[bold green]Training complete![/bold green]")
+        console.print("[bold green]SFT complete![/bold green]")
         if csv_file is not None:
             csv_file.close()
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="echo-mini pretrain")
+    parser = argparse.ArgumentParser(description="echo-mini SFT")
     parser.add_argument("--config", type=Path, required=True, help="YAML config path")
-    parser.add_argument("--resume", action="store_true", help="Resume from latest checkpoint")
+    parser.add_argument("--resume", action="store_true", help="Resume from latest SFT checkpoint")
     args = parser.parse_args()
     train(args)
 
