@@ -48,6 +48,7 @@ data/
 runs/
 wandb/
 tb_logs/
+logs/
 *.log
 
 # MkDocs 构建产物
