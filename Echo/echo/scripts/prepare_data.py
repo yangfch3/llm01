@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 from pathlib import Path
 
 from datasets import load_dataset
@@ -73,17 +74,27 @@ def quality_filter(record: dict, max_total_chars: int = 8192) -> bool:
     return True
 
 
+def write_jsonl(records: list[dict], path: Path) -> None:
+    """写出 JSONL 文件。"""
+    with open(path, "w", encoding="utf-8") as f:
+        for record in records:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="echo SFT data preparation")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--max-samples", type=int, default=20000, help="最多保留条数")
+    parser.add_argument("--val-ratio", type=float, default=0.05, help="验证集比例")
+    parser.add_argument("--seed", type=int, default=42, help="shuffle 随机种子")
     parser.add_argument("--force", action="store_true", help="覆盖已存在数据")
     args = parser.parse_args()
 
-    output_file = args.output / "train.jsonl"
+    train_file = args.output / "train.jsonl"
+    val_file = args.output / "val.jsonl"
 
-    if output_file.exists() and not args.force:
-        console.print(f"[yellow]已存在数据，跳过：{output_file}（用 --force 覆盖）[/yellow]")
+    if train_file.exists() and not args.force:
+        console.print(f"[yellow]已存在数据，跳过：{train_file}（用 --force 覆盖）[/yellow]")
         return
 
     args.output.mkdir(parents=True, exist_ok=True)
@@ -110,12 +121,24 @@ def main() -> None:
 
     console.print(f"  保留: {len(records)}, 跳过: {skipped}")
 
-    # 写出 JSONL
-    with open(output_file, "w", encoding="utf-8") as f:
-        for record in records:
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    # Shuffle
+    rng = random.Random(args.seed)
+    rng.shuffle(records)
 
-    console.print(f"[bold green]Done:[/bold green] {output_file} ({len(records)} samples)")
+    # Train / Val split
+    val_size = max(1, int(len(records) * args.val_ratio))
+    val_records = records[:val_size]
+    train_records = records[val_size:]
+
+    # 写出
+    write_jsonl(train_records, train_file)
+    write_jsonl(val_records, val_file)
+
+    console.print(
+        f"[bold green]Done:[/bold green] "
+        f"train={len(train_records)} → {train_file}, "
+        f"val={val_size} → {val_file}"
+    )
 
 
 if __name__ == "__main__":

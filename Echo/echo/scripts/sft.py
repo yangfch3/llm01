@@ -27,7 +27,9 @@ from trl import SFTConfig, SFTTrainer
 
 # 允许从 scripts/ 直接运行时找到 src
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "shared"))
 
+from device import get_device
 from echo.data import load_sft_data
 from echo.utils import load_config
 
@@ -84,17 +86,29 @@ def train(args: argparse.Namespace) -> None:
 
     # Model
     console.print(f"[bold]Loading model:[/bold] {model_id}")
-    model = AutoModelForCausalLM.from_pretrained(
-        model_id,
-        quantization_config=bnb_config,
-        device_map="auto",
-        torch_dtype=torch.bfloat16 if bnb_config is None else None,
-        trust_remote_code=True,
-    )
-
-    # Prepare for kbit training (QLoRA)
     if bnb_config is not None:
+        # 量化加载：必须走 device_map="auto" 让 accelerate 分配层
+        model = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            quantization_config=bnb_config,
+            device_map="auto",
+            trust_remote_code=True,
+        )
         model = prepare_model_for_kbit_training(model)
+    else:
+        # 无量化：根据配置决定 dtype，手动放到目标设备
+        if train_cfg.get("bf16"):
+            load_dtype = torch.bfloat16
+        elif train_cfg.get("fp16"):
+            load_dtype = torch.float16
+        else:
+            load_dtype = torch.float32
+        device = get_device()
+        model = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            torch_dtype=load_dtype,
+            trust_remote_code=True,
+        ).to(device)
 
     # LoRA
     lora_config = build_lora_config(cfg)
@@ -110,7 +124,13 @@ def train(args: argparse.Namespace) -> None:
     data_path = Path(data_cfg["train_file"])
     console.print(f"[bold]Loading data:[/bold] {data_path}")
     dataset = load_sft_data(data_path)
-    console.print(f"  samples: {len(dataset)}")
+    console.print(f"  train samples: {len(dataset)}")
+
+    eval_dataset = None
+    if data_cfg.get("val_file"):
+        val_path = Path(data_cfg["val_file"])
+        eval_dataset = load_sft_data(val_path)
+        console.print(f"  val samples: {len(eval_dataset)}")
 
     # Training arguments (trl 1.4+ 使用 SFTConfig 替代 TrainingArguments)
     output_dir = train_cfg.get("output_dir", "checkpoints/sft")
@@ -122,14 +142,16 @@ def train(args: argparse.Namespace) -> None:
         gradient_accumulation_steps=train_cfg.get("grad_accum_steps", 4),
         learning_rate=train_cfg.get("learning_rate", 2e-4),
         lr_scheduler_type=train_cfg.get("lr_scheduler", "cosine"),
-        warmup_steps=train_cfg.get("warmup_steps", 0),
-        warmup_ratio=train_cfg.get("warmup_ratio", 0.03) if not train_cfg.get("warmup_steps") else 0,
+        warmup_ratio=train_cfg.get("warmup_ratio", 0.03),
         optim=train_cfg.get("optim", "paged_adamw_8bit"),
         bf16=train_cfg.get("bf16", True),
         fp16=train_cfg.get("fp16", False),
         logging_steps=train_cfg.get("logging_steps", 10),
+        eval_strategy=train_cfg.get("eval_strategy", "epoch") if eval_dataset else "no",
         save_strategy=train_cfg.get("save_strategy", "epoch"),
         save_total_limit=train_cfg.get("save_total_limit", 3),
+        load_best_model_at_end=eval_dataset is not None,
+        metric_for_best_model="eval_loss" if eval_dataset else None,
         max_steps=train_cfg.get("max_steps", -1),
         seed=train_cfg.get("seed", 42),
         report_to=train_cfg.get("report_to", "none"),
@@ -142,6 +164,7 @@ def train(args: argparse.Namespace) -> None:
         model=model,
         args=training_args,
         train_dataset=dataset,
+        eval_dataset=eval_dataset,
         processing_class=tokenizer,
     )
 

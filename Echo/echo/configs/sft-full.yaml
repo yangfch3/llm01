@@ -24,6 +24,7 @@ lora:
 
 data:
   train_file: "data/sft/train.jsonl"
+  val_file: "data/sft/val.jsonl"
 
 training:
   seed: 42
