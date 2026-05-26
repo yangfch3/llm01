@@ -52,9 +52,32 @@ def build_model(cfg: dict) -> EchoMini:
 
 
 def load_pretrain_weights(model: EchoMini, ckpt_path: Path) -> None:
-    """从 pretrain checkpoint 加载模型权重（不加载 optimizer）。"""
+    """从 pretrain checkpoint 加载模型权重（不加载 optimizer）。
+
+    如果 pretrain 的 vocab_size < 当前模型（新增了特殊 token），自动 resize embedding。
+    注意：模型使用 weight tying (tok_emb.weight == lm_head.weight)，
+    只需 resize tok_emb.weight 并删除 lm_head.weight 让 tying 自动生效。
+    """
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
-    model.load_state_dict(ckpt["model"])
+    state_dict = ckpt["model"]
+
+    # 检查 embedding 尺寸是否匹配
+    pretrain_vocab = state_dict["tok_emb.weight"].shape[0]
+    current_vocab = model.cfg.vocab_size
+
+    if pretrain_vocab < current_vocab:
+        console.print(
+            f"[yellow]Resizing embedding:[/yellow] {pretrain_vocab} → {current_vocab} "
+            f"(+{current_vocab - pretrain_vocab} new tokens)"
+        )
+        old_emb = state_dict["tok_emb.weight"]
+        new_emb = torch.randn(current_vocab - pretrain_vocab, old_emb.shape[1]) * 0.02
+        state_dict["tok_emb.weight"] = torch.cat([old_emb, new_emb], dim=0)
+
+    # Weight tying: lm_head.weight 与 tok_emb.weight 共享，
+    # 删除后让模型 tying 自动生效（无论是否 resize 都安全）
+    state_dict.pop("lm_head.weight", None)
+    model.load_state_dict(state_dict, strict=False)
     console.print(f"[cyan]Loaded pretrain weights:[/cyan] {ckpt_path} (step {ckpt['step']})")
 
 

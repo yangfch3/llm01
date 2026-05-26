@@ -1,9 +1,11 @@
 """训练 BPE 分词器 (HuggingFace tokenizers 库)。
 
 用法：
-    python tokenizer/train_tokenizer.py --data_dir ../data/raw --vocab_size 16384
+    cd Echo/echo-mini
+    uv run python tokenizer/train_tokenizer.py
 
 产物保存到 tokenizer/ 目录下 (tokenizer.json)。
+vocab_size = 16386，其中包含 6 个特殊 token（BpeTrainer 的 vocab_size 已含特殊 token）。
 """
 
 from __future__ import annotations
@@ -12,6 +14,17 @@ import argparse
 from pathlib import Path
 
 from tokenizers import Tokenizer, models, pre_tokenizers, trainers, decoders
+
+
+# echo-mini 全部特殊 token，id 按顺序分配 (0-5)
+SPECIAL_TOKENS = [
+    "<pad>",        # 0 - padding
+    "<bos>",        # 1 - beginning of sequence
+    "<eos>",        # 2 - end of sequence
+    "<unk>",        # 3 - unknown
+    "<|user|>",     # 4 - user role marker
+    "<|assistant|>",  # 5 - assistant role marker
+]
 
 
 def collect_text_files(data_dir: Path) -> list[str]:
@@ -29,11 +42,9 @@ def train_tokenizer(data_dir: Path, vocab_size: int, output_dir: Path) -> None:
     tokenizer.pre_tokenizer = pre_tokenizers.ByteLevel(add_prefix_space=False)
     tokenizer.decoder = decoders.ByteLevel()
 
-    special_tokens = ["<pad>", "<bos>", "<eos>", "<unk>"]
-
     trainer = trainers.BpeTrainer(
         vocab_size=vocab_size,
-        special_tokens=special_tokens,
+        special_tokens=SPECIAL_TOKENS,
         show_progress=True,
         min_frequency=2,
     )
@@ -41,8 +52,11 @@ def train_tokenizer(data_dir: Path, vocab_size: int, output_dir: Path) -> None:
     files = collect_text_files(data_dir)
     tokenizer.train(files, trainer)
 
-    # 设置特殊 token 的 id
-    tokenizer.model.token_to_id("<pad>")  # 验证存在
+    # 验证特殊 token
+    for tok in SPECIAL_TOKENS:
+        tid = tokenizer.token_to_id(tok)
+        assert tid is not None, f"Special token {tok} not in vocab!"
+        print(f"  {tok}: {tid}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     save_path = output_dir / "tokenizer.json"
@@ -58,7 +72,7 @@ def main() -> None:
         default=Path(__file__).resolve().parent.parent / "data" / "raw",
         help="Directory containing .txt training files",
     )
-    parser.add_argument("--vocab_size", type=int, default=16_384)
+    parser.add_argument("--vocab_size", type=int, default=16_386)
     parser.add_argument(
         "--output_dir",
         type=Path,
@@ -71,3 +85,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

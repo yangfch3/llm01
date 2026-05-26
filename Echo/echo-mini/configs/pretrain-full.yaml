@@ -1,7 +1,7 @@
 # echo-mini pretrain — Win RTX 3060 12GB 生产配置
 
 model:
-  vocab_size: 16384
+  vocab_size: 16386
   d_model: 512
   n_layers: 16
   n_heads: 8

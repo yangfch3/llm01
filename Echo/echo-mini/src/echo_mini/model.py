@@ -60,7 +60,7 @@ def apply_rope(x: torch.Tensor, freqs: torch.Tensor) -> torch.Tensor:
 
 
 class Attention(nn.Module):
-    """Multi-head attention with Grouped Query Attention (GQA)."""
+    """Multi-head attention with Grouped Query Attention (GQA) + KV cache."""
 
     def __init__(self, cfg: EchoMiniConfig):
         super().__init__()
@@ -74,11 +74,21 @@ class Attention(nn.Module):
         self.wv = nn.Linear(cfg.d_model, cfg.n_kv_heads * cfg.head_dim, bias=False)
         self.wo = nn.Linear(cfg.n_heads * cfg.head_dim, cfg.d_model, bias=False)
 
+        # KV cache (populated during inference)
+        self.cache_k: torch.Tensor | None = None
+        self.cache_v: torch.Tensor | None = None
+
+    def reset_cache(self) -> None:
+        """清空 KV cache。"""
+        self.cache_k = None
+        self.cache_v = None
+
     def forward(
         self,
         x: torch.Tensor,
         freqs: torch.Tensor,
         mask: torch.Tensor | None = None,
+        use_cache: bool = False,
     ) -> torch.Tensor:
         bsz, seq_len, _ = x.shape
 
@@ -90,16 +100,29 @@ class Attention(nn.Module):
         q = apply_rope(q, freqs)
         k = apply_rope(k, freqs)
 
+        # KV cache: append and use full history
+        if use_cache:
+            if self.cache_k is None:
+                self.cache_k = k
+                self.cache_v = v
+            else:
+                self.cache_k = torch.cat([self.cache_k, k], dim=1)
+                self.cache_v = torch.cat([self.cache_v, v], dim=1)
+            k = self.cache_k
+            v = self.cache_v
+
+        kv_len = k.shape[1]
+
         # GQA: repeat KV heads
         if self.n_rep > 1:
             k = k.unsqueeze(3).expand(-1, -1, -1, self.n_rep, -1).reshape(
-                bsz, seq_len, self.n_heads, self.head_dim
+                bsz, kv_len, self.n_heads, self.head_dim
             )
             v = v.unsqueeze(3).expand(-1, -1, -1, self.n_rep, -1).reshape(
-                bsz, seq_len, self.n_heads, self.head_dim
+                bsz, kv_len, self.n_heads, self.head_dim
             )
 
-        # (bsz, n_heads, seq_len, head_dim)
+        # (bsz, n_heads, seq_len/kv_len, head_dim)
         q = q.transpose(1, 2)
         k = k.transpose(1, 2)
         v = v.transpose(1, 2)
@@ -148,8 +171,10 @@ class TransformerBlock(nn.Module):
         self.ffn_norm = RMSNorm(cfg.d_model)
         self.ffn = FeedForward(cfg)
 
-    def forward(self, x: torch.Tensor, freqs: torch.Tensor, mask: torch.Tensor | None) -> torch.Tensor:
-        x = x + self.attn(self.attn_norm(x), freqs, mask)
+    def forward(
+        self, x: torch.Tensor, freqs: torch.Tensor, mask: torch.Tensor | None, use_cache: bool = False
+    ) -> torch.Tensor:
+        x = x + self.attn(self.attn_norm(x), freqs, mask, use_cache=use_cache)
         x = x + self.ffn(self.ffn_norm(x))
         return x
 
@@ -197,33 +222,48 @@ class EchoMini(nn.Module):
             else:
                 nn.init.normal_(p, mean=0.0, std=std)
 
+    def reset_cache(self) -> None:
+        """清空所有层的 KV cache。"""
+        for layer in self.layers:
+            layer.attn.reset_cache()
+
     def forward(
         self,
         input_ids: torch.Tensor,
         targets: torch.Tensor | None = None,
+        use_cache: bool = False,
+        start_pos: int = 0,
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """
         Args:
             input_ids: (batch, seq_len) token ids
             targets: (batch, seq_len) target ids for loss computation
+            use_cache: 推理时启用 KV cache
+            start_pos: KV cache 模式下当前 token 的位置偏移
 
         Returns:
             logits: (batch, seq_len, vocab_size)
             loss: scalar if targets provided, else None
         """
         bsz, seq_len = input_ids.shape
-        assert seq_len <= self.cfg.max_seq_len, f"seq_len {seq_len} > max {self.cfg.max_seq_len}"
+        assert start_pos + seq_len <= self.cfg.max_seq_len, (
+            f"position {start_pos + seq_len} > max {self.cfg.max_seq_len}"
+        )
 
         x = self.tok_emb(input_ids)
-        freqs = self.rope_freqs[:seq_len]
+        freqs = self.rope_freqs[start_pos : start_pos + seq_len]
 
         # Causal mask
-        mask = torch.full((seq_len, seq_len), float("-inf"), device=x.device, dtype=x.dtype)
-        mask = torch.triu(mask, diagonal=1)
-        mask = mask.unsqueeze(0).unsqueeze(0)  # (1, 1, seq_len, seq_len)
+        if use_cache and start_pos > 0:
+            # 增量推理：当前 token 可以看到所有已缓存位置，不需要 mask
+            mask = None
+        else:
+            mask = torch.full((seq_len, seq_len), float("-inf"), device=x.device, dtype=x.dtype)
+            mask = torch.triu(mask, diagonal=1)
+            mask = mask.unsqueeze(0).unsqueeze(0)  # (1, 1, seq_len, seq_len)
 
         for layer in self.layers:
-            x = layer(x, freqs, mask)
+            x = layer(x, freqs, mask, use_cache=use_cache)
 
         x = self.norm(x)
         logits = self.lm_head(x)

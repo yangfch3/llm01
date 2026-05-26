@@ -61,7 +61,7 @@
 - [x] T4.6 在 3060 12GB 上跑 Pretrain full 配置，记录 loss 曲线
 - [x] T4.7 构造小规模 SFT 对话数据（可借助公开数据集或 GPT 生成）
 - [x] T4.8 SFT 训练脚本 + full/tiny 两份配置
-- [ ] T4.9 推理 CLI（带 KV cache，跨平台可用）
+- [x] T4.9 推理 CLI（带 KV cache，跨平台可用）
 - [ ] T4.10 评测：PPL + 若干人工对话样例
 - [ ] T4.11 Checkpoint 上传 HuggingFace Hub
 - [ ] T4.12 写 `Echo/echo-mini/README.md`，记录训练配方

@@ -19,9 +19,8 @@ from tokenizers import Tokenizer
 # Chat Template
 # ============================================================
 
-# 使用纯文本分隔符，无需额外特殊 token
-# 格式: <bos>User: {content}\nAssistant: {content}<eos>
-ROLE_PREFIX = {"user": "User: ", "assistant": "Assistant: "}
+# 格式: <bos><|user|>{content}\n<|assistant|>{content}<eos>
+# 角色标记使用专用特殊 token，单 token 即可标识角色切换
 TURN_SEP = "\n"
 
 
@@ -32,26 +31,34 @@ def format_chat(messages: list[dict], bos_id: int, eos_id: int, tokenizer: Token
     返回 {"input_ids": list[int], "labels": list[int]}。
     """
     ignore_index = -100
+    user_token_id = tokenizer.token_to_id("<|user|>")
+    assistant_token_id = tokenizer.token_to_id("<|assistant|>")
+
     input_ids: list[int] = [bos_id]
     labels: list[int] = [ignore_index]  # bos 不计 loss
 
     for msg in messages:
         role = msg["role"]
-        prefix = ROLE_PREFIX[role]
-        text = prefix + msg["content"]
+        content = msg["content"]
 
-        if role != messages[-1]["role"] or role == "user":
-            text += TURN_SEP
+        # 非最后一条消息，content 末尾加换行分隔
+        if msg is not messages[-1]:
+            content += TURN_SEP
 
-        encoded = tokenizer.encode(text)
-        token_ids = encoded.ids
+        content_ids = tokenizer.encode(content).ids
 
         if role == "user":
-            input_ids.extend(token_ids)
-            labels.extend([ignore_index] * len(token_ids))
+            # <|user|> + content → 全部 mask
+            input_ids.append(user_token_id)
+            labels.append(ignore_index)
+            input_ids.extend(content_ids)
+            labels.extend([ignore_index] * len(content_ids))
         else:
-            input_ids.extend(token_ids)
-            labels.extend(token_ids)
+            # <|assistant|> → mask, content → 计 loss
+            input_ids.append(assistant_token_id)
+            labels.append(ignore_index)
+            input_ids.extend(content_ids)
+            labels.extend(content_ids)
 
     # 结尾加 eos
     input_ids.append(eos_id)

@@ -24,7 +24,7 @@
 
 | 超参 | 值 | 说明 |
 |---|---|---|
-| `vocab_size` | 16,384 | BPE 分词器词表 |
+| `vocab_size` | 16,386 | BPE 分词器词表（含 6 个特殊 token） |
 | `d_model` | 512 | 隐藏层维度 |
 | `n_layers` | 16 | Transformer 层数 |
 | `n_heads` | 8 | 注意力头数 |
@@ -48,9 +48,9 @@
 | 项 | 规格 |
 |---|---|
 | 算法 | BPE (HuggingFace `tokenizers` 库训练) |
-| 词表大小 | ~16,384 |
+| 词表大小 | 16,386 |
 | 语言覆盖 | 中英双语 |
-| 特殊 token | `<pad>`, `<bos>`, `<eos>`, `<unk>` |
+| 特殊 token | `<pad>`(0), `<bos>`(1), `<eos>`(2), `<unk>`(3), `<|user|>`(4), `<|assistant|>`(5) |
 | 训练语料 | 与 Pretrain 语料同源（取子集即可） |
 
 产物目录：`Echo/echo-mini/tokenizer/`（模型文件 .gitignore，训练脚本入仓）

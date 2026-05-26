@@ -9,7 +9,7 @@ from dataclasses import dataclass
 class EchoMiniConfig:
     """Llama-style decoder-only transformer 超参。"""
 
-    vocab_size: int = 16_384
+    vocab_size: int = 16_386
     d_model: int = 512
     n_layers: int = 16
     n_heads: int = 8
