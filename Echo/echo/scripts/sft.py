@@ -35,6 +35,29 @@ from echo.utils import load_config
 
 console = Console()
 
+# Qwen2.5 ChatML template，添加 {% generation %} 标记使 trl 能识别 assistant 部分。
+# 仅用于 SFT 训练（标记哪些 token 算 loss），不影响推理时的模板。
+CHAT_TEMPLATE_WITH_GENERATION = (
+    "{%- if messages[0]['role'] == 'system' %}"
+    "{{- '<|im_start|>system\\n' + messages[0]['content'] + '<|im_end|>\\n' }}"
+    "{%- else %}"
+    "{{- '<|im_start|>system\\nYou are a helpful assistant.<|im_end|>\\n' }}"
+    "{%- endif %}"
+    "{%- for message in messages %}"
+    "{%- if message.role == 'user' or (message.role == 'system' and not loop.first) %}"
+    "{{- '<|im_start|>' + message.role + '\\n' + message.content + '<|im_end|>\\n' }}"
+    "{%- elif message.role == 'assistant' %}"
+    "{{- '<|im_start|>assistant\\n' }}"
+    "{% generation %}"
+    "{{- message.content + '<|im_end|>\\n' }}"
+    "{% endgeneration %}"
+    "{%- endif %}"
+    "{%- endfor %}"
+    "{%- if add_generation_prompt %}"
+    "{{- '<|im_start|>assistant\\n' }}"
+    "{%- endif %}"
+)
+
 
 def build_bnb_config(cfg: dict) -> BitsAndBytesConfig | None:
     """构建 4bit 量化配置。tiny 配置不量化则返回 None。"""
@@ -80,6 +103,10 @@ def train(args: argparse.Namespace) -> None:
     tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+
+    # Patch chat_template: 在 assistant 内容处加 {% generation %} 标记，
+    # 让 trl 的 assistant_only_loss 能正确识别哪些 token 算 loss。
+    tokenizer.chat_template = CHAT_TEMPLATE_WITH_GENERATION
 
     # Quantization
     bnb_config = build_bnb_config(cfg)
@@ -137,6 +164,7 @@ def train(args: argparse.Namespace) -> None:
     training_args = SFTConfig(
         output_dir=output_dir,
         max_length=max_seq_length,
+        assistant_only_loss=True,
         num_train_epochs=train_cfg.get("num_epochs", 3),
         per_device_train_batch_size=train_cfg.get("per_device_batch_size", 4),
         gradient_accumulation_steps=train_cfg.get("grad_accum_steps", 4),
@@ -172,7 +200,8 @@ def train(args: argparse.Namespace) -> None:
     console.print("[bold green]Starting SFT training...[/bold green]")
     trainer.train(resume_from_checkpoint=args.resume)
 
-    # Save final adapter
+    # Save final adapter（恢复原始 template，不将训练专用的 {% generation %} 标记持久化）
+    tokenizer.chat_template = None
     final_dir = Path(output_dir) / "final"
     trainer.save_model(str(final_dir))
     tokenizer.save_pretrained(str(final_dir))
