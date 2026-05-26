@@ -1,0 +1,45 @@
+---
+description: Echo 系列（echo-mini / echo）开发约定
+alwaysApply: true
+---
+<rule>
+
+# Echo 开发约定
+
+适用于 `Echo/echo-mini/` 和 `Echo/echo/` 下所有脚本。
+
+## 包导入
+
+两个子项目的 `src/` 均未 pip install。脚本顶部必须手动加 sys.path：
+
+```python
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+```
+
+## Windows import 顺序铁律
+
+同时用 `torch` 和 `datasets`（或 `trl`）的脚本，**必须先 import datasets 再 import torch**，否则 pyarrow DLL 与 CUDA DLL 冲突导致 segfault (0xC0000005)：
+
+```python
+import datasets  # noqa: F401, I001  — 必须在 torch 之前
+
+import torch
+from trl import SFTTrainer  # 此时安全
+```
+
+## 运行方式
+
+- 统一用 `uv run python ...` 或 `uv run accelerate launch ...`
+- 禁止直接调用 `.venv\Scripts\python.exe` 或裸 `python`
+- 确保环境变量 `PYTHONUTF8=1`（trl jinja 模板读取依赖此项）
+
+## 工作目录
+
+- echo-mini 命令 cwd：`Echo/echo-mini/`
+- echo 命令 cwd：`Echo/echo/`
+- 配置中的相对路径基于各自 cwd
+
+</rule>

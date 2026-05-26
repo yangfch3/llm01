@@ -18,6 +18,19 @@
 
 ---
 
+## 2026-05-25 · Win · trl 读取 jinja 模板报 GBK 编码错误
+
+- **现象**：`from trl import SFTTrainer` 报 `UnicodeDecodeError: 'gbk' codec can't decode byte 0x9c`，出在 `trl/chat_template_utils.py` 读取 `deepseekv3.jinja`
+- **根因**：trl 1.4.0 用 `Path.read_text()` 读模板文件，未指定编码，Windows 默认走 GBK，但文件是 UTF-8
+- **解决**：设置环境变量 `PYTHONUTF8=1`（永久：`[System.Environment]::SetEnvironmentVariable("PYTHONUTF8", "1", "User")`）
+
+## 2026-05-25 · Win · trl SFTTrainer import 触发 pyarrow segfault
+
+- **现象**：`from trl import SFTTrainer`（在 `import torch` 之后）导致进程 segfault (0xC0000005)，无 Python traceback
+- **根因**：与 `2026-05-14` 记录的 `torch + pyarrow` DLL 加载顺序冲突相同。trl 延迟 import sft_trainer 模块时链式触发 `from datasets import Dataset`
+- **解决**：在脚本最顶部（`import torch` 之前）加 `import datasets`，确保 pyarrow DLL 先加载
+- **影响**：echo SFT 脚本已加此 workaround；所有同时用 torch + datasets/trl 的新脚本都需遵循此顺序
+
 ## 2026-05-24 · Win · pretrain OOM: accelerate launch 忽略代码中 mixed_precision
 
 - **现象**：pretrain.py 配置了 `mixed_precision="bf16"`，但 launch 日志显示 `'no'`，模型跑 fp32 导致 OOM
