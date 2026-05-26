@@ -1,0 +1,49 @@
+# echo SFT — TITAN Xp 12GB 配置 (QLoRA, fp16)
+# Pascal 架构不支持 bf16，使用 fp16 替代；其余与 sft-full.yaml 一致
+
+model:
+  model_id: "Qwen/Qwen2.5-1.5B"
+
+quantization:
+  enabled: true
+  quant_type: "nf4"
+  compute_dtype: "float16"
+  double_quant: true
+
+lora:
+  r: 64
+  alpha: 128
+  dropout: 0.05
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
+data:
+  train_file: "data/sft/train.jsonl"
+  val_file: "data/sft/val.jsonl"
+
+training:
+  seed: 42
+  max_seq_length: 2048
+  num_epochs: 3
+  per_device_batch_size: 4
+  grad_accum_steps: 4           # effective batch = 4 * 4 = 16
+  learning_rate: 2.0e-4
+  lr_scheduler: "cosine"
+  warmup_ratio: 0.03
+  optim: "paged_adamw_8bit"
+  bf16: false
+  fp16: true
+  logging_steps: 10
+  save_strategy: "epoch"
+  save_total_limit: 3
+  max_steps: -1
+  gradient_checkpointing: false
+  num_workers: 2
+  report_to: "none"
+  output_dir: "checkpoints/sft"
