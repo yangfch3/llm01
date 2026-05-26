@@ -100,6 +100,7 @@ system prompt 统一使用简短通用描述，不设特殊人设。
 | 配置文件 | 用途 | 环境 |
 |---|---|---|
 | `sft-full.yaml` | 生产训练 | Win 3060 12GB, QLoRA 4bit |
+| `sft-8g.yaml` | 8GB 显卡训练 | 8GB GPU, QLoRA 4bit + gradient checkpointing |
 | `sft-tiny.yaml` | 代码验证 | Mac/CPU, fp32 小 batch ~20 步 |
 
 同一入口脚本通过 `--config` 参数切换。

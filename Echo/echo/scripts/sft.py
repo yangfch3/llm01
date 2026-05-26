@@ -149,6 +149,12 @@ def train(args: argparse.Namespace) -> None:
 
     # Data
     data_path = Path(data_cfg["train_file"])
+    if not data_path.exists():
+        console.print(
+            f"[bold red]Error:[/bold red] 数据文件不存在: {data_path}\n"
+            "  请先运行: uv run python scripts/prepare_data.py"
+        )
+        raise SystemExit(1)
     console.print(f"[bold]Loading data:[/bold] {data_path}")
     dataset = load_sft_data(data_path)
     console.print(f"  train samples: {len(dataset)}")
