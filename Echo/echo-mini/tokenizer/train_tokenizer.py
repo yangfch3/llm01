@@ -13,8 +13,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from tokenizers import Tokenizer, models, pre_tokenizers, trainers, decoders
-
+from tokenizers import Tokenizer, decoders, models, pre_tokenizers, trainers
 
 # echo-mini 全部特殊 token，id 按顺序分配 (0-5)
 SPECIAL_TOKENS = [
@@ -72,7 +71,8 @@ def main() -> None:
         default=Path(__file__).resolve().parent.parent / "data" / "raw",
         help="Directory containing .txt training files",
     )
-    parser.add_argument("--vocab_size", type=int, default=16_386)
+    parser.add_argument("--vocab_size", type=int, default=16_386,
+                        help="16384 (2^14) BPE merges + 2 bytes 空位 → 16386 含 6 特殊 token")
     parser.add_argument(
         "--output_dir",
         type=Path,

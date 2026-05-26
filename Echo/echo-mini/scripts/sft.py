@@ -148,7 +148,7 @@ def train(args: argparse.Namespace) -> None:
     if accelerator.is_main_process:
         log_dir.mkdir(parents=True, exist_ok=True)
         write_header = not log_csv.exists()
-        csv_file = open(log_csv, "a", newline="", encoding="utf-8")
+        csv_file = open(log_csv, "a", newline="", encoding="utf-8")  # noqa: SIM115
         csv_writer = csv.writer(csv_file)
         if write_header:
             csv_writer.writerow(["step", "loss", "lr", "tokens_per_sec"])
@@ -198,7 +198,8 @@ def train(args: argparse.Namespace) -> None:
             labels = batch["labels"]
 
             # Shift: model 预测下一个 token
-            # input: ids[:, :-1], target: labels[:, 1:]
+            # 手动计算 loss 而非用 model(..., targets=) 内置路径，
+            # 因为 SFT labels 含 -100 mask（user 部分不计 loss）需配合 shift 对齐。
             with accelerator.accumulate(model):
                 logits, _ = model(input_ids[:, :-1])
                 shift_labels = labels[:, 1:].contiguous()

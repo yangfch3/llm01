@@ -16,13 +16,15 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 
-# 将 src/ 加入搜索路径
+# 将 src/ 和 shared/ 加入搜索路径
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "shared"))
 
-from tokenizers import Tokenizer
+from tokenizers import Tokenizer  # noqa: I001
 
-from echo_mini.config import EchoMiniConfig
+from device import get_device
 from echo_mini.data import SFTDataset
+from echo_mini.inference import generate, load_model
 from echo_mini.model import EchoMini
 
 # 评测用对话样例（中英混合）
@@ -36,26 +38,6 @@ EVAL_PROMPTS = [
     "1+1等于几？",
     "Tell me a joke.",
 ]
-
-
-def load_model(ckpt_path: Path, device: torch.device) -> EchoMini:
-    """加载模型。"""
-    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
-    cfg = EchoMiniConfig()
-    model = EchoMini(cfg)
-
-    state_dict = ckpt["model"]
-    pretrain_vocab = state_dict["tok_emb.weight"].shape[0]
-    if pretrain_vocab < cfg.vocab_size:
-        old_emb = state_dict["tok_emb.weight"]
-        new_emb = torch.randn(cfg.vocab_size - pretrain_vocab, old_emb.shape[1]) * 0.02
-        state_dict["tok_emb.weight"] = torch.cat([old_emb, new_emb], dim=0)
-
-    state_dict.pop("lm_head.weight", None)
-    model.load_state_dict(state_dict, strict=False)
-    model.to(device)
-    model.eval()
-    return model
 
 
 @torch.inference_mode()
@@ -95,57 +77,13 @@ def compute_ppl(
     return math.exp(avg_loss)
 
 
-@torch.inference_mode()
-def generate_response(
-    model: EchoMini,
-    tokenizer: Tokenizer,
-    user_input: str,
-    max_new_tokens: int = 200,
-    temperature: float = 0.7,
-    top_p: float = 0.9,
-    device: torch.device = torch.device("cpu"),
-) -> str:
-    """生成单条回答。"""
+def format_chat_prompt(user_input: str, tokenizer: Tokenizer) -> list[int]:
+    """构造 chat prompt token ids。"""
     bos_id = tokenizer.token_to_id("<bos>")
-    eos_id = tokenizer.token_to_id("<eos>")
     user_token_id = tokenizer.token_to_id("<|user|>")
     assistant_token_id = tokenizer.token_to_id("<|assistant|>")
-
     content_ids = tokenizer.encode(user_input + "\n").ids
-    prompt_ids = [bos_id, user_token_id] + content_ids + [assistant_token_id]
-
-    model.reset_cache()
-    input_ids = torch.tensor([prompt_ids], dtype=torch.long, device=device)
-    logits, _ = model(input_ids, use_cache=True, start_pos=0)
-    next_logits = logits[:, -1, :]
-
-    generated: list[int] = []
-    pos = len(prompt_ids)
-
-    for _ in range(max_new_tokens):
-        if temperature <= 0:
-            next_token = next_logits.argmax(dim=-1).item()
-        else:
-            probs = torch.softmax(next_logits / temperature, dim=-1)
-            sorted_probs, sorted_indices = torch.sort(probs, descending=True, dim=-1)
-            cumsum = torch.cumsum(sorted_probs, dim=-1)
-            mask = cumsum - sorted_probs > top_p
-            sorted_probs[mask] = 0.0
-            sorted_probs /= sorted_probs.sum(dim=-1, keepdim=True)
-            next_token = sorted_indices[0, torch.multinomial(sorted_probs[0], 1)].item()
-
-        if next_token == eos_id:
-            break
-        generated.append(next_token)
-
-        input_ids = torch.tensor([[next_token]], dtype=torch.long, device=device)
-        logits, _ = model(input_ids, use_cache=True, start_pos=pos)
-        next_logits = logits[:, -1, :]
-        pos += 1
-        if pos >= model.cfg.max_seq_len:
-            break
-
-    return tokenizer.decode(generated)
+    return [bos_id, user_token_id] + content_ids + [assistant_token_id]
 
 
 def main() -> None:
@@ -158,7 +96,7 @@ def main() -> None:
     parser.add_argument("--temperature", type=float, default=0.7)
     args = parser.parse_args()
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_device()
     print(f"Device: {device}")
 
     tokenizer = Tokenizer.from_file(str(args.tokenizer))
@@ -174,10 +112,12 @@ def main() -> None:
     print("\n--- Dialogue Samples ---")
     samples = []
     for prompt in EVAL_PROMPTS:
-        response = generate_response(
-            model, tokenizer, prompt,
+        prompt_ids = format_chat_prompt(prompt, tokenizer)
+        generated_ids = generate(
+            model, tokenizer, prompt_ids,
             temperature=args.temperature, device=device,
         )
+        response = tokenizer.decode(generated_ids)
         samples.append({"user": prompt, "assistant": response})
         print(f"User: {prompt}")
         print(f"Echo: {response}")

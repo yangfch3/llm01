@@ -16,7 +16,6 @@ class EchoMiniConfig:
     n_kv_heads: int = 4
     d_ff: int = 1_376
     max_seq_len: int = 1_024
-    dropout: float = 0.0
     rope_theta: float = 10_000.0
 
     @property

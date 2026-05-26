@@ -101,7 +101,7 @@ def train(args: argparse.Namespace) -> None:
     if accelerator.is_main_process:
         log_dir.mkdir(parents=True, exist_ok=True)
         write_header = not log_csv.exists()
-        csv_file = open(log_csv, "a", newline="", encoding="utf-8")
+        csv_file = open(log_csv, "a", newline="", encoding="utf-8")  # noqa: SIM115
         csv_writer = csv.writer(csv_file)
         if write_header:
             csv_writer.writerow(["step", "loss", "lr", "tokens_per_sec"])
@@ -124,6 +124,8 @@ def train(args: argparse.Namespace) -> None:
     step = start_step
     total_loss = 0.0
     data_iter = iter(dataloader)
+    # 注意：resume 后 DataLoader 从头迭代，不恢复数据位置。
+    # 因为训练远不到 1 epoch，重复极少，可忽略。
 
     pbar = tqdm(
         range(start_step, max_steps),

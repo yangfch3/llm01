@@ -30,7 +30,6 @@ from tqdm import tqdm
 
 from echo_mini.utils import load_config
 
-
 # ============================================================
 # 默认路径
 # ============================================================
@@ -130,8 +129,13 @@ def cmd_download(cfg: dict) -> None:
 
 
 def tokenize_file(tokenizer: Tokenizer, input_path: Path, output_path: Path) -> int:
-    """将 .txt 文件 tokenize 为 .bin (uint16)。返回 token 总数。"""
+    """将 .txt 文件 tokenize 为 .bin (uint16)。返回 token 总数。
+
+    每篇文档末尾追加 <eos> token，标记文档边界，
+    使模型在预训练阶段学到序列终止信号。
+    """
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    eos_id = tokenizer.token_to_id("<eos>")
     all_ids: list[int] = []
 
     with open(input_path, encoding="utf-8") as f:
@@ -152,10 +156,12 @@ def tokenize_file(tokenizer: Tokenizer, input_path: Path, output_path: Path) -> 
                     continue
                 encoded = tokenizer.encode(para)
                 all_ids.extend(encoded.ids)
+                all_ids.append(eos_id)
         # 处理剩余
         if buffer.strip():
             encoded = tokenizer.encode(buffer.strip())
             all_ids.extend(encoded.ids)
+            all_ids.append(eos_id)
 
     arr = np.array(all_ids, dtype=np.uint16)
     arr.tofile(output_path)

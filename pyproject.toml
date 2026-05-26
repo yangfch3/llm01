@@ -99,6 +99,9 @@ ignore = [
     "B008",  # 教学代码常用默认值
 ]
 
+[tool.ruff.lint.isort]
+known-first-party = ["echo_mini", "echo", "device"]
+
 [tool.ruff.lint.per-file-ignores]
 "Playground/**" = ["F401", "F841"]  # 教学代码允许未使用的 import / 局部变量
 "**/__init__.py" = ["F401"]

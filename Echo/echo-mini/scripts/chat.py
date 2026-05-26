@@ -16,96 +16,14 @@ import argparse
 import sys
 from pathlib import Path
 
-import torch
-
-# 将 src/ 加入搜索路径
+# 将 src/ 和 shared/ 加入搜索路径
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "shared"))
 
-from tokenizers import Tokenizer
+from tokenizers import Tokenizer  # noqa: I001
 
-from echo_mini.config import EchoMiniConfig
-from echo_mini.model import EchoMini
-
-
-def load_model(ckpt_path: Path, device: torch.device) -> EchoMini:
-    """加载模型权重。兼容 vocab_size 不匹配的旧 checkpoint。
-
-    模型使用 weight tying，只需 resize tok_emb.weight 并跳过 lm_head.weight。
-    """
-    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
-    cfg = EchoMiniConfig()
-    model = EchoMini(cfg)
-
-    state_dict = ckpt["model"]
-    pretrain_vocab = state_dict["tok_emb.weight"].shape[0]
-
-    if pretrain_vocab < cfg.vocab_size:
-        old_emb = state_dict["tok_emb.weight"]
-        new_emb = torch.randn(cfg.vocab_size - pretrain_vocab, old_emb.shape[1]) * 0.02
-        state_dict["tok_emb.weight"] = torch.cat([old_emb, new_emb], dim=0)
-
-    # Weight tying: 删除 lm_head.weight，让 tying 自动生效
-    state_dict.pop("lm_head.weight", None)
-
-    model.load_state_dict(state_dict, strict=False)
-    model.to(device)
-    model.eval()
-    print(f"Loaded checkpoint: {ckpt_path} (step {ckpt['step']})")
-    return model
-
-
-@torch.inference_mode()
-def generate(
-    model: EchoMini,
-    tokenizer: Tokenizer,
-    prompt_ids: list[int],
-    max_new_tokens: int = 256,
-    temperature: float = 0.7,
-    top_p: float = 0.9,
-    device: torch.device = torch.device("cpu"),
-) -> list[int]:
-    """带 KV cache 的自回归生成。"""
-    eos_id = tokenizer.token_to_id("<eos>")
-    model.reset_cache()
-
-    # Prefill: 处理整个 prompt
-    input_ids = torch.tensor([prompt_ids], dtype=torch.long, device=device)
-    logits, _ = model(input_ids, use_cache=True, start_pos=0)
-    # 取最后一个 token 的 logits
-    next_logits = logits[:, -1, :]
-
-    generated: list[int] = []
-    pos = len(prompt_ids)
-
-    for _ in range(max_new_tokens):
-        # Sampling
-        if temperature <= 0:
-            next_token = next_logits.argmax(dim=-1).item()
-        else:
-            probs = torch.softmax(next_logits / temperature, dim=-1)
-            # Top-p sampling
-            sorted_probs, sorted_indices = torch.sort(probs, descending=True, dim=-1)
-            cumsum = torch.cumsum(sorted_probs, dim=-1)
-            mask = cumsum - sorted_probs > top_p
-            sorted_probs[mask] = 0.0
-            sorted_probs /= sorted_probs.sum(dim=-1, keepdim=True)
-            next_token = sorted_indices[0, torch.multinomial(sorted_probs[0], 1)].item()
-
-        if next_token == eos_id:
-            break
-
-        generated.append(next_token)
-
-        # Decode step: 单 token 输入
-        input_ids = torch.tensor([[next_token]], dtype=torch.long, device=device)
-        logits, _ = model(input_ids, use_cache=True, start_pos=pos)
-        next_logits = logits[:, -1, :]
-        pos += 1
-
-        if pos >= model.cfg.max_seq_len:
-            break
-
-    return generated
+from device import get_device
+from echo_mini.inference import generate, load_model
 
 
 def format_chat_prompt(user_input: str, tokenizer: Tokenizer) -> list[int]:
@@ -126,15 +44,6 @@ def format_complete_prompt(text: str, tokenizer: Tokenizer) -> list[int]:
     bos_id = tokenizer.token_to_id("<bos>")
     encoded = tokenizer.encode(text)
     return [bos_id] + encoded.ids
-
-
-def get_device() -> torch.device:
-    """统一设备选择。"""
-    if torch.cuda.is_available():
-        return torch.device("cuda")
-    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        return torch.device("mps")
-    return torch.device("cpu")
 
 
 def main() -> None:

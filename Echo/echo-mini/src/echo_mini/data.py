@@ -11,9 +11,8 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader
 from tokenizers import Tokenizer
-
+from torch.utils.data import DataLoader, Dataset
 
 # ============================================================
 # Chat Template
@@ -73,7 +72,12 @@ def format_chat(messages: list[dict], bos_id: int, eos_id: int, tokenizer: Token
 
 
 class PretrainDataset(Dataset):
-    """Memory-mapped 预训练数据集。"""
+    """Memory-mapped 预训练数据集。
+
+    注意：bin 文件是多篇文档 token 拼接的连续流，按 seq_len 切块时一个 sample
+    可能跨越文档边界。这是小规模预训练的常见简化做法；如需严格隔离可在
+    prepare_data 阶段插入 <eos> 分隔（本项目已在 tokenize 阶段处理）。
+    """
 
     def __init__(self, data_path: Path, seq_len: int):
         """

@@ -13,7 +13,6 @@ import torch.nn.functional as F
 
 from .config import EchoMiniConfig
 
-
 # ============================================================
 # RMSNorm
 # ============================================================
@@ -75,6 +74,7 @@ class Attention(nn.Module):
         self.wo = nn.Linear(cfg.n_heads * cfg.head_dim, cfg.d_model, bias=False)
 
         # KV cache (populated during inference)
+        # 注意：必须先 model.to(device) 再调用 generate，否则 cache 与输入 device 不匹配
         self.cache_k: torch.Tensor | None = None
         self.cache_v: torch.Tensor | None = None
 
