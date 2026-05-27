@@ -22,7 +22,7 @@ from echo.utils import load_config
 
 console = Console()
 
-DEFAULT_CONFIG = Path("configs/sft-full.yaml")
+DEFAULT_CONFIG = Path("configs/sft-8g.yaml")
 DEFAULT_ADAPTER = Path("checkpoints/sft/final")
 DEFAULT_OUTPUT = Path("checkpoints/merged")
 
