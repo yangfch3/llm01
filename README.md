@@ -25,10 +25,10 @@ LLM 入门课件 + Echo 对话模型双线产出。
 
 ```bash
 # Windows (3060)
-uv sync --extra dev --extra courseware --extra echo-mini --extra train-cuda
+uv sync --extra dev --extra courseware --extra echo-mini --extra echo --extra train-cuda
 
 # Mac (Apple Silicon)
-uv sync --extra dev --extra courseware --extra echo-mini --extra train-mps
+uv sync --extra dev --extra courseware --extra echo-mini --extra echo --extra train-mps
 ```
 
 > `llama-cpp-python` 拆到独立的 `deploy-llamacpp` extras，M6 部署阶段再按需装；
