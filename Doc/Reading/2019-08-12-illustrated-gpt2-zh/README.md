@@ -1,4 +1,4 @@
-# 图解 GPT-2（可视化 Transformer 语言模型）
+# 图解 GPT-2
 
 原文：[The Illustrated GPT-2 (Visualizing Transformer Language Models)](https://jalammar.github.io/illustrated-gpt2/)
 
