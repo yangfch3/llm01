@@ -165,6 +165,11 @@ def train(args: argparse.Namespace) -> None:
         eval_dataset = load_sft_data(val_path)
         console.print(f"  val samples: {len(eval_dataset)}")
 
+    # 判断是否实际启用 eval
+    eval_enabled = train_cfg.get("eval_strategy", "epoch" if eval_dataset else "no") != "no"
+    if not eval_enabled:
+        eval_dataset = None
+
     # Training arguments (trl 1.4+ 使用 SFTConfig 替代 TrainingArguments)
     output_dir = train_cfg.get("output_dir", "checkpoints/sft")
     training_args = SFTConfig(
@@ -181,11 +186,12 @@ def train(args: argparse.Namespace) -> None:
         bf16=train_cfg.get("bf16", True),
         fp16=train_cfg.get("fp16", False),
         logging_steps=train_cfg.get("logging_steps", 10),
-        eval_strategy=train_cfg.get("eval_strategy", "epoch") if eval_dataset else "no",
+        eval_strategy="no" if not eval_enabled else train_cfg.get("eval_strategy", "epoch"),
         save_strategy=train_cfg.get("save_strategy", "epoch"),
+        save_steps=train_cfg.get("save_steps", 500),
         save_total_limit=train_cfg.get("save_total_limit", 3),
-        load_best_model_at_end=eval_dataset is not None,
-        metric_for_best_model="eval_loss" if eval_dataset else None,
+        load_best_model_at_end=eval_enabled and eval_dataset is not None,
+        metric_for_best_model="eval_loss" if (eval_enabled and eval_dataset) else None,
         max_steps=train_cfg.get("max_steps", -1),
         seed=train_cfg.get("seed", 42),
         report_to=train_cfg.get("report_to", "none"),
