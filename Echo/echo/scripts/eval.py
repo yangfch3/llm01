@@ -119,6 +119,14 @@ def eval_ppl(model, tokenizer, val_file: Path, max_seq_length: int) -> dict:
     return {"avg_loss": round(avg_loss, 4), "perplexity": round(ppl, 2), "valid_tokens": total_tokens}
 
 
+def _get_stop_token_ids(tokenizer) -> list[int]:
+    """Qwen2.5 停止 token: <|im_end|> + <|endoftext|>。"""
+    return [
+        tokenizer.convert_tokens_to_ids("<|im_end|>"),
+        tokenizer.convert_tokens_to_ids("<|endoftext|>"),
+    ]
+
+
 def eval_questions(model, tokenizer, questions_file: Path, max_new_tokens: int = 256) -> dict:
     """对 eval/questions.jsonl 生成回答并判断正确率。
 
@@ -157,6 +165,7 @@ def eval_questions(model, tokenizer, questions_file: Path, max_new_tokens: int =
                 max_new_tokens=max_new_tokens,
                 temperature=0.1,
                 do_sample=False,
+                eos_token_id=_get_stop_token_ids(tokenizer),
             )
 
         generated = tokenizer.decode(output_ids[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
@@ -206,6 +215,7 @@ def eval_dialogue_samples(model, tokenizer, max_new_tokens: int = 256) -> list[d
                 top_p=0.9,
                 repetition_penalty=1.1,
                 do_sample=True,
+                eos_token_id=_get_stop_token_ids(tokenizer),
             )
 
         generated = tokenizer.decode(output_ids[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)

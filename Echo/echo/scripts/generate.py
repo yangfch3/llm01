@@ -126,6 +126,11 @@ def chat_loop(model, tokenizer, args: argparse.Namespace) -> None:
         inputs = tokenizer(text, return_tensors="pt").to(device)
 
         # 生成
+        # Qwen2.5 停止 token: <|im_end|> + <|endoftext|>
+        stop_token_ids = [
+            tokenizer.convert_tokens_to_ids("<|im_end|>"),
+            tokenizer.convert_tokens_to_ids("<|endoftext|>"),
+        ]
         print("Echo: ", end="", flush=True)
         with torch.no_grad():
             outputs = model.generate(
@@ -136,6 +141,7 @@ def chat_loop(model, tokenizer, args: argparse.Namespace) -> None:
                 top_p=args.top_p,
                 repetition_penalty=args.repetition_penalty,
                 do_sample=args.temperature > 0,
+                eos_token_id=stop_token_ids,
                 streamer=streamer,
             )
 
