@@ -18,6 +18,19 @@
 
 ---
 
+## 2026-05-27 · Linux · SFT 训练 epoch 结束 eval 阶段 OOM
+
+- **现象**：Qwen2.5-1.5B QLoRA SFT 训练正常（显存 ~14 GB），但每到 epoch 结束触发 eval 时 OOM，报 `Tried to allocate 8.94 GiB`，24 GB 卡（RTX 3090）连续两次在 1188 步处中断
+- **根因**：eval 阶段需一次性分配完整 logits 张量 `[seq_len × vocab_size]` = `[2048 × 151665]` ≈ 1.2 GB/sample (fp32)。Qwen2 词表 151K 远大于常见的 32K，导致 eval forward 显存需求远超训练（训练有 gradient checkpointing 分段释放，eval 无此机制）。初始显存估算按通用 32K 词表考虑，未针对 151K 修正
+- **解决**：
+  - 配置中设置 `eval_strategy: "no"` 关闭训练中 eval
+  - `sft.py` 代码中当 `eval_strategy="no"` 时不传 `eval_dataset` 给 Trainer，彻底切断 eval 路径
+  - 训练完成后单独跑 eval 脚本评估各 checkpoint
+- **影响**：所有 24 GB 以下显卡跑 Qwen2 系列 SFT 时都应关闭训练中 eval；`sft-8g.yaml` 已默认关闭
+- **教训**：大词表模型（>100K）的 eval 显存不能按训练显存线性估算，需单独计算 logits 占用
+
+---
+
 ## 2026-05-25 · Win · trl 读取 jinja 模板报 GBK 编码错误
 
 - **现象**：`from trl import SFTTrainer` 报 `UnicodeDecodeError: 'gbk' codec can't decode byte 0x9c`，出在 `trl/chat_template_utils.py` 读取 `deepseekv3.jinja`
