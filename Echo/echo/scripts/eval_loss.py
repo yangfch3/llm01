@@ -55,8 +55,8 @@ def evaluate(args: argparse.Namespace) -> None:
     console.print(f"[bold]Adapter:[/bold] {adapter_dir}")
     console.print(f"[bold]Val file:[/bold] {val_file}")
 
-    # Tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(str(adapter_dir), trust_remote_code=True)
+    # Tokenizer（从底座加载，保留完整 chat_template）
+    tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
