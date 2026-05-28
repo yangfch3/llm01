@@ -92,6 +92,23 @@ uv run python scripts/generate.py --adapter-dir checkpoints/sft-base/checkpoint-
 
 交互式多轮对话。**重点检查停止行为**：模型回答完应自然停止，不应自问自答。
 
+## 5.5 裸 base 对照（可选，推荐做一次）
+
+```bash
+# 纯续写模式：看 base 原始倾向（输入会被当文章接着写）
+uv run python scripts/generate_base.py
+
+# 伪 ChatML 模式：手拼 ChatML 包装，看 base 能否仅靠 prompt 工程出对话能力
+uv run python scripts/generate_base.py --mode chatml
+```
+
+仅加载裸 `Qwen/Qwen2.5-1.5B`，不挂 adapter。用同样的 prompt 跑一遍 base + 跑一遍 SFT 后
+（第 5 节的 generate.py），直观对比"SFT 把推理范式从续写扭成对话"的效果。
+
+> 注意：instruct 路线不需要这个对照——instruct 底座本身已学会对话和停止，
+> raw 模式无意义，chatml 模式接近 SFT 后。要对比直接拿 instruct 底座
+> vs SFT 后 instruct 比即可。
+
 ## 6. 评测
 
 ```bash
