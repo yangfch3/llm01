@@ -178,25 +178,36 @@ def train(args: argparse.Namespace) -> None:
     # 会包出独立副本破坏 tie，导致 adapter 体积翻倍且训练时两个权重异步漂移。
     # 此处主动检测并打印实际 tie 状态，便于发现配置错误。
     try:
+        from peft.utils.other import ModulesToSaveWrapper
+
         peft_base = model.base_model.model  # PEFT 包装后实际模型
         embed_w = peft_base.get_input_embeddings().weight
         head_w = peft_base.get_output_embeddings().weight
         is_tied = embed_w.data_ptr() == head_w.data_ptr()
-        modules_to_save = (cfg.get("lora") or {}).get("modules_to_save") or []
+        configured = (cfg.get("lora") or {}).get("modules_to_save") or []
+
+        # PEFT 实际包装的 ModulesToSaveWrapper 列表（含 ensure_weight_tying 自动追加的 tied 模块）
+        wrapped: list[str] = [
+            name for name, mod in model.named_modules()
+            if isinstance(mod, ModulesToSaveWrapper)
+        ]
+        # 简化显示：只保留尾部模块名而非全路径
+        wrapped_short = [name.rsplit(".", 1)[-1] for name in wrapped]
+
         console.print(
             f"[bold]Tie weights:[/bold] embed/lm_head tied={is_tied}; "
-            f"modules_to_save={modules_to_save}"
+            f"yaml.modules_to_save={configured}; PEFT 实际包装={wrapped_short}"
         )
         if (
             not is_tied
-            and "embed_tokens" in modules_to_save
-            and "lm_head" not in modules_to_save
+            and "embed_tokens" in configured
+            and "lm_head" not in configured
         ):
             console.print(
                 "[yellow]警告：embed_tokens 在 modules_to_save 但 tie 已断开，"
                 "lm_head 不会跟随训练[/yellow]"
             )
-    except (AttributeError, RuntimeError) as e:
+    except (AttributeError, RuntimeError, ImportError) as e:
         console.print(f"[dim]Tie 检查跳过: {e}[/dim]")
 
     # Data
