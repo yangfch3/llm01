@@ -61,7 +61,7 @@ def build_bnb_config(cfg: dict) -> BitsAndBytesConfig | None:
 def build_lora_config(cfg: dict) -> LoraConfig:
     """构建 LoRA 配置。"""
     lora_cfg = cfg["lora"]
-    return LoraConfig(
+    kwargs = dict(
         task_type=TaskType.CAUSAL_LM,
         r=lora_cfg.get("r", 64),
         lora_alpha=lora_cfg.get("alpha", 128),
@@ -76,6 +76,13 @@ def build_lora_config(cfg: dict) -> LoraConfig:
         modules_to_save=lora_cfg.get("modules_to_save"),
         bias="none",
     )
+    # ensure_weight_tying：Qwen2.5-1.5B tie_word_embeddings=True，PEFT 默认会
+    # 拆出独立的 embed 和 lm_head 副本破坏 tie。开启此参数后 PEFT 会让
+    # lm_head 跟随 embed_tokens 同步更新，保持 tie 关系不破坏。
+    # 仅 PEFT >= 0.12 支持；config 里没显式关闭就默认开。
+    if lora_cfg.get("ensure_weight_tying", True):
+        kwargs["ensure_weight_tying"] = True
+    return LoraConfig(**kwargs)
 
 
 def train(args: argparse.Namespace) -> None:

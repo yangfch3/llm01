@@ -67,6 +67,10 @@ class PreflightFail(RuntimeError):
     """预检失败的标记异常，主流程捕获后写报告并退出。"""
 
 
+# 严重警告（不抛异常但要阻断"通过"判定）累积容器
+critical_warnings: list[str] = []
+
+
 def section(title: str) -> None:
     console.print(Panel.fit(f"[bold cyan]{title}[/bold cyan]"))
 
@@ -76,7 +80,14 @@ def ok(msg: str) -> None:
 
 
 def warn(msg: str) -> None:
+    """轻量警告：建议关注，不阻断。"""
     console.print(f"  [yellow]⚠[/yellow] {msg}")
+
+
+def critical(msg: str) -> None:
+    """严重警告：配置层面错误，会让训练结果偏离预期，阻断"全部通过"。"""
+    console.print(f"  [red]⚠ CRITICAL[/red] {msg}")
+    critical_warnings.append(msg)
 
 
 def fail(msg: str) -> None:
@@ -326,7 +337,7 @@ def check_peft_wrap(cfg: dict, model, is_tied_pre: bool, report: list[str]):
         )
 
     lora_cfg = cfg["lora"]
-    lora = LoraConfig(
+    lora_kwargs = dict(
         task_type=TaskType.CAUSAL_LM,
         r=lora_cfg.get("r", 64),
         lora_alpha=lora_cfg.get("alpha", 128),
@@ -338,6 +349,9 @@ def check_peft_wrap(cfg: dict, model, is_tied_pre: bool, report: list[str]):
         modules_to_save=lora_cfg.get("modules_to_save"),
         bias="none",
     )
+    if lora_cfg.get("ensure_weight_tying", True):
+        lora_kwargs["ensure_weight_tying"] = True
+    lora = LoraConfig(**lora_kwargs)
     model = get_peft_model(model, lora)
     if cfg["training"].get("gradient_checkpointing", False) and hasattr(
         model, "enable_input_require_grads"
@@ -355,7 +369,10 @@ def check_peft_wrap(cfg: dict, model, is_tied_pre: bool, report: list[str]):
     head_w = peft_base.get_output_embeddings().weight
     is_tied_post = embed_w.data_ptr() == head_w.data_ptr()
     if is_tied_pre and not is_tied_post:
-        warn(f"tie 被 PEFT 破坏！embed/lm_head 不再共享权重")
+        critical(
+            "tie 被 PEFT 破坏：embed/lm_head 不再共享权重。"
+            "应在 LoraConfig 加 ensure_weight_tying=True，或显式 tie_word_embeddings=False"
+        )
     else:
         ok(f"PEFT 后 tie_word_embeddings: {is_tied_post}")
 
@@ -637,6 +654,25 @@ def main() -> None:
         if not args.skip_generate:
             report.append("\n## 9. 底座 generate 试探\n")
             check_generate(model, tokenizer, cfg, report)
+
+        if critical_warnings:
+            report.append("\n---\n\n## 严重警告\n")
+            for w in critical_warnings:
+                report.append(f"- ⚠ {w}")
+            report.append(
+                f"\n**预检未通过 ✗**：存在 {len(critical_warnings)} 个严重警告，"
+                "训练结果会偏离预期，请先修复后再跑 sft.py。"
+            )
+            console.print(
+                Panel.fit(
+                    f"[bold red]预检未通过 ✗ · {len(critical_warnings)} 个严重警告[/bold red]\n"
+                    + "\n".join(f"  - {w}" for w in critical_warnings)
+                )
+            )
+            report_path = args.report or Path(f"preflight-report-{args.config.stem}.md")
+            report_path.write_text("\n".join(report), encoding="utf-8")
+            console.print(f"报告写入: {report_path}")
+            raise SystemExit(2)
 
         report.append("\n---\n\n**预检通过 ✓** 可进入正式训练。")
         console.print(Panel.fit("[bold green]预检全部通过 ✓[/bold green]"))
