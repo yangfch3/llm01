@@ -175,7 +175,7 @@ def main() -> None:
         "--adapter-dir", type=Path, default=DEFAULT_ADAPTER, help="Adapter dir"
     )
     parser.add_argument("--merged-dir", type=Path, default=None, help="Merged model dir")
-    parser.add_argument("--max-new-tokens", type=int, default=512)
+    parser.add_argument("--max-new-tokens", type=int, default=1024)
     parser.add_argument("--temperature", type=float, default=0.7)
     parser.add_argument("--top-k", type=int, default=50)
     parser.add_argument("--top-p", type=float, default=0.9)
