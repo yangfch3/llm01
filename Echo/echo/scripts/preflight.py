@@ -134,6 +134,12 @@ def check_config(cfg: dict, report: list[str]) -> None:
 
 
 def check_tokenizer_special_tokens(tokenizer, is_base: bool, report: list[str]) -> None:
+    """检查 special token + 应用 base patch（与 sft.py 训练时行为一致）。
+
+    分两段打印：
+      - 原始状态（底座加载后立即看到的 tokenizer 状态）
+      - patch 后状态（base 模式下 sft.py 实际训练时的状态）
+    """
     section("Layer 1.2 · Tokenizer special tokens")
     im_start_id = tokenizer.convert_tokens_to_ids("<|im_start|>")
     im_end_id = tokenizer.convert_tokens_to_ids("<|im_end|>")
@@ -144,22 +150,28 @@ def check_tokenizer_special_tokens(tokenizer, is_base: bool, report: list[str]) 
     ok(f"<|im_start|> id={im_start_id}")
     ok(f"<|im_end|>   id={im_end_id}")
     ok(f"<|endoftext|> id={eot_id}")
-    ok(f"eos_token={tokenizer.eos_token!r} (id={tokenizer.eos_token_id})")
-    ok(f"pad_token={tokenizer.pad_token!r} (id={tokenizer.pad_token_id})")
 
-    # base 模式下 eos 应该被改到 <|im_end|>；这里 tokenizer 还没跑 sft.py 的 patch，
-    # 提示用户预期值
-    if is_base and tokenizer.eos_token_id != im_end_id:
-        warn(
-            f"base 模式下 sft.py 会把 eos_token 改为 <|im_end|>(id={im_end_id})，"
-            f"当前 eos={tokenizer.eos_token_id}（preflight 未应用 patch，正常）"
+    # 原始状态
+    console.print(f"  [dim]原始 tokenizer:[/dim]")
+    ok(f"  eos_token={tokenizer.eos_token!r} (id={tokenizer.eos_token_id})")
+    ok(f"  pad_token={tokenizer.pad_token!r} (id={tokenizer.pad_token_id})")
+
+    # base 模式：模拟 sft.py 的 patch
+    if is_base:
+        tokenizer.eos_token = "<|im_end|>"
+        console.print(f"  [dim]Base patch 后（与 sft.py 训练时一致）:[/dim]")
+        ok(f"  eos_token={tokenizer.eos_token!r} (id={tokenizer.eos_token_id})")
+        ok(
+            f"  pad_token={tokenizer.pad_token!r} (id={tokenizer.pad_token_id}) "
+            f"故意保留 <|endoftext|>，与 eos 解耦"
         )
+
     report.append(
         f"- `<|im_start|>` id: `{im_start_id}`\n"
         f"- `<|im_end|>` id: `{im_end_id}`\n"
         f"- `<|endoftext|>` id: `{eot_id}`\n"
-        f"- eos_token: `{tokenizer.eos_token}` (id `{tokenizer.eos_token_id}`)\n"
-        f"- pad_token: `{tokenizer.pad_token}` (id `{tokenizer.pad_token_id}`)"
+        f"- 训练时 eos_token: `{tokenizer.eos_token}` (id `{tokenizer.eos_token_id}`)\n"
+        f"- 训练时 pad_token: `{tokenizer.pad_token}` (id `{tokenizer.pad_token_id}`)"
     )
 
 
@@ -522,11 +534,7 @@ def run_micro_steps(
 
 def check_generate(model, tokenizer, cfg: dict, report: list[str]) -> None:
     section("Layer 4 · 底座 generate 试探（输出会乱，看形态即可）")
-    is_base = cfg["model"].get("is_base_model", False)
-    if is_base:
-        # 模拟 sft.py 的 patch
-        im_end = "<|im_end|>"
-        tokenizer.eos_token = im_end
+    # 注：tokenizer 的 base patch 已在 Layer 1.2 应用，此处直接用即可
 
     # 用推理模板拼 prompt
     from echo.utils import CHATML_INFER_TEMPLATE
@@ -617,7 +625,8 @@ def main() -> None:
         "",
     ]
 
-    # 加载 tokenizer（preflight 不应用 sft.py 的 base 模式 patch，让用户看到原始状态）
+    # 加载 tokenizer。base 模式的 eos_token patch 推迟到 Layer 1.2 内部应用
+    # （那里会先打印原始状态再打印 patch 后状态，便于诊断）。
     tokenizer = AutoTokenizer.from_pretrained(
         cfg["model"]["model_id"], trust_remote_code=True
     )
