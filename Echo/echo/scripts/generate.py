@@ -157,6 +157,7 @@ def chat_loop(model, tokenizer, args: argparse.Namespace) -> None:
                 repetition_penalty=args.repetition_penalty,
                 do_sample=args.temperature > 0,
                 eos_token_id=stop_token_ids,
+                pad_token_id=tokenizer.pad_token_id,  # 显式传，避免 transformers fallback 警告
                 streamer=streamer,
             )
 
