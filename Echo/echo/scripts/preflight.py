@@ -175,7 +175,7 @@ def check_tokenizer_special_tokens(tokenizer, is_base: bool, report: list[str]) 
     )
 
 
-def check_data(data_path: Path, tokenizer, report: list[str]) -> list[dict]:
+def check_data(data_path: Path, tokenizer, report: list[str], max_seq_length: int) -> list[dict]:
     """检查数据格式 + 长度分布；返回前 SAMPLE_N 条样本供后续层用。"""
     section("Layer 1.3 · 数据格式 + 分布")
     if not data_path.exists():
@@ -186,6 +186,7 @@ def check_data(data_path: Path, tokenizer, report: list[str]) -> list[dict]:
     role_counter: Counter[str] = Counter()
     assistant_lens: list[int] = []
     im_end_per_sample: list[int] = []
+    rendered_token_lens: list[int] = []  # 渲染后整条样本 token 长度
     bad = 0
     total = 0
     with open(data_path, encoding="utf-8") as f:
@@ -207,12 +208,15 @@ def check_data(data_path: Path, tokenizer, report: list[str]) -> list[dict]:
                 if m.get("role") == "assistant":
                     text = m.get("content", "")
                     assistant_lens.append(len(text))
-            # 渲染后看 <|im_end|> 出现次数
+            # 渲染后看 <|im_end|> 出现次数 + 整条 token 长度
             try:
                 rendered = tokenizer.apply_chat_template(
                     msgs, tokenize=False, add_generation_prompt=False
                 )
                 im_end_per_sample.append(rendered.count("<|im_end|>"))
+                # token 长度（不截断，看真实长度分布）
+                token_ids = tokenizer(rendered, add_special_tokens=False).input_ids
+                rendered_token_lens.append(len(token_ids))
             except Exception:  # noqa: BLE001
                 bad += 1
             if len(samples) < SAMPLE_N:
@@ -233,13 +237,39 @@ def check_data(data_path: Path, tokenizer, report: list[str]) -> list[dict]:
         if avg_imend < 2:
             warn("<|im_end|> 信号密度偏低，base 路线可能学不会停止")
 
+    # token 长度分布 + 截断风险评估（关键：超 max_seq 的样本末尾 <|im_end|> 会被砍掉）
+    truncate_ratio = 0.0
+    if rendered_token_lens:
+        sorted_lens = sorted(rendered_token_lens)
+        n = len(sorted_lens)
+        avg_t = sum(sorted_lens) / n
+        p50_t = sorted_lens[n // 2]
+        p95_t = sorted_lens[int(n * 0.95)]
+        max_t = sorted_lens[-1]
+        truncated = sum(1 for x in sorted_lens if x > max_seq_length)
+        truncate_ratio = truncated / n
+        ok(
+            f"渲染后 token 长度: avg={avg_t:.0f}, p50={p50_t}, "
+            f"p95={p95_t}, max={max_t} (max_seq={max_seq_length})"
+        )
+        msg = f"超 max_seq 比例: {truncate_ratio * 100:.1f}% ({truncated}/{n})"
+        if truncate_ratio > 0.10:
+            critical(msg + "；末尾 <|im_end|> 会被 right truncation 砍掉，停止信号大量丢失")
+        elif truncate_ratio > 0.03:
+            warn(msg + "；少量样本末尾停止信号会丢失，可接受")
+        else:
+            ok(msg)
+
     report.append(
         f"- 总行数: `{total}`（抽样 `{min(total, DIST_SAMPLE)}` 条）\n"
         f"- 无效记录: `{bad}`\n"
         f"- role 分布: `{dict(role_counter)}`\n"
         f"- assistant 字符长度 avg: `{sum(assistant_lens) / max(len(assistant_lens), 1):.0f}`\n"
         f"- 每条样本 `<|im_end|>` 平均次数: "
-        f"`{sum(im_end_per_sample) / max(len(im_end_per_sample), 1):.2f}`"
+        f"`{sum(im_end_per_sample) / max(len(im_end_per_sample), 1):.2f}`\n"
+        f"- 渲染后 token 长度 avg: "
+        f"`{sum(rendered_token_lens) / max(len(rendered_token_lens), 1):.0f}` "
+        f"(max_seq=`{max_seq_length}`, 超长比例 `{truncate_ratio * 100:.1f}%`)"
     )
 
     if not samples:
@@ -389,11 +419,37 @@ def check_peft_wrap(cfg: dict, model, is_tied_pre: bool, report: list[str]):
         ok(f"PEFT 后 tie_word_embeddings: {is_tied_post}")
 
     # base 路线参数占比理论值校验
+    # base 路线（modules_to_save=embed_tokens + LoRA r=128 7 proj）实测 ~30%
+    # instruct 路线（仅 LoRA r=64 7 proj）实测 ~2%
+    # 偏离区间 → 配置出错（target_modules 拼写错 / modules_to_save 没生效 / tie 拆开）
     is_base = cfg["model"].get("is_base_model", False)
-    if is_base and pct < 8:
-        warn(f"base 路线 trainable 占比 {pct:.2f}% 偏低（预期 12-15%），modules_to_save 可能未生效")
-    if (not is_base) and pct > 5:
-        warn(f"instruct 路线 trainable 占比 {pct:.2f}% 偏高（预期 2-3%）")
+    if is_base:
+        if pct < 15:
+            critical(
+                f"base 路线 trainable 占比 {pct:.2f}% 偏低（预期 20-40%），"
+                "modules_to_save=embed_tokens 可能未生效；继续训会变成纯 LoRA SFT，"
+                "<|im_end|> embedding 学不到，停止信号失败"
+            )
+        elif pct > 50:
+            critical(
+                f"base 路线 trainable 占比 {pct:.2f}% 偏高（预期 20-40%），"
+                "可能 tie 已断开 lm_head 也被独立训练，adapter 体积会翻倍"
+            )
+        else:
+            ok(f"trainable 占比 {pct:.2f}% 在 base 路线预期区间 (20-40%)")
+    else:
+        if pct < 1.0:
+            critical(
+                f"instruct 路线 trainable 占比 {pct:.2f}% 偏低（预期 1.5-4%），"
+                "target_modules 可能拼写错没命中 LoRA"
+            )
+        elif pct > 5:
+            warn(
+                f"instruct 路线 trainable 占比 {pct:.2f}% 偏高（预期 1.5-4%），"
+                "确认 modules_to_save 是否误开"
+            )
+        else:
+            ok(f"trainable 占比 {pct:.2f}% 在 instruct 路线预期区间 (1.5-4%)")
 
     report.append(
         f"- trainable: `{trainable:,}` / `{total:,}` (`{pct:.2f}%`)\n"
@@ -642,7 +698,10 @@ def main() -> None:
         check_tokenizer_special_tokens(tokenizer, is_base, report)
 
         report.append("\n## 3. 数据\n")
-        samples = check_data(Path(cfg["data"]["train_file"]), tokenizer, report)
+        max_seq_length = cfg["training"].get("max_seq_length", 2048)
+        samples = check_data(
+            Path(cfg["data"]["train_file"]), tokenizer, report, max_seq_length
+        )
 
         report.append("\n## 4. Chat template 渲染\n")
         check_chat_template_render(samples, tokenizer, report)

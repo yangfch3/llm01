@@ -58,8 +58,8 @@ training:
   logging_steps: 10
   eval_strategy: "no"
   save_strategy: "steps"
-  save_steps: 1000               # 5 epoch 步数翻倍，save_steps 同步加大
-  save_total_limit: 5
+  save_steps: 500                # 密 ckpt 保险：5 epoch ~ 8900 步可保留 12 个代表点
+  save_total_limit: 12           # 覆盖整个训练区间，过拟合时可回溯到任意阶段
   max_steps: -1
   gradient_checkpointing: true
   num_workers: 2
