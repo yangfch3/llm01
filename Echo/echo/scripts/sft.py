@@ -253,10 +253,6 @@ def train(args: argparse.Namespace) -> None:
         save_strategy=train_cfg.get("save_strategy", "epoch"),
         save_steps=train_cfg.get("save_steps", 500),
         save_total_limit=train_cfg.get("save_total_limit", 3),
-        # save_only_model: True 只存 adapter，不存 optimizer/scheduler/rng（无法 resume，但
-        # 单 ckpt 体积从 ~3GB 降到 ~600MB，磁盘紧张时建议开启；
-        # False 保留完整 ckpt，可 resume_from_checkpoint。
-        save_only_model=train_cfg.get("save_only_model", False),
         load_best_model_at_end=eval_enabled and eval_dataset is not None,
         metric_for_best_model="eval_loss" if (eval_enabled and eval_dataset) else None,
         max_steps=train_cfg.get("max_steps", -1),
