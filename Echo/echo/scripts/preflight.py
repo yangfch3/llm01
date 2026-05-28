@@ -535,6 +535,7 @@ def run_micro_steps(
 def check_generate(model, tokenizer, cfg: dict, report: list[str]) -> None:
     section("Layer 4 · 底座 generate 试探（输出会乱，看形态即可）")
     # 注：tokenizer 的 base patch 已在 Layer 1.2 应用，此处直接用即可
+    is_base = cfg["model"].get("is_base_model", False)
 
     # 用推理模板拼 prompt
     from echo.utils import CHATML_INFER_TEMPLATE
