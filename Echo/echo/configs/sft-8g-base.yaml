@@ -9,7 +9,9 @@
 #   - lora.modules_to_save：把 embed_tokens 与 lm_head 也纳入训练，
 #     让 <|im_end|> 这个原本"挂着没用"的 token 真正学到 embedding
 #     代价：adapter 文件 ~150MB → ~600MB
-#   - num_epochs 3 → 5：base 学新格式 + 停止信号需要更多曝光
+#   - num_epochs 3 → 2：实测 base + modules_to_save + 29K 数据下，
+#     epoch>1 后短模板题（祝福、问候）严重 mode collapse，
+#     长开放题在 epoch>2 后也开始塌缩。sweet spot 在 epoch 0.5~1.0
 #   - output_dir 独立到 checkpoints/sft-base/，与 instruct 路线物理隔离
 
 model:
@@ -46,7 +48,7 @@ data:
 training:
   seed: 42
   max_seq_length: 2048
-  num_epochs: 5                  # base 路线多曝光
+  num_epochs: 2                  # 实测 5 epoch 严重过拟合，sweet spot 在 epoch 0.5~1.0
   per_device_batch_size: 1
   grad_accum_steps: 16           # effective batch = 16
   learning_rate: 1.0e-4
@@ -58,8 +60,8 @@ training:
   logging_steps: 10
   eval_strategy: "no"
   save_strategy: "steps"
-  save_steps: 500                # 密 ckpt 保险：5 epoch ~ 8900 步可保留 12 个代表点
-  save_total_limit: 12           # 覆盖整个训练区间，过拟合时可回溯到任意阶段
+  save_steps: 250                # 短模板题第 1 epoch 就可能塌缩，密保留便于挑 sweet spot
+  save_total_limit: 16           # 2 epoch ~ 3560 步，每 250 步存一个，覆盖全程
   max_steps: -1
   gradient_checkpointing: true
   num_workers: 2

@@ -17,10 +17,10 @@
 | `is_base_model` | true | (未设, false) |
 | LoRA r | 128 | 64 |
 | modules_to_save | `embed_tokens` + `lm_head` | 无 |
-| epoch | 5 | 3 |
+| epoch | 2 | 3 |
 | 训练数据 | `train_aug.jsonl` (~29K) | `train.jsonl` (19K) |
 | adapter 输出 | `checkpoints/sft-base/` | `checkpoints/sft/` |
-| 3060 训练时长 | ~10-12h | ~6h |
+| 3060 训练时长 | ~4-5h | ~6h |
 | adapter 大小 | ~600MB | ~150MB |
 
 ## 1. 数据准备

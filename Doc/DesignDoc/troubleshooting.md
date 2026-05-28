@@ -18,6 +18,26 @@
 
 ---
 
+## 2026-05-28 · Linux · Qwen2.5-1.5B base SFT 5 epoch 严重 mode collapse
+
+- **现象**：sft-8g-base.yaml 原配置（5 epoch + LoRA r=128 + modules_to_save embed_tokens + 29K 增广数据）训到 step 4000（epoch 2.2）时，generate.py 同 prompt 多次跑出**逐字相同**的回复，温度 0.7 / top_p 0.9 也压不出多样性。entropy 从 1.0 → 0.49，token_acc 0.87
+- **根因**：
+  - epoch 边界 loss 阶跃跳降（1→2: -30%，2→3: -42%）显示模型在硬记数据，不是泛化
+  - `modules_to_save: embed_tokens` 让 embedding 全参更新，记忆能力比纯 LoRA 强很多
+  - 训练数据中"短模板题"（晚安祝福 / 周末计划这类）答案分布集中，第 1 epoch 末就已塌缩；"长开放题"（推书 / AI 看法）能撑到 epoch 2 才塌
+  - **不是均匀塌缩，是按问题类型选择性塌缩**——数据集中度决定单题的塌缩速度
+- **解决**：
+  - `num_epochs` 5 → 2，`save_steps` 500 → 250 加密 ckpt
+  - 实测 sweet spot 在 epoch 0.5~1.0（step 1000 附近），所有题型都还有多样性
+  - 训练时每 1000 步抽测固定 6 题 × 3 次（含短模板题）作为 mode collapse 早期信号
+- **影响**：sft-8g-base.yaml 已更新；下次 base 路线训练以新默认值为准
+- **教训**：
+  - SFT 训练 epoch 数不是越多越好，`modules_to_save` 开启时尤其需谨慎
+  - loss 单一指标不够，必须**人工抽测生成多样性**才能发现 mode collapse
+  - 开放性 prompt + 短模板 prompt 必须**两类都测**，前者掩盖后者的塌缩
+
+---
+
 ## 2026-05-27 · Linux · SFT 训练 epoch 结束 eval 阶段 OOM
 
 - **现象**：Qwen2.5-1.5B QLoRA SFT 训练正常（显存 ~14 GB），但每到 epoch 结束触发 eval 时 OOM，报 `Tried to allocate 8.94 GiB`，24 GB 卡（RTX 3090）连续两次在 1188 步处中断

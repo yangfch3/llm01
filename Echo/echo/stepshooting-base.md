@@ -14,10 +14,10 @@
 | `is_base_model` 标志 | true | sft.py 自动 patch `tokenizer.eos_token = <\|im_end\|>` |
 | LoRA r | 128 | 给新行为（停止信号、特殊 token embedding）足够容量 |
 | modules_to_save | `embed_tokens` + `lm_head` | 让 `<\|im_end\|>` 等 special token 真正学到 embedding |
-| epoch | 5 | base 学新格式 + 停止信号需要更多曝光 |
+| epoch | 2 | 实测 5 epoch 严重过拟合，sweet spot 在 epoch 0.5~1.0；详见 §5.6 |
 | 训练数据 | `train_aug.jsonl` (~29K) | ShareGPT 19K + 短问答 10K，强化 `<\|im_end\|>` 信号密度 |
 | adapter 输出 | `checkpoints/sft-base/` | 与对照 instruct 路线物理隔离 |
-| 3060 训练时长 | ~10-12h | r=128 + modules_to_save + 5 epoch + 数据 1.5× |
+| 3060 训练时长 | ~4-5h | r=128 + modules_to_save + 2 epoch + 数据 1.5× |
 | adapter 大小 | ~600MB | 含全量训练的 embed/lm_head |
 
 ## 1. 数据准备
@@ -108,6 +108,49 @@ uv run python scripts/generate_base.py --mode chatml
 > 注意：instruct 路线不需要这个对照——instruct 底座本身已学会对话和停止，
 > raw 模式无意义，chatml 模式接近 SFT 后。要对比直接拿 instruct 底座
 > vs SFT 后 instruct 比即可。
+
+## 5.6 选择最佳 ckpt（关键步骤）
+
+base 路线开 `modules_to_save: embed_tokens` 后**记忆能力很强**，训练后期会出现
+**按问题类型选择性 mode collapse**：短模板题（晚安祝福 / 周末计划）可能 epoch 1 末就塌，
+长开放题撑到 epoch 2 后才塌。loss 单一指标看不出来，必须人工抽测生成。
+
+**测试方法**：每个候选 ckpt 跑 6 题 × 3 次，覆盖三种类型：
+
+```bash
+uv run python scripts/generate.py --adapter-dir checkpoints/sft-base/checkpoint-N
+```
+
+| 类型 | 示例 prompt | 健康标志 |
+|---|---|---|
+| 长开放题 | "推荐一本书"、"如何看待 AI 替代人类工作" | 3 次内容/角度/例子明显不同 |
+| 短模板题 | "写一句晚安祝福"、"周末计划推荐" | 3 次至少有词序/句式差异 |
+| 数据集中题 | "讲个笑话"、"你最喜欢哪种颜色？" | 3 次至少 2 种不同梗/答案 |
+
+**判定**：
+
+- 全部 3 类都有多样性 → 健康，可选
+- 仅长题健康，短题塌 → 部分塌缩，看接受度
+- 全部塌缩 → 已 collapse，不可用
+
+**首次实测结果（2026-05-28，旧 5 epoch 配置）**：
+
+| ckpt | epoch | 长题 | 短题 | 数据集中题 | 评价 |
+|---|---|---|---|---|---|
+| 500 | 0.28 | 健康（仅测笑话） | — | — | 太早 |
+| **1000** | **0.56** | **健康** | **健康** | **健康** | **本次最佳** |
+| 1500 | 0.84 | 健康 | 临界 | 健康 | 可选 |
+| 2000 | 1.12 | 健康 | 已塌 | 健康 | 部分塌 |
+| 2500 | 1.40 | 健康 | 已塌 | 已塌 | 部分塌 |
+| 4000 | 2.24 | 已塌 | 已塌 | 已塌 | 全塌 |
+
+> 配置已更新为 `num_epochs=2 + save_steps=250`，下次训练 sweet spot 预期在 step 800~1200。
+
+确定最佳 ckpt 后复制为 final，后续脚本默认路径就指向它：
+
+```bash
+cp -r checkpoints/sft-base/checkpoint-N checkpoints/sft-base/final
+```
 
 ## 6. 评测
 
