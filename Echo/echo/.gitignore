@@ -1,3 +1,5 @@
 # echo 产物忽略
 checkpoints/
 data/
+preflight-report-*.md
+eval/results*.json

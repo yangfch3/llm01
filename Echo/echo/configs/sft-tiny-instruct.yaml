@@ -1,7 +1,7 @@
 # echo SFT — Mac/CPU 代码验证配置 (无量化，小 batch，~20 步)
 
 model:
-  model_id: "Qwen/Qwen2.5-1.5B"
+  model_id: "Qwen/Qwen2.5-1.5B-Instruct"
 
 quantization:
   enabled: false             # Mac/CPU 不用 bitsandbytes 量化
@@ -42,4 +42,4 @@ training:
   gradient_checkpointing: false
   num_workers: 0
   report_to: "none"
-  output_dir: "checkpoints/sft-tiny"
+  output_dir: "checkpoints/sft-tiny-instruct"

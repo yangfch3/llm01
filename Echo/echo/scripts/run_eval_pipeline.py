@@ -1,17 +1,18 @@
 """串联评估流程：eval_loss(所有 ckpt) → generate → eval。
 
-自动扫描 checkpoints/sft/ 下所有 checkpoint，跑 eval_loss 选出最优，
-然后用最优 adapter 启动 generate 或 eval。
+默认扫描 base 路线 checkpoints/sft-base/ 下所有 checkpoint，跑 eval_loss 选最优，
+然后用最优 adapter 启动 generate 或 eval。instruct 路线需显式传参。
 
 用法：
-    # 全自动：eval_loss → eval（跳过交互式 generate）
+    # base 路线（默认，全自动）
     uv run python scripts/run_eval_pipeline.py
 
-    # eval_loss → generate（交互对话）
+    # base 路线 + 交互对话
     uv run python scripts/run_eval_pipeline.py --generate
 
-    # 指定 checkpoint 目录
-    uv run python scripts/run_eval_pipeline.py --ckpt-dir checkpoints/sft
+    # instruct 路线对照
+    uv run python scripts/run_eval_pipeline.py --config configs/sft-8g-instruct.yaml \\
+        --ckpt-dir checkpoints/sft --val-file data/sft/val.jsonl
 """
 
 from __future__ import annotations
@@ -29,20 +30,20 @@ from peft import PeftModel
 from rich.console import Console
 from rich.table import Table
 from torch.utils.data import DataLoader
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from transformers import AutoModelForCausalLM, BitsAndBytesConfig
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "shared"))
 
 from device import get_device
 from echo.data import load_sft_data
-from echo.utils import load_config
+from echo.utils import load_config, load_inference_tokenizer
 
 console = Console()
 
-DEFAULT_CONFIG = Path("configs/sft-8g.yaml")
-DEFAULT_CKPT_DIR = Path("checkpoints/sft")
-DEFAULT_VAL_FILE = Path("data/sft/val.jsonl")
+DEFAULT_CONFIG = Path("configs/sft-8g-base.yaml")
+DEFAULT_CKPT_DIR = Path("checkpoints/sft-base")
+DEFAULT_VAL_FILE = Path("data/sft/val_aug.jsonl")
 
 
 def find_checkpoints(ckpt_dir: Path) -> list[Path]:
@@ -58,9 +59,10 @@ def eval_single(model_id: str, adapter_dir: Path, val_file: Path, cfg: dict) -> 
     """对单个 adapter 计算 val loss。返回 {name, avg_loss, ppl}。"""
     max_seq_length = cfg["training"].get("max_seq_length", 2048)
 
-    tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
+    tokenizer = load_inference_tokenizer(
+        adapter_dir=adapter_dir,
+        base_model_id=model_id,
+    )
 
     # 加载底座 (QLoRA 4bit)
     quant_cfg = cfg.get("quantization")

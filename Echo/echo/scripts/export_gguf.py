@@ -2,12 +2,18 @@
 
 依赖：需要本地克隆 llama.cpp 仓库（用其 convert_hf_to_gguf.py 和 llama-quantize）。
 
+默认走 base 路线：merged-base → gguf-base。instruct 路线需显式传参。
+
 用法：
-    # 默认流程：merged → GGUF f16 → Q4_K_M
+    # base 路线（默认）
     uv run python scripts/export_gguf.py
 
-    # 指定路径和量化方式
-    uv run python scripts/export_gguf.py --merged-dir checkpoints/merged --quant Q8_0
+    # instruct 路线
+    uv run python scripts/export_gguf.py --merged-dir checkpoints/merged \\
+        --output-dir checkpoints/gguf
+
+    # 指定量化方式
+    uv run python scripts/export_gguf.py --quant Q8_0
 
     # 只转换不量化
     uv run python scripts/export_gguf.py --no-quantize
@@ -30,8 +36,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 console = Console()
 
-DEFAULT_MERGED = Path("checkpoints/merged")
-DEFAULT_OUTPUT = Path("checkpoints/gguf")
+DEFAULT_MERGED = Path("checkpoints/merged-base")
+DEFAULT_OUTPUT = Path("checkpoints/gguf-base")
 DEFAULT_QUANT = "Q4_K_M"
 
 

@@ -1,0 +1,67 @@
+# echo SFT — base 主线 · Win RTX 3060 12GB 默认配置（QLoRA）
+# 项目锚点：用 base 模型从零跑通 SFT 全链路，教模型学 ChatML + 停止行为 + 风格。
+# 与 sft-8g-instruct.yaml（对照实验）共享代码 / 数据增广，仅切底座 + 超参。
+#
+# 关键差异 vs sft-8g-instruct.yaml：
+#   - is_base_model=true：sft.py 自动把 tokenizer.eos_token 改为 <|im_end|>，
+#     让 trl 内部 collator/packing 用对终止符
+#   - lora.r 64 → 128：rank 翻倍，给新行为（停止）足够容量
+#   - lora.modules_to_save：把 embed_tokens 与 lm_head 也纳入训练，
+#     让 <|im_end|> 这个原本"挂着没用"的 token 真正学到 embedding
+#     代价：adapter 文件 ~150MB → ~600MB
+#   - num_epochs 3 → 5：base 学新格式 + 停止信号需要更多曝光
+#   - output_dir 独立到 checkpoints/sft-base/，与 instruct 路线物理隔离
+
+model:
+  model_id: "Qwen/Qwen2.5-1.5B"
+  is_base_model: true            # 触发 sft.py 的 base 模式补丁
+
+quantization:
+  enabled: true
+  quant_type: "nf4"
+  compute_dtype: "bfloat16"
+  double_quant: true
+
+lora:
+  r: 128
+  alpha: 256                     # 习惯保持 alpha = 2 * r
+  dropout: 0.05
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+  modules_to_save:               # 全量训练 embed_tokens（不走 LoRA 低秩近似）
+    - "embed_tokens"             # Qwen2.5-1.5B tie_word_embeddings=true，
+                                 # lm_head 与 embed 共享权重，自动跟随更新；
+                                 # 把 lm_head 也写进来会被 PEFT 包成独立副本破坏 tie
+
+data:
+  train_file: "data/sft/train_aug.jsonl"   # 数据增广版（19K ShareGPT + 10K 短问答）
+  val_file: "data/sft/val_aug.jsonl"
+
+training:
+  seed: 42
+  max_seq_length: 2048
+  num_epochs: 5                  # base 路线多曝光
+  per_device_batch_size: 1
+  grad_accum_steps: 16           # effective batch = 16
+  learning_rate: 2.0e-4
+  lr_scheduler: "cosine"
+  warmup_ratio: 0.03
+  optim: "paged_adamw_8bit"
+  bf16: true
+  fp16: false
+  logging_steps: 10
+  eval_strategy: "no"
+  save_strategy: "steps"
+  save_steps: 1000               # 5 epoch 步数翻倍，save_steps 同步加大
+  save_total_limit: 5
+  max_steps: -1
+  gradient_checkpointing: true
+  num_workers: 2
+  report_to: "none"
+  output_dir: "checkpoints/sft-base"

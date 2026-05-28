@@ -5,10 +5,18 @@
   2. 常识/算术题（eval/questions.jsonl）
   3. 对话样例生成（人工查阅用）
 
+默认评 base 路线 final adapter；instruct 路线需显式传 --config / --adapter-dir / --val-file。
+
 用法：
-    uv run python scripts/eval.py --adapter-dir checkpoints/sft/final
-    uv run python scripts/eval.py --merged-dir checkpoints/merged
-    uv run python scripts/eval.py --adapter-dir checkpoints/sft/final --skip-ppl
+    # base 路线（默认）
+    uv run python scripts/eval.py
+
+    # base 路线指定 ckpt
+    uv run python scripts/eval.py --adapter-dir checkpoints/sft-base/checkpoint-N
+
+    # instruct 路线对照
+    uv run python scripts/eval.py --config configs/sft-8g-instruct.yaml \\
+        --adapter-dir checkpoints/sft/final --val-file data/sft/val.jsonl
 """
 
 from __future__ import annotations
@@ -26,20 +34,20 @@ import torch
 from peft import PeftModel
 from rich.console import Console
 from rich.table import Table
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from transformers import AutoModelForCausalLM, BitsAndBytesConfig
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "shared"))
 
 from device import get_device
 from echo.data import load_sft_data
-from echo.utils import load_config
+from echo.utils import load_config, load_inference_tokenizer
 
 console = Console()
 
-DEFAULT_CONFIG = Path("configs/sft-8g.yaml")
-DEFAULT_ADAPTER = Path("checkpoints/sft/final")
-DEFAULT_VAL_FILE = Path("data/sft/val.jsonl")
+DEFAULT_CONFIG = Path("configs/sft-8g-base.yaml")
+DEFAULT_ADAPTER = Path("checkpoints/sft-base/final")
+DEFAULT_VAL_FILE = Path("data/sft/val_aug.jsonl")
 DEFAULT_QUESTIONS = Path("eval/questions.jsonl")
 EVAL_OUTPUT = Path("eval/results.json")
 
@@ -49,9 +57,11 @@ def load_model_and_tokenizer(args: argparse.Namespace):
     cfg = load_config(args.config)
     model_id = cfg["model"]["model_id"]
 
-    tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
+    tokenizer = load_inference_tokenizer(
+        adapter_dir=Path(args.adapter_dir) if not args.merged_dir else None,
+        merged_dir=Path(args.merged_dir) if args.merged_dir else None,
+        base_model_id=model_id,
+    )
 
     if args.merged_dir:
         model = AutoModelForCausalLM.from_pretrained(
@@ -120,11 +130,17 @@ def eval_ppl(model, tokenizer, val_file: Path, max_seq_length: int) -> dict:
 
 
 def _get_stop_token_ids(tokenizer) -> list[int]:
-    """Qwen2.5 停止 token: <|im_end|> + <|endoftext|>。"""
-    return [
+    """Qwen2.5 停止 token: <|im_end|> + <|endoftext|>。
+
+    convert_tokens_to_ids 对未注册 token 可能返回 None / unk_id，过滤掉；
+    全空时退回 tokenizer.eos_token_id。
+    """
+    ids = [
         tokenizer.convert_tokens_to_ids("<|im_end|>"),
         tokenizer.convert_tokens_to_ids("<|endoftext|>"),
     ]
+    ids = [tid for tid in ids if tid is not None and tid >= 0]
+    return ids or [tokenizer.eos_token_id]
 
 
 def eval_questions(model, tokenizer, questions_file: Path, max_new_tokens: int = 256) -> dict:

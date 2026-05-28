@@ -10,6 +10,11 @@
 
 ## 2. 底座模型
 
+echo 项目锚点是 base 路线（默认），instruct 路线作为对照实验。两条路线共用同一份代码，
+仅通过 config 切换底座 + 超参。
+
+### 2.1 主线 base（默认）
+
 | 项 | 规格 |
 |---|---|
 | 模型 | Qwen2.5-1.5B (`Qwen/Qwen2.5-1.5B`) |
@@ -20,25 +25,33 @@
 | 许可证 | Apache 2.0 |
 
 选型理由：
+- **教学锚点**：从 base 开始 SFT 才能完整体验"教模型学 ChatML、停止行为、风格"全流程
 - 中英双语原生支持，无需额外适配
 - 1.5B 在 3060 12GB 上 QLoRA 训练余量充足
 - 社区生态完善，transformers / peft / trl 原生适配
 - Apache 2.0 可商用可开源
 
+### 2.2 对照 instruct
+
+`Qwen/Qwen2.5-1.5B-Instruct`，与 base 同架构同词表，已完成 ChatML 对齐 + RLHF。
+用于对照实验：验证已对齐底座做风格漂移所需的训练量与效果差异。
+
 ## 3. 微调方式
 
 **QLoRA (4-bit NormalFloat + LoRA)**
 
-| 项 | 规格 |
-|---|---|
-| 量化 | NF4 (bitsandbytes 4bit) |
-| LoRA rank | 64 |
-| LoRA alpha | 128 |
-| LoRA target modules | `q_proj`, `k_proj`, `v_proj`, `o_proj`, `gate_proj`, `up_proj`, `down_proj` |
-| LoRA dropout | 0.05 |
-| 可训参数占比 | ~2-3% |
+| 项 | base 主线 | instruct 对照 |
+|---|---|---|
+| 量化 | NF4 (bitsandbytes 4bit) | 同 |
+| LoRA rank | 128 | 64 |
+| LoRA alpha | 256 | 128 |
+| LoRA target modules | `q_proj`, `k_proj`, `v_proj`, `o_proj`, `gate_proj`, `up_proj`, `down_proj` | 同 |
+| LoRA dropout | 0.05 | 同 |
+| modules_to_save | `embed_tokens`, `lm_head` | (无) |
+| 可训参数占比 | ~12-15% | ~2-3% |
 
-底座以 4bit 加载（~1GB 显存），仅训练 LoRA adapter 参数。
+base 路线把 embed/lm_head 纳入全量训练（不走低秩近似），让 `<|im_end|>` 等 special token
+真正学到 embedding；adapter 体积 ~600MB（vs instruct ~150MB）。
 
 ## 4. 数据
 
@@ -97,13 +110,16 @@ system prompt 统一使用简短通用描述，不设特殊人设。
 
 ### 5.2 配置方案
 
-| 配置文件 | 用途 | 环境 |
-|---|---|---|
-| `sft-full.yaml` | 生产训练 | Win 3060 12GB, QLoRA 4bit |
-| `sft-8g.yaml` | 8GB 显卡训练 | 8GB GPU, QLoRA 4bit + gradient checkpointing |
-| `sft-tiny.yaml` | 代码验证 | Mac/CPU, fp32 小 batch ~20 步 |
+| 配置文件 | 路线 | 用途 | 环境 |
+|---|---|---|---|
+| `sft-8g-base.yaml` | **base 主线（默认）** | 生产训练，r=128 + modules_to_save embed/lm_head + 5 epoch | Win 3060 12GB, QLoRA 4bit |
+| `sft-full-base.yaml` | base 大显存 | 同上 + per_device_batch=2 + 关 grad_ckpt 提速 | 大显存 GPU, QLoRA 4bit |
+| `sft-tiny-base.yaml` | base 验证 | 代码验证（含 base 分支） | Mac/CPU, fp32 小 batch ~20 步 |
+| `sft-8g-instruct.yaml` | instruct 对照 | 生产训练，r=64 + 3 epoch | Win 3060 12GB, QLoRA 4bit |
+| `sft-full-instruct.yaml` | instruct 大显存 | 生产训练 | 大显存 GPU, QLoRA 4bit |
+| `sft-tiny-instruct.yaml` | instruct 验证 | 代码验证 | Mac/CPU, fp32 小 batch ~20 步 |
 
-同一入口脚本通过 `--config` 参数切换。
+同一入口脚本通过 `--config` 参数切换。命名约定：`sft-{档位}-{路线}.yaml`。
 
 ### 5.3 Checkpoint 策略
 
@@ -158,8 +174,12 @@ Echo/echo/
 ├── SPEC.md              本文档
 ├── README.md            训练配方与结果记录
 ├── configs/
-│   ├── sft-full.yaml    生产训练配置
-│   └── sft-tiny.yaml    代码验证配置
+│   ├── sft-8g-base.yaml       base 主线 · 8GB GPU 配置（默认）
+│   ├── sft-full-base.yaml     base 主线 · 大显存配置
+│   ├── sft-tiny-base.yaml     base 主线 · 代码验证配置
+│   ├── sft-8g-instruct.yaml   instruct 对照 · 8GB GPU 配置
+│   ├── sft-full-instruct.yaml instruct 对照 · 大显存配置
+│   └── sft-tiny-instruct.yaml instruct 对照 · 代码验证配置
 ├── data/                (.gitignore) 数据存放
 │   └── scripts/         数据下载与处理脚本
 ├── src/echo/

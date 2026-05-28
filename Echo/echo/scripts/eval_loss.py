@@ -1,9 +1,15 @@
 """对 adapter checkpoint 跑 eval loss / perplexity。
 
+默认评 base 路线 final adapter；instruct 路线需显式传参。
+
 用法：
-    uv run python scripts/eval_loss.py --adapter-dir checkpoints/sft/final
-    uv run python scripts/eval_loss.py --adapter-dir checkpoints/sft/checkpoint-3000
-    uv run python scripts/eval_loss.py --adapter-dir checkpoints/sft/final --val-file data/sft/val.jsonl
+    # base 路线（默认）
+    uv run python scripts/eval_loss.py
+    uv run python scripts/eval_loss.py --adapter-dir checkpoints/sft-base/checkpoint-N
+
+    # instruct 路线
+    uv run python scripts/eval_loss.py --config configs/sft-8g-instruct.yaml \\
+        --adapter-dir checkpoints/sft/final --val-file data/sft/val.jsonl
 """
 
 from __future__ import annotations
@@ -20,20 +26,20 @@ import torch
 from peft import PeftModel
 from rich.console import Console
 from torch.utils.data import DataLoader
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from transformers import AutoModelForCausalLM, BitsAndBytesConfig
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "shared"))
 
 from device import get_device
 from echo.data import load_sft_data
-from echo.utils import load_config
+from echo.utils import load_config, load_inference_tokenizer
 
 console = Console()
 
-DEFAULT_CONFIG = Path("configs/sft-8g.yaml")
-DEFAULT_ADAPTER = Path("checkpoints/sft/final")
-DEFAULT_VAL_FILE = Path("data/sft/val.jsonl")
+DEFAULT_CONFIG = Path("configs/sft-8g-base.yaml")
+DEFAULT_ADAPTER = Path("checkpoints/sft-base/final")
+DEFAULT_VAL_FILE = Path("data/sft/val_aug.jsonl")
 
 
 def evaluate(args: argparse.Namespace) -> None:
@@ -55,10 +61,11 @@ def evaluate(args: argparse.Namespace) -> None:
     console.print(f"[bold]Adapter:[/bold] {adapter_dir}")
     console.print(f"[bold]Val file:[/bold] {val_file}")
 
-    # Tokenizer（从底座加载，保留完整 chat_template）
-    tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
+    # Tokenizer：adapter_dir 优先，回落到 base，自动兜底 chat_template
+    tokenizer = load_inference_tokenizer(
+        adapter_dir=adapter_dir,
+        base_model_id=model_id,
+    )
 
     # 加载模型（QLoRA 4bit 以节省显存）
     quant_cfg = cfg.get("quantization")

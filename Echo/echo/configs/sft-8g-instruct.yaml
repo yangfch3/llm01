@@ -2,7 +2,7 @@
 # effective batch=16 不变；关闭训练中 eval 防止 OOM（Qwen2 vocab=151K logits 极大）
 
 model:
-  model_id: "Qwen/Qwen2.5-1.5B"
+  model_id: "Qwen/Qwen2.5-1.5B-Instruct"
 
 quantization:
   enabled: true

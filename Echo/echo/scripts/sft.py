@@ -1,8 +1,15 @@
 """echo SFT 训练入口 (QLoRA + trl SFTTrainer)。
 
 用法：
-    uv run python scripts/sft.py --config configs/sft-full.yaml
-    uv run python scripts/sft.py --config configs/sft-tiny.yaml
+    # base 主线（默认配置，项目锚点）
+    uv run python scripts/sft.py --config configs/sft-8g-base.yaml
+
+    # instruct 对照
+    uv run python scripts/sft.py --config configs/sft-8g-instruct.yaml
+
+    # 代码验证（任选 base / instruct 的 tiny 配置）
+    uv run python scripts/sft.py --config configs/sft-tiny-base.yaml
+    uv run python scripts/sft.py --config configs/sft-tiny-instruct.yaml
 """
 
 from __future__ import annotations
@@ -31,32 +38,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "shared")
 
 from device import get_device
 from echo.data import load_sft_data
-from echo.utils import load_config
+from echo.utils import CHATML_INFER_TEMPLATE, CHATML_TRAIN_TEMPLATE, load_config
 
 console = Console()
 
-# Qwen2.5 ChatML template，添加 {% generation %} 标记使 trl 能识别 assistant 部分。
-# 仅用于 SFT 训练（标记哪些 token 算 loss），不影响推理时的模板。
-CHAT_TEMPLATE_WITH_GENERATION = (
-    "{%- if messages[0]['role'] == 'system' %}"
-    "{{- '<|im_start|>system\\n' + messages[0]['content'] + '<|im_end|>\\n' }}"
-    "{%- else %}"
-    "{{- '<|im_start|>system\\nYou are a helpful assistant.<|im_end|>\\n' }}"
-    "{%- endif %}"
-    "{%- for message in messages %}"
-    "{%- if message.role == 'user' or (message.role == 'system' and not loop.first) %}"
-    "{{- '<|im_start|>' + message.role + '\\n' + message.content + '<|im_end|>\\n' }}"
-    "{%- elif message.role == 'assistant' %}"
-    "{{- '<|im_start|>assistant\\n' }}"
-    "{% generation %}"
-    "{{- message.content + '<|im_end|>\\n' }}"
-    "{% endgeneration %}"
-    "{%- endif %}"
-    "{%- endfor %}"
-    "{%- if add_generation_prompt %}"
-    "{{- '<|im_start|>assistant\\n' }}"
-    "{%- endif %}"
-)
+console = Console()
 
 
 def build_bnb_config(cfg: dict) -> BitsAndBytesConfig | None:
@@ -84,6 +70,10 @@ def build_lora_config(cfg: dict) -> LoraConfig:
             "target_modules",
             ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
         ),
+        # modules_to_save 让指定模块全量参与训练（不走 LoRA 低秩近似）。
+        # base 路线下用于训练 embed_tokens / lm_head，让 <|im_end|> 等
+        # special token 的 embedding 真正被学到。
+        modules_to_save=lora_cfg.get("modules_to_save"),
         bias="none",
     )
 
@@ -104,9 +94,29 @@ def train(args: argparse.Namespace) -> None:
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
+    # Base 模型特殊处理：base 的 eos_token 是 <|endoftext|>，但 ChatML 对话
+    # 终止符是 <|im_end|>。若不修正，trl 内部 collator/packing 会用错 EOS，
+    # 导致训练信号稀释，模型学不会输出 <|im_end|>。
+    #
+    # 注意：上方 pad_token 已经在 eos 修改前设为 <|endoftext|>，这是有意为之——
+    # base 模式下 pad 与 eos 故意解耦：pad=<|endoftext|>、eos=<|im_end|>，
+    # 避免 padding 位置被误识别为对话终止符。
+    if model_cfg.get("is_base_model", False):
+        im_end = "<|im_end|>"
+        im_end_id = tokenizer.convert_tokens_to_ids(im_end)
+        if im_end_id is None or im_end_id < 0:
+            raise RuntimeError(
+                f"is_base_model=true 但 tokenizer 找不到 {im_end}，请检查底座是否为 Qwen2.5 系列"
+            )
+        tokenizer.eos_token = im_end
+        console.print(
+            f"[yellow]Base 模式：tokenizer.eos_token → {im_end} (id={im_end_id}); "
+            f"pad_token 保留 {tokenizer.pad_token} 与 eos 解耦[/yellow]"
+        )
+
     # Patch chat_template: 在 assistant 内容处加 {% generation %} 标记，
     # 让 trl 的 assistant_only_loss 能正确识别哪些 token 算 loss。
-    tokenizer.chat_template = CHAT_TEMPLATE_WITH_GENERATION
+    tokenizer.chat_template = CHATML_TRAIN_TEMPLATE
 
     # Quantization
     bnb_config = build_bnb_config(cfg)
@@ -140,12 +150,47 @@ def train(args: argparse.Namespace) -> None:
     # LoRA
     lora_config = build_lora_config(cfg)
     model = get_peft_model(model, lora_config)
+
+    # gradient_checkpointing + modules_to_save (或 PEFT) 需要显式打开输入梯度，
+    # 否则反向传播时报 "element 0 of tensors does not require grad"。
+    # 4bit 量化路径下 prepare_model_for_kbit_training 已经处理过；非量化或安全起见统一调用。
+    if train_cfg.get("gradient_checkpointing", False) and hasattr(
+        model, "enable_input_require_grads"
+    ):
+        model.enable_input_require_grads()
+
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     total_params = sum(p.numel() for p in model.parameters())
     console.print(
         f"[bold]Trainable:[/bold] {trainable_params:,} / {total_params:,} "
         f"({100 * trainable_params / total_params:.2f}%)"
     )
+
+    # Tie weights 检查：Qwen2.5-1.5B 默认 tie_word_embeddings=True，embed_tokens
+    # 与 lm_head 共享同一权重张量。若 modules_to_save 同时列出这两个模块，PEFT
+    # 会包出独立副本破坏 tie，导致 adapter 体积翻倍且训练时两个权重异步漂移。
+    # 此处主动检测并打印实际 tie 状态，便于发现配置错误。
+    try:
+        peft_base = model.base_model.model  # PEFT 包装后实际模型
+        embed_w = peft_base.get_input_embeddings().weight
+        head_w = peft_base.get_output_embeddings().weight
+        is_tied = embed_w.data_ptr() == head_w.data_ptr()
+        modules_to_save = (cfg.get("lora") or {}).get("modules_to_save") or []
+        console.print(
+            f"[bold]Tie weights:[/bold] embed/lm_head tied={is_tied}; "
+            f"modules_to_save={modules_to_save}"
+        )
+        if (
+            not is_tied
+            and "embed_tokens" in modules_to_save
+            and "lm_head" not in modules_to_save
+        ):
+            console.print(
+                "[yellow]警告：embed_tokens 在 modules_to_save 但 tie 已断开，"
+                "lm_head 不会跟随训练[/yellow]"
+            )
+    except (AttributeError, RuntimeError) as e:
+        console.print(f"[dim]Tie 检查跳过: {e}[/dim]")
 
     # Data
     data_path = Path(data_cfg["train_file"])
@@ -212,8 +257,11 @@ def train(args: argparse.Namespace) -> None:
     console.print("[bold green]Starting SFT training...[/bold green]")
     trainer.train(resume_from_checkpoint=args.resume)
 
-    # Save final adapter（恢复原始 template，不将训练专用的 {% generation %} 标记持久化）
-    tokenizer.chat_template = None
+    # Save final adapter
+    # 训练模板带 trl 专用的 {% generation %} 标记，不适合推理。
+    # 收尾时切换为推理版 ChatML 模板，下游 generate / eval 直接 from_pretrained
+    # 加载 adapter tokenizer 即可拿到正确 chat_template。
+    tokenizer.chat_template = CHATML_INFER_TEMPLATE
     final_dir = Path(output_dir) / "final"
     trainer.save_model(str(final_dir))
     tokenizer.save_pretrained(str(final_dir))

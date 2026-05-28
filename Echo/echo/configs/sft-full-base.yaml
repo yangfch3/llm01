@@ -1,0 +1,58 @@
+# echo SFT — base 路线 · 大显存档（QLoRA）
+# 与 sft-8g-base.yaml 共享 base 路线特性，区别在于显存利用更激进：
+# per_device_batch=2 + grad_accum=8 → effective 16，吞吐 ×2。
+# 仍保持 gradient_checkpointing=true，让 3060 12GB 也能稳跑（modules_to_save +
+# embed_tokens 全量训练已吃掉 1GB，关掉 grad_ckpt 在 12GB 上极易 OOM）。
+# 24GB+ 显存用户可自行关 gradient_checkpointing 进一步提速。
+
+model:
+  model_id: "Qwen/Qwen2.5-1.5B"
+  is_base_model: true
+
+quantization:
+  enabled: true
+  quant_type: "nf4"
+  compute_dtype: "bfloat16"
+  double_quant: true
+
+lora:
+  r: 128
+  alpha: 256
+  dropout: 0.05
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+  modules_to_save:
+    - "embed_tokens"             # Qwen2.5-1.5B 词嵌入与 lm_head tie，只列 embed_tokens
+
+data:
+  train_file: "data/sft/train_aug.jsonl"
+  val_file: "data/sft/val_aug.jsonl"
+
+training:
+  seed: 42
+  max_seq_length: 2048
+  num_epochs: 5
+  per_device_batch_size: 2     # full 配置加大 micro batch
+  grad_accum_steps: 8          # effective batch = 2 * 8 = 16
+  learning_rate: 2.0e-4
+  lr_scheduler: "cosine"
+  warmup_ratio: 0.03
+  optim: "paged_adamw_8bit"
+  bf16: true
+  fp16: false
+  logging_steps: 10
+  eval_strategy: "no"
+  save_strategy: "steps"
+  save_steps: 1000
+  save_total_limit: 5
+  max_steps: -1
+  gradient_checkpointing: true   # 12GB 显存稳妥起见保留；24GB+ 可关闭提速
+  num_workers: 2
+  report_to: "none"
+  output_dir: "checkpoints/sft-base"

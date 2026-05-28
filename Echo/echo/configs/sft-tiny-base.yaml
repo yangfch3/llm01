@@ -1,0 +1,50 @@
+# echo SFT — base 路线 · Mac/CPU 代码验证配置 (无量化，小 batch，~20 步)
+# 与 sft-tiny-instruct.yaml 用途一致：仅验证代码路径能跑通，不追求训练效果。
+# 含 base 路线全部特性（is_base_model + modules_to_save），用于验证 base 代码分支。
+
+model:
+  model_id: "Qwen/Qwen2.5-1.5B"
+  is_base_model: true
+
+quantization:
+  enabled: false               # Mac/CPU 不用 bitsandbytes 量化
+
+lora:
+  r: 8                         # 小 rank 节省内存
+  alpha: 16
+  dropout: 0.05
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+  modules_to_save:               # 保留，验证 base 代码分支完整性
+    - "embed_tokens"             # Qwen2.5-1.5B 词嵌入与 lm_head tie，只列 embed_tokens
+
+data:
+  train_file: "data/sft/train_aug.jsonl"
+  val_file: "data/sft/val_aug.jsonl"
+
+training:
+  seed: 42
+  max_seq_length: 512          # 短序列加速验证
+  num_epochs: 1
+  per_device_batch_size: 1
+  grad_accum_steps: 1
+  learning_rate: 2.0e-4
+  lr_scheduler: "cosine"
+  warmup_ratio: 0.03
+  optim: "adamw_torch"         # Mac 无 paged_adamw_8bit
+  bf16: false                  # Mac CPU 用 fp32
+  fp16: false
+  logging_steps: 5
+  save_strategy: "no"
+  save_total_limit: 1
+  max_steps: 20                # 只跑 20 步验证代码正确性
+  gradient_checkpointing: false
+  num_workers: 0
+  report_to: "none"
+  output_dir: "checkpoints/sft-tiny-base"

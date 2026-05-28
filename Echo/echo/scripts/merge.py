@@ -1,8 +1,17 @@
 """合并 LoRA adapter 到底座，导出完整 bf16 权重。
 
+默认走 base 路线：sft-base/final → merged-base/。instruct 路线需显式传参。
+
 用法：
+    # base 路线（默认）
     uv run python scripts/merge.py
-    uv run python scripts/merge.py --adapter-dir checkpoints/sft/final --output-dir checkpoints/merged
+
+    # base 路线指定 ckpt
+    uv run python scripts/merge.py --adapter-dir checkpoints/sft-base/checkpoint-N
+
+    # instruct 路线对照
+    uv run python scripts/merge.py --config configs/sft-8g-instruct.yaml \\
+        --adapter-dir checkpoints/sft/final --output-dir checkpoints/merged
 """
 
 from __future__ import annotations
@@ -22,9 +31,9 @@ from echo.utils import load_config
 
 console = Console()
 
-DEFAULT_CONFIG = Path("configs/sft-8g.yaml")
-DEFAULT_ADAPTER = Path("checkpoints/sft/final")
-DEFAULT_OUTPUT = Path("checkpoints/merged")
+DEFAULT_CONFIG = Path("configs/sft-8g-base.yaml")
+DEFAULT_ADAPTER = Path("checkpoints/sft-base/final")
+DEFAULT_OUTPUT = Path("checkpoints/merged-base")
 
 
 def merge(args: argparse.Namespace) -> None:
