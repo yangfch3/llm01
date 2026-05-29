@@ -186,7 +186,7 @@ tr:hover td:first-child { background: var(--hover); }
 <body>
 <a href="/llm01" class="back-link">&larr; 返回主站</a>
 <h1>LLM 显存占用估算器</h1>
-<p class="subtitle">纯公式估算，适合快速判断单卡能否装下。<span class="legend"> <span>红色</span> = 超出显存红线</span></p>
+<p class="subtitle">纯公式估算，判断量级是否合理。部分流程实测峰值通常 3~7× 于本表，不用于预测 OOM 边界。<span class="legend"> <span>红色</span> = 超出显存红线</span></p>
 
 <div class="filters">
   <div class="filter-group">
@@ -208,6 +208,10 @@ tr:hover td:first-child { background: var(--hover); }
   <div class="filter-group">
     <label>LoRA Rank</label>
     <select id="lora-rank-select"></select>
+  </div>
+  <div class="filter-group">
+    <label>词表大小</label>
+    <select id="vocab-select"></select>
   </div>
   <div class="filter-group">
     <label>显存红线</label>
@@ -250,6 +254,12 @@ const BS_OPTIONS = [1, 2, 4, 8, 16, 32, 64];
 const SEQ_OPTIONS = [512, 1024, 2048, 4096, 8192];
 const LORA_RANK_OPTIONS = [8, 16, 32, 64, 128];
 const VRAM_LIMIT_OPTIONS = [8, 12, 16, 24, 48, 80];
+// 词表大小：32k = LLaMA/Mistral 通用，128k = LLaMA3，151k = Qwen2/Qwen2.5
+const VOCAB_OPTIONS = [
+  { value: 32000,  label: '32k (LLaMA/Mistral)' },
+  { value: 128000, label: '128k (LLaMA3)' },
+  { value: 151936, label: '151k (Qwen2)' },
+];
 
 const DEFAULT_MODELS = ['1B', '7B'];
 const DEFAULT_PRECISIONS = [...PRECISIONS];
@@ -260,6 +270,7 @@ let selectedPrecisions = [...DEFAULT_PRECISIONS];
 let batchSize = 1;
 let seqLen = 2048;
 let loraRank = 16;
+let vocabSize = 32000;
 let vramLimit = 12;
 let activeTab = 0;
 
@@ -422,23 +433,26 @@ function calcAlign(modelKey, precision) {
   // Reference model (frozen, inference only) = weight at selected precision
   const ref_w = P * bpp;
 
+  // DPO 单步 forward chosen + rejected 两份 → 激活 ×2
+  const dpo_act = activationMem(cfg, batchSize, seqLen, 2) * 0.3 * 2;
+  // DPO 输出 logits [2×bs, seq, vocab] fp32（chosen+rejected 各一份），大词表下是显存大头
+  const dpo_logits = 2 * batchSize * seqLen * vocabSize * 4;
+
   // Full DPO: train model (full AMP+Grad Ckpt) + ref model — not possible with INT quantized weights
   const train_w = P * 2;
   const train_grad = P * 2;
   const train_opt = P * 12;
-  const train_act = activationMem(cfg, batchSize, seqLen, 2) * 0.3;
-  const full = train_w + train_grad + train_opt + train_act + ref_w;
+  const full = train_w + train_grad + train_opt + dpo_act + dpo_logits + ref_w;
 
   // LoRA DPO: single base + LoRA adapter, ref = disable adapter (no extra weight)
   const lora_w = P * bpp;
   const lora_grad = loraParams * 2;
   const lora_opt = loraParams * 12;
-  const lora_act = activationMem(cfg, batchSize, seqLen, 2) * 0.3;
-  const lora = lora_w + lora_grad + lora_opt + lora_act;
+  const lora = lora_w + lora_grad + lora_opt + dpo_act + dpo_logits;
 
   // QLoRA DPO: INT4 base + LoRA, ref = disable adapter (no extra weight)
   const qlora_w = P * 0.5;
-  const qlora = qlora_w + lora_grad + lora_opt + lora_act;
+  const qlora = qlora_w + lora_grad + lora_opt + dpo_act + dpo_logits;
 
   return {
     'Full (含 ref)': isQuant ? NA : toGB(full),
@@ -538,24 +552,28 @@ QLoRA:
   // 对齐 (DPO)
   `<p><b>DPO 对齐显存估算公式</b></p>
 <pre>Full (含 ref, 训练侧固定 AMP):
-  显存 = P×2 + P×2 + P×12 + 激活×0.3 + P×bpp
-       = 训练权重(FP16) + 梯度(FP16) + AdamW优化器(FP32) + 激活 + ref权重(选定精度)
+  显存 = P×2 + P×2 + P×12 + 激活×0.3×2 + logits + P×bpp
+       = 训练权重(FP16) + 梯度(FP16) + AdamW优化器(FP32) + 激活(双序列) + logits + ref权重(选定精度)
 
 LoRA (共享基座):
-  显存 = P×bpp + loraParams×2 + loraParams×12 + 激活×0.3
-       = 基座权重 + LoRA梯度 + LoRA优化器 + 激活
+  显存 = P×bpp + loraParams×2 + loraParams×12 + 激活×0.3×2 + logits
+       = 基座权重 + LoRA梯度 + LoRA优化器 + 激活(双序列) + logits
   (ref 通过禁用 adapter 实现，不额外占显存)
 
 QLoRA (共享基座):
-  显存 = P×0.5 + loraParams×2 + loraParams×12 + 激活×0.3
-       = INT4基座 + LoRA梯度 + LoRA优化器 + 激活
+  显存 = P×0.5 + loraParams×2 + loraParams×12 + 激活×0.3×2 + logits
+       = INT4基座 + LoRA梯度 + LoRA优化器 + 激活(双序列) + logits
 
 其中:
   loraParams = 2 × target_modules(2) × layers × hidden × rank
-  激活 ≈ 2 × bs × seq_len × hidden × layers × 2 bytes</pre>
+  激活      ≈ 2 × bs × seq_len × hidden × layers × 2 bytes
+  logits    = 2 × bs × seq_len × vocab × 4 bytes  (chosen+rejected 各一份 fp32)</pre>
 <p><b>注意：</b></p>
+<p><code>双序列</code> — DPO 单步要算 chosen + rejected 两份 forward，激活和 logits 都 ×2</p>
+<p><code>logits</code> — 大词表是隐藏成本：Qwen2 vocab=151k 时单份 logits 已达 ~1.2 GB（seq=1024），是 LLaMA (32k) 的近 5 倍</p>
 <p><code>Full</code> — 需要独立 ref 模型（全参训练无法共享权重），ref 以选定精度加载</p>
-<p><code>LoRA / QLoRA</code> — ref = 禁用 adapter 的同一基座，零额外开销（TRL/Unsloth 默认行为）</p>`,
+<p><code>LoRA / QLoRA</code> — ref = 禁用 adapter 的同一基座，零额外开销（TRL/Unsloth 默认行为）</p>
+<p><code>实测偏差</code> — 公式只算"教科书四件套 + logits"，未建模 grad_ckpt 重算开销、logsoftmax/gather 中间张量、CUDA workspace、cuBLAS/NCCL buffer、PyTorch allocator 碎片、trl/peft 栈临时张量。<b>实测峰值通常为表格 3~7×</b>，DPO + 大词表 + 长序列叠加时差距最大（如 Qwen2.5-1.5B QLoRA DPO seq=1024 实测 22 GB）。本表用于判断"量级是否合理"，不用于预测 OOM 边界。</p>`,
 
   // 部署 (推理)
   `<p><b>推理部署显存估算公式</b></p>
@@ -586,6 +604,18 @@ initChips('precision-select', PRECISIONS, DEFAULT_PRECISIONS, 'precisions');
 initSelect('bs-select', BS_OPTIONS, 1, v => { batchSize = v; });
 initSelect('seq-select', SEQ_OPTIONS, 2048, v => { seqLen = v; });
 initSelect('lora-rank-select', LORA_RANK_OPTIONS, 16, v => { loraRank = v; });
+// vocab 选项是 {value, label} 结构，单独初始化
+(function initVocabSelect() {
+  const sel = document.getElementById('vocab-select');
+  VOCAB_OPTIONS.forEach(({ value, label }) => {
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = label;
+    if (value === vocabSize) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  sel.onchange = () => { vocabSize = Number(sel.value); render(); };
+})();
 initSelect('vram-limit-select', VRAM_LIMIT_OPTIONS, 12, v => { vramLimit = v; }, ' GB');
 initTabs();
 render();
