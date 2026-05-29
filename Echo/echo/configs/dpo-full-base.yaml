@@ -51,6 +51,7 @@ training:
   max_steps: -1
   max_grad_norm: 1.0
   gradient_checkpointing: false    # 大显存关闭加速
+  precompute_ref_log_probs: true   # 同 dpo-8g-base.yaml，省一份 ref forward 显存
   num_workers: 4
   report_to: "none"
   output_dir: "checkpoints/dpo-base"

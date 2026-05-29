@@ -195,6 +195,11 @@ def train(args: argparse.Namespace) -> None:
         gradient_checkpointing=train_cfg.get("gradient_checkpointing", False),
         dataloader_num_workers=train_cfg.get("num_workers", 0),
         max_grad_norm=train_cfg.get("max_grad_norm", 1.0),
+        # 预计算 ref logprob：trl 1.4 的 ref forward 会临时关 grad_ckpt 并保留
+        # 完整 logits（[2, seq, vocab] ~1GB），叠加 policy forward 显存极易爆。
+        # 开启后训练前一次性扫数据缓存 ref logprob，训练步只跑 policy forward，
+        # 显存峰值大幅下降。代价：预处理一次性耗时 + 缓存占用。
+        precompute_ref_log_probs=train_cfg.get("precompute_ref_log_probs", True),
     )
 
     # DPOTrainer（ref_model=None：PEFT 场景下 trl 用 disable_adapter 当 ref）

@@ -19,6 +19,22 @@
 
 ---
 
+## 2026-05-29 · Win/Linux · trl 1.4 DPOTrainer + PEFT 显存爆炸（3090 24GB 也 OOM）
+
+- **现象**：`dpo-8g-base.yaml`（per_device=1, max_length=1024, grad_ckpt=true, QLoRA 4bit）在 3090 24GB 上 step 10 OOM，PyTorch 占用 21.22 GiB
+- **根因**：
+  - trl 1.4 在 PEFT + `ref_model=None` 场景下，ref 通过 `disable_adapter()` 复用同一个 model 计算 logprob
+  - 关键代码（`trl/trainer/dpo_trainer.py` L1197）：`with torch.no_grad(), disable_gradient_checkpointing(...)`
+  - **ref forward 临时关掉了 grad_ckpt** + 同时持有 `[2, 1024, 151k]` 的完整 logits（~1.2GB） + policy forward 自身的激活，单步显存峰值 20+ GB
+  - 表面看 `gradient_checkpointing=true` 配上了，实则 ref 那一路救不了
+- **解决**：DPOConfig 加 `precompute_ref_log_probs=True`（dpo-8g-base / dpo-full-base 的 yaml 默认已开）
+  - 训练前一次性扫一遍数据缓存所有样本的 ref logprob（7600 条约 5 分钟）
+  - 训练步只跑 policy forward，ref 来自缓存，显存峰值大幅下降
+- **影响**：`scripts/dpo.py` 透出 `precompute_ref_log_probs` 字段，默认 True；`stepshooting-base.md` §7.5.2 加显存关键开关说明
+- **后续 OOM 兜底顺序**：`max_length` 1024 → 768 → 512 → 降 LoRA r
+
+---
+
 ## 2026-05-28 · Linux · Qwen2.5-1.5B base SFT 5 epoch 严重 mode collapse
 
 - **现象**：sft-8g-base.yaml 原配置（5 epoch + LoRA r=128 + modules_to_save embed_tokens + 29K 增广数据）训到 step 4000（epoch 2.2）时，generate.py 同 prompt 多次跑出**逐字相同**的回复，温度 0.7 / top_p 0.9 也压不出多样性。entropy 从 1.0 → 0.49，token_acc 0.87

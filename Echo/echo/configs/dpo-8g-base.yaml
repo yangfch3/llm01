@@ -61,6 +61,10 @@ training:
   max_steps: -1
   max_grad_norm: 1.0
   gradient_checkpointing: true
+  # 预计算 ref logprob：训练前一次扫数据缓存 ref，训练步省一份 ref forward。
+  # trl 1.4 ref forward 会临时关 grad_ckpt 并持有完整 logits，不开此项很容易 OOM
+  # （3090 24GB 实测会爆 21GB）。代价：训练前多 ~5 分钟预处理 + ~1GB 缓存。
+  precompute_ref_log_probs: true
   num_workers: 2
   report_to: "none"
   output_dir: "checkpoints/dpo-base"

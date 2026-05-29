@@ -201,8 +201,12 @@ uv run python scripts/dpo.py --config configs/dpo-8g-base.yaml
 > ref_model 处理：trl 1.4 在 PEFT + `ref_model=None` 下自动用 `disable_adapter` 当 ref，
 > 省一份显存。无需显式加载第二份模型。
 
-> 显存峰值预估比 SFT 高 ~2.5×（DPO 单步要算 chosen + rejected 共 4 份 forward）。
-> OOM 先把 `max_length` 从 1024 降到 768。
+> 显存关键开关 `precompute_ref_log_probs=true`（config 默认已开）：
+> trl 1.4 的 ref forward 会临时关掉 grad_ckpt 并持有完整 logits（[2, 1024, 151k] ~1GB），
+> 叠加 policy forward 极易 OOM（3090 24GB 实测不开此项会爆 21GB）。
+> 开启后训练前一次性扫数据缓存 ref logprob（~5 分钟），训练步显存峰值显著下降。
+
+> OOM 兜底：依次 `max_length` 1024 → 768 → 512；仍不行降 LoRA r 64 → 32。
 
 代码路径验证（Mac/小机器或调试用）：
 
