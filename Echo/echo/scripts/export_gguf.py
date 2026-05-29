@@ -4,8 +4,18 @@
 
 默认走 base 路线：merged-base → gguf-base。instruct 路线需显式传参。
 
+convert_hf_to_gguf.py 的 Python 依赖（gguf / numpy / sentencepiece / protobuf /
+torch==2.11 等）建议装在 llama.cpp **独立 venv** 里，避免覆盖 echo venv 的
+CUDA torch。通过 --convert-python 或环境变量 LLAMA_CPP_PYTHON 指定该
+venv 的解释器；不指定则回退到当前 sys.executable（即 echo venv）。
+
 用法：
-    # base 路线（默认）
+    # base 路线（默认，用独立 convert venv）
+    uv run python scripts/export_gguf.py \\
+        --convert-python ~/llama.cpp/.venv-convert/bin/python
+
+    # 或导出环境变量后简化
+    export LLAMA_CPP_PYTHON=~/llama.cpp/.venv-convert/bin/python
     uv run python scripts/export_gguf.py
 
     # instruct 路线
@@ -19,7 +29,9 @@
     uv run python scripts/export_gguf.py --no-quantize
 
 环境变量：
-    LLAMA_CPP_DIR: llama.cpp 仓库路径（默认 ~/llama.cpp）
+    LLAMA_CPP_DIR:    llama.cpp 仓库路径（默认 ~/llama.cpp）
+    LLAMA_CPP_PYTHON: convert_hf_to_gguf.py 用的 Python 解释器
+                      （默认 sys.executable，即当前 echo venv）
 """
 
 from __future__ import annotations
@@ -65,7 +77,40 @@ def find_llama_cpp() -> Path:
     raise SystemExit(1)
 
 
-def convert_to_gguf(merged_dir: Path, output_dir: Path, llama_cpp: Path) -> Path:
+def resolve_convert_python(cli_value: str | None) -> str:
+    """决定用哪个 Python 跑 convert_hf_to_gguf.py。
+
+    优先级：CLI 参数 > 环境变量 LLAMA_CPP_PYTHON > sys.executable（兜底，会污染 echo venv）。
+    """
+    candidate = cli_value or os.environ.get("LLAMA_CPP_PYTHON")
+    if not candidate:
+        console.print(
+            "[yellow]Warning:[/yellow] 未指定 --convert-python / LLAMA_CPP_PYTHON，"
+            "将用当前 sys.executable 跑 convert_hf_to_gguf.py。"
+        )
+        console.print(
+            "  若该 venv 未装 gguf/numpy/sentencepiece 等依赖会失败；"
+            "在 echo venv 直接装这些依赖会覆盖 CUDA torch。"
+        )
+        console.print(
+            "  推荐在 llama.cpp 仓库下建独立 venv："
+            "uv venv ~/llama.cpp/.venv-convert && "
+            "uv pip install --python ~/llama.cpp/.venv-convert/bin/python "
+            "--index-strategy unsafe-best-match -r "
+            "~/llama.cpp/requirements/requirements-convert_hf_to_gguf.txt"
+        )
+        return sys.executable
+
+    p = Path(candidate).expanduser()
+    if not p.exists():
+        console.print(f"[bold red]Error:[/bold red] convert python 不存在: {p}")
+        raise SystemExit(1)
+    return str(p)
+
+
+def convert_to_gguf(
+    merged_dir: Path, output_dir: Path, llama_cpp: Path, convert_python: str
+) -> Path:
     """调用 convert_hf_to_gguf.py 转换为 f16 GGUF。"""
     output_dir.mkdir(parents=True, exist_ok=True)
     output_file = output_dir / "echo-f16.gguf"
@@ -76,13 +121,14 @@ def convert_to_gguf(merged_dir: Path, output_dir: Path, llama_cpp: Path) -> Path
         raise SystemExit(1)
 
     cmd = [
-        sys.executable, str(convert_script),
+        convert_python, str(convert_script),
         str(merged_dir),
         "--outfile", str(output_file),
         "--outtype", "f16",
     ]
 
     console.print(f"[bold]Converting to GGUF:[/bold] {output_file}")
+    console.print(f"  python: {convert_python}")
     console.print(f"  cmd: {' '.join(cmd)}")
     result = subprocess.run(cmd, check=False)
 
@@ -139,6 +185,12 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT, help="GGUF output dir")
     parser.add_argument("--quant", type=str, default=DEFAULT_QUANT, help="Quantization type (Q4_K_M, Q8_0, etc.)")
     parser.add_argument("--no-quantize", action="store_true", help="Only convert, skip quantization")
+    parser.add_argument(
+        "--convert-python",
+        type=str,
+        default=None,
+        help="Python interpreter for convert_hf_to_gguf.py (overrides LLAMA_CPP_PYTHON)",
+    )
     args = parser.parse_args()
 
     merged_dir = Path(args.merged_dir)
@@ -150,8 +202,10 @@ def main() -> None:
     llama_cpp = find_llama_cpp()
     console.print(f"[bold]llama.cpp:[/bold] {llama_cpp}")
 
+    convert_python = resolve_convert_python(args.convert_python)
+
     # 1. 转 GGUF (f16)
-    f16_file = convert_to_gguf(merged_dir, Path(args.output_dir), llama_cpp)
+    f16_file = convert_to_gguf(merged_dir, Path(args.output_dir), llama_cpp, convert_python)
 
     # 2. 量化
     if not args.no_quantize:

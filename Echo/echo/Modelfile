@@ -1,0 +1,33 @@
+# echo · base 路线 Ollama Modelfile
+#
+# 使用：
+#   cd Echo/echo
+#   ollama create echo -f Modelfile
+#   ollama run echo
+#
+# 默认指向 base 路线 Q4_K_M 量化产物。如需 Q8_0 / 其他量化或 instruct 路线，
+# 复制本文件改 FROM 即可。
+
+FROM ./checkpoints/gguf-base/echo-Q4_K_M.gguf
+
+# Qwen2 ChatML —— 与 sft.py / generate.py 训练推理时使用的模板对齐
+TEMPLATE """{{ if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{ if .Prompt }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+{{ end }}<|im_start|>assistant
+{{ .Response }}<|im_end|>
+"""
+
+SYSTEM """You are a helpful assistant."""
+
+# 采样参数与 generate.py 默认值对齐（便于横向对比 HF / GGUF 效果）
+PARAMETER temperature 0.7
+PARAMETER top_k 50
+PARAMETER top_p 0.9
+PARAMETER repeat_penalty 1.1
+PARAMETER num_predict 1024
+
+# 停止 token：Qwen2.5 ChatML
+PARAMETER stop "<|im_end|>"
+PARAMETER stop "<|endoftext|>"

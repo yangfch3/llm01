@@ -90,6 +90,7 @@
 - [ ] T6.4 int4 量化脚本（GGUF 或 bitsandbytes）
 - [ ] T6.5 把量化后 GGUF 接入 Ollama，编写一条 `ollama run echo` 跑通的演示脚本
 - [ ] T6.6 Echo final 版本发布
+- [ ] T6.7 评估是否接入 `llama-cpp-python` 程序化调用 GGUF（`uv sync --extra deploy-llamacpp`）；Ollama 路径足够时可不做
 <!-- M6 END -->
 
 <!-- M6.5 START -->

@@ -172,13 +172,106 @@ uv run python scripts/merge.py --adapter-dir checkpoints/sft-base/checkpoint-N
 
 底座 + adapter → 完整 bf16 权重。导出 GGUF 前必须做。
 
-## 8. 导出 GGUF + 量化部署
+## 8. 导出 GGUF + 量化（Linux 机器）
+
+> 当前 llama.cpp 仅在 Linux 机器上就绪，本节命令在该机器执行。
+> Win/Mac 后续打通后命令一致。merged-base → GGUF 文件的机器间同步走 scp/rsync 自行处理。
+
+### 8.1 一次性环境（Linux）
 
 ```bash
-uv run python scripts/export_gguf.py
+# 1. 克隆 llama.cpp（首次）
+git clone https://github.com/ggerganov/llama.cpp ~/llama.cpp
+
+# 2. 编译（CPU 版即可量化；如需 CUDA 加速量化加 -DGGML_CUDA=ON）
+cd ~/llama.cpp
+cmake -B build
+cmake --build build -j --config Release
+
+# 3. 为 convert_hf_to_gguf.py 建独立 venv，避免污染 echo venv
+#    （requirements 里钉了 torch==2.11，会覆盖 echo 的 CUDA torch）
+uv venv ~/llama.cpp/.venv-convert --python 3.12
+# requirements 含多个 --extra-index-url（pytorch cpu + nightly），
+# uv 默认 first-match 会找不到 transformers 等非 torch 包；
+# 用 unsafe-best-match 让 uv 在所有索引里找最佳版本。
+uv pip install --python ~/llama.cpp/.venv-convert/bin/python \
+    --index-strategy unsafe-best-match \
+    -r ~/llama.cpp/requirements/requirements-convert_hf_to_gguf.txt
+
+# 4. 导出环境变量给 export_gguf.py 用（或每次跑时传 --convert-python）
+#    LLAMA_CPP_DIR 仅当 llama.cpp 不在 ~/llama.cpp、~/repos/llama.cpp、
+#    /opt/llama.cpp 这三个默认位置之一时才需要设。
+export LLAMA_CPP_DIR=~/llama.cpp                       # 按实际路径改，例：/data2/llama.cpp
+export LLAMA_CPP_PYTHON=$LLAMA_CPP_DIR/.venv-convert/bin/python
 ```
 
-依赖本地 llama.cpp。流程：`merged-base` → f16 GGUF → Q4_K_M，输出到 `checkpoints/gguf-base/`。
+> 为何不纳入 echo 的 pyproject.toml：requirements 含 `torch==2.11.0` 钉版本，
+> 与 echo 的 CUDA torch（cu124, 2.4/2.5）冲突；gguf/numpy/sentencepiece 等版本
+> 跟 llama.cpp 仓库走，单独 venv 隔离最干净。
+
+### 8.2 转换 + 量化
+
+```bash
+# 默认：merged-base → checkpoints/gguf-base/{echo-f16.gguf, echo-Q4_K_M.gguf}
+uv run python scripts/export_gguf.py
+
+# 改量化档（可选）
+uv run python scripts/export_gguf.py --quant Q8_0
+
+# 只转 f16，不量化（调试 convert 阶段）
+uv run python scripts/export_gguf.py --no-quantize
+```
+
+产出（Q4_K_M 主线）：
+
+- `checkpoints/gguf-base/echo-f16.gguf` —— f16 中间产物，~3GB（1.5B × 2byte）
+- `checkpoints/gguf-base/echo-Q4_K_M.gguf` —— int4 部署产物，~1GB
+
+## 9. Ollama 部署 + demo（Win / Mac）
+
+> 跨平台命令一致。前提：`checkpoints/gguf-base/echo-Q4_K_M.gguf` 已同步到当前机器。
+
+### 9.1 安装 Ollama（一次性）
+
+- Win：<https://ollama.com/download/windows>，桌面应用安装后自动起守护进程
+- Mac：`brew install ollama` 或 <https://ollama.com/download/mac>；启动 `Ollama.app` 或 `ollama serve`
+
+### 9.2 一键 demo
+
+```bash
+cd Echo/echo
+uv run python scripts/run_demo.py
+```
+
+脚本会：
+
+1. 检查 `ollama` 可执行 + 守护进程
+2. 检查 GGUF 文件存在
+3. `ollama create echo -f Modelfile`（首次）
+4. 跑内置 5 条中英 prompt 验收
+
+```bash
+# Modelfile 调过参数后强制重建
+uv run python scripts/run_demo.py --recreate
+
+# 仅环境检查，不跑 prompt
+uv run python scripts/run_demo.py --check-only
+```
+
+### 9.3 交互式聊天
+
+```bash
+ollama run echo
+```
+
+### 9.4 速度验收
+
+参照 `Doc/DesignDoc/00-startup-proposal.md` §4.5：
+
+- Win 3060 12GB int4 ≥ 20 tok/s
+- Mac Apple Silicon Q4_K_M ≥ 15 tok/s
+
+`ollama run` 末尾会打印 `eval rate: X tokens/s`，即为生成速度。
 
 ## 失败案例参考
 
