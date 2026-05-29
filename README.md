@@ -45,42 +45,12 @@ uv sync --extra dev --extra courseware --extra echo-mini --extra echo --extra tr
 uv run python scripts/doctor.py
 ```
 
-### 文档站（MkDocs）
+### 文档站
 
-**线上**：<https://yangfch3.github.io/llm01/>（push main 后由 GitHub Actions 自动部署）
+**线上阅读**：<https://yangfch3.github.io/llm01/>
 
-**本地预览**：
+**本地站点**：见 [Misc/mkdocs/README.md](Misc/mkdocs/README.md)
 
-```bash
-uv run python scripts/docs_serve.py
-```
-
-浏览器打开 `http://127.0.0.1:8000` 即可。
-
-> 站点工具链与项目主依赖隔离，独立环境 `Misc/mkdocs/.venv-docs/`，依赖锁见 `Misc/mkdocs/requirements-docs.txt`。
->
-> 首次本地预览前需执行：
-> ```bash
-> cd Misc/mkdocs && uv venv .venv-docs && uv pip install --python .venv-docs -r requirements-docs.txt
-> ```
-
-## 目录导览
-
-```
-Doc/
-├─ DesignDoc/        根基文档（策划案 / 计划书 / 专题）
-├─ Courseware/       课件（章节 markdown）
-└─ UserDraft/        历史输入（只追加不改）
-
-Playground/          配套练习代码（与课件 ch## 一一对应）
-
-Echo/
-├─ echo-mini/        从零教学产物
-├─ echo/             开源底座微调产物
-└─ shared/           两者共用工具（device.py 等）
-
-scripts/             跨产物脚本（doctor.py 等）
-```
 
 ## 跨平台协同
 
