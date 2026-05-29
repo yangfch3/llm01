@@ -1,12 +1,12 @@
 # llm01
 
-LLM 入门课件 + Echo 对话模型双线产出。
+LLM [入门课件](https://yangfch3.github.io/llm01/) + Echo 对话模型双线产出。
 
 ## 是什么
 
 双线产出：
 
-- **课件 + 练习**：从 PyTorch / 数学基础到 Transformer 全链路 LLM 知识
+- **[入门课件](https://yangfch3.github.io/llm01/) + [配套练习](https://github.com/yangfch3/llm01/tree/main/Playground)**：从 PyTorch / 数学基础到 Transformer 全链路 LLM 知识
 - **Echo 对话模型**：双产物
   - `echo-mini`：从零 Pretrain → SFT 全链路走通的迷你模型（教学价值）
   - `echo`：基于开源底座 SFT/DPO 出来的可对话模型（实用价值）
@@ -37,10 +37,6 @@ uv sync --extra dev --extra courseware --extra echo-mini --extra echo --extra tr
 uv sync --extra dev --extra courseware --extra echo-mini --extra echo --extra train-cuda
 ```
 
-> `llama-cpp-python` 拆到独立的 `deploy-llamacpp` extras，M6 部署阶段再按需装；
->
-> Win 下若编译失败，参考 [`Doc/DesignDoc/02-deps-compatibility.md`](Doc/DesignDoc/02-deps-compatibility.md) §5。
-
 ### 自检
 
 每次切换机器、上机第一件事：
@@ -61,7 +57,7 @@ uv run python scripts/docs_serve.py
 
 浏览器打开 `http://127.0.0.1:8000` 即可。
 
-> 站点工具链与项目主依赖隔离，独立装在 `Misc/mkdocs/.venv-docs/`，依赖锁见 `Misc/mkdocs/requirements-docs.txt`。
+> 站点工具链与项目主依赖隔离，独立环境 `Misc/mkdocs/.venv-docs/`，依赖锁见 `Misc/mkdocs/requirements-docs.txt`。
 >
 > 首次本地预览前需执行：
 > ```bash
@@ -86,21 +82,14 @@ Echo/
 scripts/             跨产物脚本（doctor.py 等）
 ```
 
-详细约定见 [`Doc/DesignDoc/00-startup-proposal.md`](Doc/DesignDoc/00-startup-proposal.md) §5。
-
-## 跨平台协作
+## 跨平台协同
 
 - 训练**生产配置锁 Windows**，Mac 跑 tiny 配置做代码验证
 - 学习/编码/推理/量化/部署 双端等价
-- 切机器前 `git push`，上机 `git pull` + `scripts/doctor.py`
-- 大文件不入 Git：数据走脚本下载，权重走 HuggingFace Hub
-- 详见 [`Doc/DesignDoc/03-sync-strategy.md`](Doc/DesignDoc/03-sync-strategy.md)
-
-> 补充：Linux CUDA 12+ 下也已验证全流程（学习/编码/推理/量化/部署）可跑
+- Linux CUDA 12+ 下也已验证全流程（学习/编码/推理/量化/部署）可跑
+- 切机器前注意执行上方的**自检**与 `uv sync`
 
 ## 学习路径
-
-按里程碑顺序推进，详见 [`Doc/DesignDoc/01-project-plan.md`](Doc/DesignDoc/01-project-plan.md)：
 
 | 阶段 | 内容 |
 |---|---|
@@ -123,8 +112,6 @@ flowchart LR
 
 **推荐：全链路走完后，再回看一遍文档站的课件（M1-M3），你将对整个 LLM 知识体系、全链路有更深刻的认知。**
 
-任务清单见 [`Doc/DesignDoc/tasks.md`](Doc/DesignDoc/tasks.md)。
-
 ## Echo 成果展示
 
 ```text
@@ -141,8 +128,8 @@ Echo: 熊猫主要以竹子为食，它们是食竹动物。熊猫的消化系�
 ## FAQ
 
 **Q: 学习路径怎么安排？非要按 M1 → M6 顺序吗？**
-理论章节（M1–M3）严格顺序推进，前置缺失会很难看懂。Echo 落地（M4–M6）只要求 M3
-读完。已会基础的可直接从 M3 / M4 开始。
+
+理论章节（M1–M3）严格顺序推进，前置缺失会很难看懂。Echo 落地（M4–M6）只要求 M3 读完。已会基础的可直接从 M3 / M4 开始。
 
 **Q: 没有 GPU / 显存不够能跑通吗？**
 - 课件 + 练习（ch01–ch08）：CPU 可跑
@@ -151,13 +138,12 @@ Echo: 熊猫主要以竹子为食，它们是食竹动物。熊猫的消化系�
 - 推理 + 部署：量化后的 echo Q4_K_M 在 8GB 卡 / Apple Silicon 都能跑
 
 **Q: 训练遇到 OOM / segfault / 编码错乱怎么办？**
-先查 [`Doc/DesignDoc/troubleshooting.md`](Doc/DesignDoc/troubleshooting.md)，那里
-按时间倒序记录了所有踩过的跨平台坑（trl pyarrow segfault、Win GBK 编码、DPO 显存
-爆炸、SFT mode collapse 等），每条都有现象 + 根因 + 解决三段式。
+
+先查 [`Doc/DesignDoc/troubleshooting.md`](Doc/DesignDoc/troubleshooting.md)，那里按时间倒序记录了所有踩过的跨平台坑（trl pyarrow segfault、Win GBK 编码、DPO 显存爆炸、SFT mode collapse 等），每条都有现象 + 根因 + 解决三段式。
 
 **Q: Win 和 Mac 都能跑吗？**
-能，但定位不同：训练**生产配置锁 Windows**（CUDA），Mac 跑 tiny 配置做代码验证；
-学习/编码/推理/量化/部署双端等价。详见 [`Doc/DesignDoc/03-sync-strategy.md`](Doc/DesignDoc/03-sync-strategy.md)。
+
+能，但定位不同：训练**生产配置锁 Windows**（CUDA），Mac 跑 tiny 配置做代码验证；学习/编码/推理/量化/部署双端等价。详见 [`Doc/DesignDoc/03-sync-strategy.md`](Doc/DesignDoc/03-sync-strategy.md)。
 
 ## License
 
