@@ -19,19 +19,26 @@ LLM 入门课件 + Echo 对话模型双线产出。
 
 - Python 3.12（minor 锁定，patch 由本地 pyenv/uv 选）
 - [uv](https://docs.astral.sh/uv/)（依赖管理）
-- Windows: NVIDIA RTX 3060 12GB（CUDA 12.x）/ Mac: Apple Silicon（MPS）
+- 系统环境：
+  - Windows: CUDA 12+, 显存 8G+
+  - Linux: CUDA 12+, 显存 8G+
+  - macOS: Apple Silicon（MPS）
 
 ### 安装
 
 ```bash
-# Windows (3060)
+# Windows
 uv sync --extra dev --extra courseware --extra echo-mini --extra echo --extra train-cuda
 
 # Mac (Apple Silicon)
 uv sync --extra dev --extra courseware --extra echo-mini --extra echo --extra train-mps
+
+# Linux
+uv sync --extra dev --extra courseware --extra echo-mini --extra echo --extra train-cuda
 ```
 
 > `llama-cpp-python` 拆到独立的 `deploy-llamacpp` extras，M6 部署阶段再按需装；
+>
 > Win 下若编译失败，参考 [`Doc/DesignDoc/02-deps-compatibility.md`](Doc/DesignDoc/02-deps-compatibility.md) §5。
 
 ### 自检
@@ -57,6 +64,7 @@ uv run python scripts/docs_serve.py
 浏览器打开 `http://127.0.0.1:8000` 即可。
 
 > 站点工具链与项目主依赖隔离，独立装在 `Misc/mkdocs/.venv-docs/`，依赖锁见 `Misc/mkdocs/requirements-docs.txt`。
+>
 > 首次本地预览前需执行：
 > ```bash
 > cd Misc/mkdocs && uv venv .venv-docs && uv pip install --python .venv-docs -r requirements-docs.txt
@@ -89,6 +97,8 @@ scripts/             跨产物脚本（doctor.py 等）
 - 切机器前 `git push`，上机 `git pull` + `scripts/doctor.py`
 - 大文件不入 Git：数据走脚本下载，权重走 HuggingFace Hub
 - 详见 [`Doc/DesignDoc/03-sync-strategy.md`](Doc/DesignDoc/03-sync-strategy.md)
+
+> 补充：Linux CUDA 12+ 下也已验证全流程（学习/编码/推理/量化/部署）可跑
 
 ## 学习路径
 
