@@ -51,8 +51,6 @@ uv run python scripts/doctor.py
 
 ### 文档站（MkDocs）
 
-`Doc/` 下所有文档（课件、设计文档等）通过 MkDocs Material 主题渲染，支持 LaTeX 公式。
-
 **线上**：<https://yangfch3.github.io/llm01/>（push main 后由 GitHub Actions 自动部署）
 
 **本地预览**：
@@ -123,26 +121,22 @@ flowchart LR
     M5 --> M6
 ```
 
-任务勾选清单见 [`Doc/DesignDoc/tasks.md`](Doc/DesignDoc/tasks.md)。
+**推荐：全链路走完后，再回看一遍文档站的课件（M1-M3），你将对整个 LLM 知识体系、全链路有更深刻的认知。**
+
+任务清单见 [`Doc/DesignDoc/tasks.md`](Doc/DesignDoc/tasks.md)。
 
 ## Echo 成果展示
 
-`Echo/echo/` 已产出 v1 (SFT) 与 v2 (SFT + DPO) 两版可对话模型，均量化为 Q4_K_M GGUF
-（~986 MB）通过 Ollama 部署：
-
 ```text
-$ ollama run echo-v2 "写一句晚安祝福"
-晚安，希望你今天过得充实快乐。
+User: "写一句晚安祝福"
+Echo: 晚安，希望你今天过得充实快乐。
 
-$ ollama run echo-v2
->>> 你好
-Hello! How can I help you today?
+User: 10 * 5 + 4 = ?
+Echo: 10 * 5 + 4 = 54
 
->>> 讲个笑话
-为什么科学家不相信原子？因为它组成了一切！
+User: 熊猫主要吃什么？
+Echo: 熊猫主要以竹子为食，它们是食竹动物。熊猫的消化系统特别适合消化竹子，因为它们的胃中有一种特殊的细菌，可以分解竹子中的纤维素。熊猫通常每天吃18-20磅（8-9千克）的竹子，它们会花费大部分时间在树上，用它们的牙齿和爪子撕开竹子。熊猫是独居动物，它们通常独自生活，只有在繁殖季节才会与伴侣在一起。熊猫是濒危物种，它们的数量正在下降，因此保护它们的栖息地和繁殖是至关重要的。
 ```
-
-复刻命令见 [`Echo/echo/README.md`](Echo/echo/README.md)；技术规格见 [`Echo/echo/SPEC.md`](Echo/echo/SPEC.md)。
 
 ## FAQ
 
@@ -164,14 +158,6 @@ Hello! How can I help you today?
 **Q: Win 和 Mac 都能跑吗？**
 能，但定位不同：训练**生产配置锁 Windows**（CUDA），Mac 跑 tiny 配置做代码验证；
 学习/编码/推理/量化/部署双端等价。详见 [`Doc/DesignDoc/03-sync-strategy.md`](Doc/DesignDoc/03-sync-strategy.md)。
-
-**Q: 在线文档站怎么访问？**
-<https://yangfch3.github.io/llm01/>，push main 后 GitHub Actions 自动部署。
-本地预览见上方"文档站"小节。
-
-**Q: 想直接拿 echo 模型跑对话，不想训练，怎么办？**
-当前权重未发布到 HuggingFace Hub，需自行训练或合并产出 GGUF 后通过 Ollama 部署。
-完整流程见 [`Echo/echo/README.md`](Echo/echo/README.md)。
 
 ## License
 
