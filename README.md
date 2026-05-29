@@ -113,8 +113,66 @@ scripts/             跨产物脚本（doctor.py 等）
 | M5 | echo 微调落地 |
 | M6 | 对齐与量化部署 |
 
+```mermaid
+flowchart LR
+    M1["M1<br/>PyTorch + 数学<br/>ch01-ch04"] --> M2["M2<br/>Transformer<br/>ch05-ch07"]
+    M2 --> M3["M3<br/>LLM 全链路理论<br/>ch08-ch13"]
+    M3 --> M4["M4<br/>echo-mini<br/>从零 Pretrain+SFT"]
+    M3 --> M5["M5<br/>echo<br/>底座 SFT/DPO"]
+    M4 --> M6["M6<br/>量化 + 部署<br/>GGUF + Ollama"]
+    M5 --> M6
+```
+
 任务勾选清单见 [`Doc/DesignDoc/tasks.md`](Doc/DesignDoc/tasks.md)。
+
+## Echo 成果展示
+
+`Echo/echo/` 已产出 v1 (SFT) 与 v2 (SFT + DPO) 两版可对话模型，均量化为 Q4_K_M GGUF
+（~986 MB）通过 Ollama 部署：
+
+```text
+$ ollama run echo-v2 "写一句晚安祝福"
+晚安，希望你今天过得充实快乐。
+
+$ ollama run echo-v2
+>>> 你好
+Hello! How can I help you today?
+
+>>> 讲个笑话
+为什么科学家不相信原子？因为它组成了一切！
+```
+
+复刻命令见 [`Echo/echo/README.md`](Echo/echo/README.md)；技术规格见 [`Echo/echo/SPEC.md`](Echo/echo/SPEC.md)。
+
+## FAQ
+
+**Q: 学习路径怎么安排？非要按 M1 → M6 顺序吗？**
+理论章节（M1–M3）严格顺序推进，前置缺失会很难看懂。Echo 落地（M4–M6）只要求 M3
+读完。已会基础的可直接从 M3 / M4 开始。
+
+**Q: 没有 GPU / 显存不够能跑通吗？**
+- 课件 + 练习（ch01–ch08）：CPU 可跑
+- ch09 之后涉及训练：~~~CPU 太慢~~~ 至少 8GB 显存（练习用 tiny 配置）
+- Echo SFT/DPO 训练：12GB 显存起步，DPO 需 24GB
+- 推理 + 部署：量化后的 echo Q4_K_M 在 8GB 卡 / Apple Silicon 都能跑
+
+**Q: 训练遇到 OOM / segfault / 编码错乱怎么办？**
+先查 [`Doc/DesignDoc/troubleshooting.md`](Doc/DesignDoc/troubleshooting.md)，那里
+按时间倒序记录了所有踩过的跨平台坑（trl pyarrow segfault、Win GBK 编码、DPO 显存
+爆炸、SFT mode collapse 等），每条都有现象 + 根因 + 解决三段式。
+
+**Q: Win 和 Mac 都能跑吗？**
+能，但定位不同：训练**生产配置锁 Windows**（CUDA），Mac 跑 tiny 配置做代码验证；
+学习/编码/推理/量化/部署双端等价。详见 [`Doc/DesignDoc/03-sync-strategy.md`](Doc/DesignDoc/03-sync-strategy.md)。
+
+**Q: 在线文档站怎么访问？**
+<https://yangfch3.github.io/llm01/>，push main 后 GitHub Actions 自动部署。
+本地预览见上方"文档站"小节。
+
+**Q: 想直接拿 echo 模型跑对话，不想训练，怎么办？**
+量化产物（GGUF）发布到 HuggingFace Hub（路径见 `Echo/echo/README.md`），
+`ollama create echo-v2 -f Modelfile.v2 && ollama run echo-v2` 一行搞定。
 
 ## License
 
-待补（M7 阶段定，倾向 MIT / Apache-2.0）。
+[MIT License](LICENSE) © 2026 yangfch3

@@ -2,7 +2,7 @@
 # effective batch=16 不变；关闭训练中 eval 防止 OOM（Qwen2 vocab=151K logits 极大）
 #
 # epoch=2 与 base 路线同步：instruct 底座本身已对齐，只需轻量风格漂移；
-# 加之实测 base 路线 5 epoch 严重过拟合（详见 04-sft-mode-collapse-findings.md），
+# 加之实测 base 路线 5 epoch 严重过拟合（详见 Doc/Reading/sft-mode-collapse-findings/README.md），
 # instruct 也保守起步，训完按 stepshooting §5.6 抽测调整
 
 model:

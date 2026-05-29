@@ -1,0 +1,33 @@
+# echo · base 路线 · v2 (SFT + DPO) Ollama Modelfile
+#
+# 与 v1 的 Modelfile 唯一区别：FROM 指向 gguf-dpo/。其余模板 / 参数 / 停止 token
+# 全部对齐，便于横向对比 v1 vs v2 行为差异。
+#
+# 使用：
+#   cd Echo/echo
+#   ollama create echo-v2 -f Modelfile.v2
+#   ollama run echo-v2
+
+FROM ./checkpoints/gguf-dpo/echo-Q4_K_M.gguf
+
+# Qwen2 ChatML —— 与 sft.py / dpo.py / generate.py 训练推理时使用的模板对齐
+TEMPLATE """{{ if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{ if .Prompt }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+{{ end }}<|im_start|>assistant
+{{ .Response }}<|im_end|>
+"""
+
+SYSTEM """You are a helpful assistant."""
+
+# 采样参数与 generate.py 默认值对齐
+PARAMETER temperature 0.7
+PARAMETER top_k 50
+PARAMETER top_p 0.9
+PARAMETER repeat_penalty 1.1
+PARAMETER num_predict 1024
+
+# 停止 token：Qwen2.5 ChatML
+PARAMETER stop "<|im_end|>"
+PARAMETER stop "<|endoftext|>"

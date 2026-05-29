@@ -8,7 +8,7 @@
 - **本文件**：复刻命令清单 + 训练配方表 + 实测数据，回答"怎么从零跑出 echo"
 - [`SPEC.md`](SPEC.md)：技术规格，回答"echo 是什么 / 为什么这么设计"
 - [`stepshooting-base.md`](stepshooting-base.md) / [`stepshooting-instruct.md`](stepshooting-instruct.md)：步骤速查 + 踩坑细节
-- [`../../Doc/DesignDoc/04-sft-mode-collapse-findings.md`](../../Doc/DesignDoc/04-sft-mode-collapse-findings.md)：mode collapse 实验报告（**理解 sweet spot 必读**）
+- [`../../Doc/Reading/sft-mode-collapse-findings/README.md`](../../Doc/Reading/sft-mode-collapse-findings/README.md)：mode collapse 实验报告（**理解 sweet spot 必读**）
 
 ## 模型规格
 
@@ -119,6 +119,46 @@ uv run python scripts/export_gguf.py --quant Q8_0  # 几乎无损
 依赖本地 llama.cpp（设 `LLAMA_CPP_DIR` 环境变量指向仓库根目录）。
 流程：`merged-base` → f16 GGUF → Q4_K_M / Q8_0，输出到 `checkpoints/gguf-base/`。
 
+### 8. DPO 对齐（可选，产出 v2）
+
+SFT 之后追加一轮 DPO，目标降低 mode collapse 残留 + 提升回答信息密度。
+完整流程见 [`stepshooting-base.md` §7.5](stepshooting-base.md)，命令速查：
+
+```bash
+# 8.1 偏好数据 + 训练（24GB GPU）
+uv run python scripts/prepare_dpo_data.py
+uv run python scripts/dpo.py --config configs/dpo-24g-base.yaml
+
+# 8.2 抽测对比（v1 vs v2）
+uv run python scripts/generate.py --merged-dir checkpoints/merged-base   # v1
+uv run python scripts/generate_dpo.py                                    # v2 = merged-base + DPO adapter
+
+# 8.3 选定 ckpt 后合并 → Echo v2
+uv run python scripts/merge_dpo.py --adapter-dir checkpoints/dpo-base/checkpoint-N
+# 产出 checkpoints/merged-dpo/
+
+# 8.4 v2 GGUF
+uv run python scripts/export_gguf.py \
+    --merged-dir checkpoints/merged-dpo \
+    --output-dir checkpoints/gguf-dpo
+```
+
+### 9. Ollama 部署
+
+仓库提供两份 Modelfile，与 v1 / v2 一一对应：
+
+```bash
+# v1（仅 SFT）
+ollama create echo -f Modelfile
+ollama run echo
+
+# v2（SFT + DPO，推荐）
+ollama create echo-v2 -f Modelfile.v2
+ollama run echo-v2
+```
+
+两者共存，`ollama list` 可同时看到，便于横向对比。
+
 ## 训练配方
 
 ### SFT（base 主线 · `sft-8g-base.yaml`）
@@ -214,7 +254,7 @@ You are a helpful assistant.<|im_end|>
 为什么 `num_epochs=2` 而不是 SPEC 里写的 3 / 5？为什么 base 路线要 `modules_to_save`？
 为什么短模板题先塌、长开放题后塌？
 
-→ 见 [`Doc/DesignDoc/04-sft-mode-collapse-findings.md`](../../Doc/DesignDoc/04-sft-mode-collapse-findings.md)，
+→ 见 [`Doc/Reading/sft-mode-collapse-findings/README.md`](../../Doc/Reading/sft-mode-collapse-findings/README.md)，
 本次 SFT 实验最重要的产物。
 
 ## 失败案例参考

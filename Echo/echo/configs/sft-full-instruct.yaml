@@ -1,7 +1,7 @@
 # echo SFT — Win RTX 3060 12GB 生产配置 (QLoRA)
 #
 # epoch=2 与 8g 版同步：instruct 底座已对齐，只需轻量风格漂移；
-# 实测 base 路线 5 epoch 严重过拟合（详见 04-sft-mode-collapse-findings.md），
+# 实测 base 路线 5 epoch 严重过拟合（详见 Doc/Reading/sft-mode-collapse-findings/README.md），
 # instruct 保守起步，训完按 stepshooting §5.6 抽测调整
 
 model:

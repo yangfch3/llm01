@@ -6,7 +6,7 @@
 # 24GB+ 显存用户可自行关 gradient_checkpointing 进一步提速。
 #
 # epoch=2 与 sft-8g-base.yaml 同步：实测 5 epoch 严重 mode collapse，
-# 详见 Doc/DesignDoc/04-sft-mode-collapse-findings.md
+# 详见 Doc/Reading/sft-mode-collapse-findings/README.md
 
 model:
   model_id: "Qwen/Qwen2.5-1.5B"

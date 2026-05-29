@@ -92,10 +92,10 @@
 
 - [x] T6.1 DPO 偏好数据构造（可从 SFT 样本手工挑选 chosen/rejected）
 - [x] T6.2 DPO 训练脚本
-- [ ] T6.3 Echo v2（DPO 版）产出
+- [x] T6.3 Echo v2（DPO 版）产出
 - [x] T6.4 int4 量化脚本（GGUF 或 bitsandbytes）
 - [x] T6.5 把量化后 GGUF 接入 Ollama，编写一条 `ollama run echo` 跑通的演示脚本
-- [ ] T6.6 Echo final 版本发布
+- [x] T6.6 Echo final 版本发布
 - [ ] T6.7 评估是否接入 `llama-cpp-python` 程序化调用 GGUF（`uv sync --extra deploy-llamacpp`）；Ollama 路径足够时可不做
 <!-- M6 END -->
 
@@ -104,18 +104,18 @@
 
 - [x] T6.5.1 在 Win 端用全新 venv（或 WSL/Docker 容器）从零 bootstrap，跑完 M1–M3 所有练习
 - [x] T6.5.2 在 Mac 端用全新 venv 同样跑通 M1–M3
-- [ ] T6.5.3 Mac 端用 tiny 配置跑通 echo-mini Pretrain / SFT 脚本（不要求收敛）
-- [ ] T6.5.4 Mac 端成功加载并推理 echo final（量化版）
-- [ ] T6.5.5 记录"跨平台已知差异与陷阱"到 `Doc/DesignDoc/cross-platform-notes.md`
+- [x] T6.5.3 Mac 端用 tiny 配置跑通 echo-mini Pretrain / SFT 脚本（不要求收敛）
+- [x] T6.5.4 Mac 端成功加载并推理 echo final（量化版）
+- [x] T6.5.5 记录"跨平台已知差异与陷阱"到 `Doc/DesignDoc/cross-platform-notes.md`
 <!-- M6.5 END -->
 
 <!-- M7 START -->
 ## M7 · 开源就绪
 
-- [ ] T7.1 LICENSE（推荐 MIT / Apache-2.0）
-- [ ] T7.2 CONTRIBUTING.md
-- [ ] T7.3 根 README 完善：学习路径图、演示 GIF、FAQ
-- [ ] T7.4 课程大纲定稿、章节间跳转
-- [ ] T7.5 常见坑 & 故障排查文档
+- [x] T7.1 LICENSE（推荐 MIT / Apache-2.0）
+- [-] T7.2 CONTRIBUTING.md（学习项目暂不期待外部 PR，跳过）
+- [x] T7.3 根 README 完善：学习路径图、演示 GIF、FAQ
+- [x] T7.4 课程大纲定稿、章节间跳转
+- [x] T7.5 常见坑 & 故障排查文档
 - [ ] T7.6（可选）发布到 GitHub，申请加入 awesome-llm 类 list
 <!-- M7 END -->
