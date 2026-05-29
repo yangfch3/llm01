@@ -236,13 +236,16 @@ DPO 训练日志关键字段（与 SFT 不同）：
 
 ```bash
 # 加载 merged-base + DPO adapter 推理（默认 dpo-base/final）
-uv run python scripts/generate.py \
-    --merged-dir checkpoints/merged-base \
-    --adapter-dir checkpoints/dpo-base/final
+uv run python scripts/generate_dpo.py
+
+# 测中间 ckpt
+uv run python scripts/generate_dpo.py --adapter-dir checkpoints/dpo-base/checkpoint-N
 ```
 
-> 注意：`generate.py` 当前默认 `--adapter-dir checkpoints/sft-base/final`，
-> 测 DPO 必须显式传 `--adapter-dir checkpoints/dpo-base/...`。
+> 为什么单独有个 `generate_dpo.py`：`generate.py` 的 `--merged-dir` 与
+> `--adapter-dir` 互斥（前者优先，后者会被忽略），强行叠加会让分支膨胀。
+> DPO 抽测仅在合并 `merged-dpo` 之前用一两次，单独脚本意图更清晰。
+> 合并完之后直接 `generate.py --merged-dir checkpoints/merged-dpo` 即可。
 
 确定最佳 ckpt 后合并（merged-base + DPO adapter → Echo v2）：
 
