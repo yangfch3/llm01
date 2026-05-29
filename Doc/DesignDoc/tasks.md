@@ -75,10 +75,10 @@
 - [x] T5.3 整理 SFT 数据（中英对话，重点关注 Echo 人设一致性）
 - [x] T5.4 LoRA/QLoRA 微调脚本（QLoRA 走 CUDA-only 分支，Mac 用纯 LoRA）
 - [x] T5.5 产出 SFT `config-full.yaml` + `config-tiny.yaml`
-- [ ] T5.6 Win 上训练并保存 adapter，（可选）上传 HF Hub
-- [ ] T5.7 合并/加载 adapter，推理 CLI（Win/Mac 双端可用）
-- [ ] T5.8 初步人工评测对话质量，迭代数据
-- [ ] T5.9 写 `Echo/echo/README.md` 与训练配方
+- [x] T5.6 SFT 训练并保存 adapter，（可选）上传 HF Hub
+- [x] T5.7 合并/加载 adapter，推理 CLI（Win/Mac 双端可用）
+- [x] T5.8 初步人工评测对话质量，迭代数据
+- [x] T5.9 写 `Echo/echo/README.md` 与训练配方
 <!-- M5 END -->
 
 <!-- M6 START -->
@@ -95,8 +95,8 @@
 <!-- M6.5 START -->
 ## M6.5 · 跨平台复现验收
 
-- [ ] T6.5.1 在 Win 端用全新 venv（或 WSL/Docker 容器）从零 bootstrap，跑完 M1–M3 所有练习
-- [ ] T6.5.2 在 Mac 端用全新 venv 同样跑通 M1–M3
+- [x] T6.5.1 在 Win 端用全新 venv（或 WSL/Docker 容器）从零 bootstrap，跑完 M1–M3 所有练习
+- [x] T6.5.2 在 Mac 端用全新 venv 同样跑通 M1–M3
 - [ ] T6.5.3 Mac 端用 tiny 配置跑通 echo-mini Pretrain / SFT 脚本（不要求收敛）
 - [ ] T6.5.4 Mac 端成功加载并推理 echo final（量化版）
 - [ ] T6.5.5 记录"跨平台已知差异与陷阱"到 `Doc/DesignDoc/cross-platform-notes.md`
