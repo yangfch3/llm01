@@ -1,0 +1,50 @@
+{"question": "中国的首都是哪里？", "expected": "北京", "type": "short_answer"}
+{"question": "中国最长的河流是哪一条？", "expected": "长江", "type": "short_answer"}
+{"question": "《红楼梦》的作者是谁？", "expected": "曹雪芹", "type": "short_answer"}
+{"question": "唐朝的开国皇帝是谁？", "expected": "李渊", "type": "short_answer"}
+{"question": "太阳系中离太阳最近的行星是？", "expected": "水星", "type": "short_answer"}
+{"question": "水的化学式是什么？", "expected": "H2O", "type": "short_answer"}
+{"question": "一年有多少个月？", "expected": "12", "type": "short_answer"}
+{"question": "光的速度大约是每秒多少公里？", "expected": "30万", "type": "short_answer"}
+{"question": "人体最大的器官是什么？", "expected": "皮肤", "type": "short_answer"}
+{"question": "成年人共有多少颗牙齿？", "expected": "32", "type": "short_answer"}
+{"question": "鲁迅的原名是什么？", "expected": "周树人", "type": "short_answer"}
+{"question": "中国四大发明中除了造纸、火药、指南针，还有什么？", "expected": "印刷", "type": "short_answer"}
+{"question": "珠穆朗玛峰位于哪两个国家的边境？", "expected": "尼泊尔", "type": "short_answer"}
+{"question": "熊猫主要吃什么？", "expected": "竹", "type": "short_answer"}
+{"question": "汉语拼音中一共有多少个声调？", "expected": "4", "type": "short_answer"}
+{"question": "What is the capital of France?", "expected": "Paris", "type": "short_answer"}
+{"question": "What is the capital of Japan?", "expected": "Tokyo", "type": "short_answer"}
+{"question": "Who wrote the play Romeo and Juliet?", "expected": "Shakespeare", "type": "short_answer"}
+{"question": "What is the largest ocean on Earth?", "expected": "Pacific", "type": "short_answer"}
+{"question": "What is the chemical symbol for gold?", "expected": "Au", "type": "short_answer"}
+{"question": "How many continents are there on Earth?", "expected": "7", "type": "short_answer"}
+{"question": "Which planet is known as the Red Planet?", "expected": "Mars", "type": "short_answer"}
+{"question": "What gas do plants absorb from the air for photosynthesis?", "expected": "carbon dioxide", "type": "short_answer"}
+{"question": "Who painted the Mona Lisa?", "expected": "Leonardo", "type": "short_answer"}
+{"question": "What is the boiling point of water in Celsius at sea level?", "expected": "100", "type": "short_answer"}
+{"question": "12 加 7 等于多少？", "expected": "19", "type": "short_answer"}
+{"question": "25 减 8 等于多少？", "expected": "17", "type": "short_answer"}
+{"question": "9 乘以 6 等于多少？", "expected": "54", "type": "short_answer"}
+{"question": "48 除以 6 等于多少？", "expected": "8", "type": "short_answer"}
+{"question": "13 加 28 等于多少？", "expected": "41", "type": "short_answer"}
+{"question": "100 减 37 等于多少？", "expected": "63", "type": "short_answer"}
+{"question": "7 乘以 8 等于多少？", "expected": "56", "type": "short_answer"}
+{"question": "What is 15 plus 26?", "expected": "41", "type": "short_answer"}
+{"question": "What is 50 minus 23?", "expected": "27", "type": "short_answer"}
+{"question": "What is 11 times 11?", "expected": "121", "type": "short_answer"}
+{"question": "What is 81 divided by 9?", "expected": "9", "type": "short_answer"}
+{"question": "What is 144 divided by 12?", "expected": "12", "type": "short_answer"}
+{"question": "What is 6 squared?", "expected": "36", "type": "short_answer"}
+{"question": "What is 2 to the power of 10?", "expected": "1024", "type": "short_answer"}
+{"question": "What is the sum of 100, 200 and 300?", "expected": "600", "type": "short_answer"}
+{"question": "How many letter 'r' are there in the word 'strawberry'?", "expected": "3", "type": "short_answer"}
+{"question": "How many letter 'a' are there in the word 'banana'?", "expected": "3", "type": "short_answer"}
+{"question": "单词 mississippi 里有几个字母 s？", "expected": "4", "type": "short_answer"}
+{"question": "单词 hello 一共有几个字母？", "expected": "5", "type": "short_answer"}
+{"question": "把单词 cat 反过来拼写是什么？", "expected": "tac", "type": "short_answer"}
+{"question": "今天是星期三，三天后是星期几？", "expected": "六", "type": "short_answer"}
+{"question": "If today is Monday, what day will it be in 5 days?", "expected": "Saturday", "type": "short_answer"}
+{"question": "小明有 5 个苹果，给了小红 2 个，他还剩几个？", "expected": "3", "type": "short_answer"}
+{"question": "一个长方形的长是 6，宽是 4，面积是多少？", "expected": "24", "type": "short_answer"}
+{"question": "Alice is older than Bob, and Bob is older than Carol. Who is the youngest?", "expected": "Carol", "type": "short_answer"}

@@ -63,12 +63,16 @@ def load_model_and_tokenizer(args: argparse.Namespace):
         base_model_id=model_id,
     )
 
+    # 显式声明 sdpa attention：O(seq) 显存，与 eager 数学等价，不影响 PPL/生成
+    attn_impl = "sdpa"
+
     if args.merged_dir:
         model = AutoModelForCausalLM.from_pretrained(
             str(Path(args.merged_dir)),
             torch_dtype=torch.bfloat16,
             device_map="auto",
             trust_remote_code=True,
+            attn_implementation=attn_impl,
         )
     else:
         adapter_dir = Path(args.adapter_dir)
@@ -87,6 +91,7 @@ def load_model_and_tokenizer(args: argparse.Namespace):
                 quantization_config=bnb_config,
                 device_map="auto",
                 trust_remote_code=True,
+                attn_implementation=attn_impl,
             )
         else:
             device = get_device()
@@ -94,6 +99,7 @@ def load_model_and_tokenizer(args: argparse.Namespace):
                 model_id,
                 torch_dtype=torch.bfloat16,
                 trust_remote_code=True,
+                attn_implementation=attn_impl,
             ).to(device)
         model = PeftModel.from_pretrained(base_model, str(adapter_dir))
 
@@ -123,6 +129,11 @@ def eval_ppl(model, tokenizer, val_file: Path, max_seq_length: int) -> dict:
         n_tokens = input_ids.shape[1]
         total_loss += outputs.loss.item() * n_tokens
         total_tokens += n_tokens
+
+        # 防止 reserved 内存随长样本累积
+        del outputs, input_ids, labels, enc
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     avg_loss = total_loss / total_tokens if total_tokens > 0 else float("inf")
     ppl = math.exp(avg_loss) if avg_loss < 20 else float("inf")
@@ -255,6 +266,10 @@ def main() -> None:
     model, tokenizer, cfg = load_model_and_tokenizer(args)
     max_seq_length = cfg["training"].get("max_seq_length", 2048)
 
+    # 复位峰值计数，便于观察各阶段显存
+    if torch.cuda.is_available():
+        torch.cuda.reset_peak_memory_stats()
+
     all_results = {}
 
     # 1. PPL
@@ -294,6 +309,13 @@ def main() -> None:
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(all_results, f, ensure_ascii=False, indent=2)
     console.print(f"\n[bold green]Results saved to {output_path}[/bold green]")
+
+    if torch.cuda.is_available():
+        peak_gb = torch.cuda.max_memory_allocated() / 1e9
+        reserved_gb = torch.cuda.max_memory_reserved() / 1e9
+        console.print(
+            f"[dim]GPU peak allocated: {peak_gb:.2f} GB | reserved: {reserved_gb:.2f} GB[/dim]"
+        )
 
 
 if __name__ == "__main__":
