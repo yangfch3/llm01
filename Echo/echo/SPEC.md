@@ -257,7 +257,7 @@ SFT 后追加一轮 DPO，目标是降低 SFT mode collapse 残留 + 提升回�
 
 ### 13.3 训练超参
 
-| 项 | base 主线（`dpo-8g-base.yaml`） | 备注 |
+| 项 | base 主线（`dpo-24g-base.yaml`） | 备注 |
 |---|---|---|
 | 量化 | NF4 4bit + double quant | 同 SFT |
 | LoRA r / alpha | 64 / 128 | 不开 modules_to_save |
@@ -274,7 +274,7 @@ SFT 后追加一轮 DPO，目标是降低 SFT mode collapse 残留 + 提升回�
 
 | 配置 | 用途 | 环境 |
 |---|---|---|
-| `dpo-8g-base.yaml` | 生产训练（默认） | Win 3060 12GB QLoRA |
+| `dpo-24g-base.yaml` | 生产训练（默认） | 3090 / 4090 24GB QLoRA |
 | `dpo-full-base.yaml` | 大显存 + per_device=4 | 大显存 GPU QLoRA |
 | `dpo-tiny-base.yaml` | 代码验证 ~20 步 | Mac/CPU fp32 |
 
@@ -282,7 +282,7 @@ SFT 后追加一轮 DPO，目标是降低 SFT mode collapse 残留 + 提升回�
 
 ```
 configs/
-  dpo-8g-base.yaml / dpo-full-base.yaml / dpo-tiny-base.yaml
+  dpo-24g-base.yaml / dpo-full-base.yaml / dpo-tiny-base.yaml
 scripts/
   prepare_dpo_data.py  下载 + 转 trl 格式 + 过滤 + 切分
   dpo.py               QLoRA DPO 训练入口

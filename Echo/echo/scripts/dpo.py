@@ -7,8 +7,8 @@ ref_model 处理：trl 1.4 在 PEFT + ref_model=None 时自动通过 disable_ada
 计算参考 logprob，无需显式加载第二份模型，省一份显存。
 
 用法：
-    # Win 3060 12GB QLoRA 生产配置
-    uv run python scripts/dpo.py --config configs/dpo-8g-base.yaml
+    # 24GB 显存（3090 / 4090）QLoRA 生产配置
+    uv run python scripts/dpo.py --config configs/dpo-24g-base.yaml
 
     # 大显存 QLoRA
     uv run python scripts/dpo.py --config configs/dpo-full-base.yaml

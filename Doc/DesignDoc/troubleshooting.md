@@ -30,7 +30,7 @@
 - **解决**：DPOConfig 加 `precompute_ref_log_probs=True`（dpo-8g-base / dpo-full-base 的 yaml 默认已开）
   - 训练前一次性扫一遍数据缓存所有样本的 ref logprob（7600 条约 5 分钟）
   - 训练步只跑 policy forward，ref 来自缓存，显存峰值大幅下降
-- **影响**：`scripts/dpo.py` 透出 `precompute_ref_log_probs` 字段，默认 True；`stepshooting-base.md` §7.5.2 加显存关键开关说明
+- **影响**：`scripts/dpo.py` 透出 `precompute_ref_log_probs` 字段，默认 True；`stepshooting-base.md` §7.5.2 加显存关键开关说明。**附加：原 `dpo-8g-base.yaml` 命名误导（DPO 显存压力远高于 SFT，8GB 跑不了），事后改名为 `dpo-24g-base.yaml`**
 - **后续 OOM 兜底顺序**：`max_length` 1024 → 768 → 512 → 降 LoRA r
 
 ---

@@ -191,12 +191,12 @@ uv run python scripts/prepare_dpo_data.py
 ### 7.5.2 DPO 训练
 
 ```bash
-uv run python scripts/dpo.py --config configs/dpo-8g-base.yaml
+uv run python scripts/dpo.py --config configs/dpo-24g-base.yaml
 ```
 
 - 起点：`checkpoints/merged-base/`（SFT merge 产物）
 - 产出：`checkpoints/dpo-base/checkpoint-* + final`
-- 3060 12GB 上 1 epoch (~950 步) 预计 4-6 小时
+- 3090 24GB 上 1 epoch (~950 步) 预计 3 小时；24GB 是本配置最低门槛
 
 > ref_model 处理：trl 1.4 在 PEFT + `ref_model=None` 下自动用 `disable_adapter` 当 ref，
 > 省一份显存。无需显式加载第二份模型。
