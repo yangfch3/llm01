@@ -193,6 +193,7 @@ def eval_questions(model, tokenizer, questions_file: Path, max_new_tokens: int =
                 temperature=0.1,
                 do_sample=False,
                 eos_token_id=_get_stop_token_ids(tokenizer),
+                pad_token_id=tokenizer.pad_token_id,
             )
 
         generated = tokenizer.decode(output_ids[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
@@ -243,6 +244,7 @@ def eval_dialogue_samples(model, tokenizer, max_new_tokens: int = 256) -> list[d
                 repetition_penalty=1.1,
                 do_sample=True,
                 eos_token_id=_get_stop_token_ids(tokenizer),
+                pad_token_id=tokenizer.pad_token_id,
             )
 
         generated = tokenizer.decode(output_ids[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
