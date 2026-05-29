@@ -4,6 +4,9 @@
 # 仍保持 gradient_checkpointing=true，让 3060 12GB 也能稳跑（modules_to_save +
 # embed_tokens 全量训练已吃掉 1GB，关掉 grad_ckpt 在 12GB 上极易 OOM）。
 # 24GB+ 显存用户可自行关 gradient_checkpointing 进一步提速。
+#
+# epoch=2 与 sft-8g-base.yaml 同步：实测 5 epoch 严重 mode collapse，
+# 详见 Doc/DesignDoc/04-sft-mode-collapse-findings.md
 
 model:
   model_id: "Qwen/Qwen2.5-1.5B"
@@ -37,10 +40,10 @@ data:
 training:
   seed: 42
   max_seq_length: 2048
-  num_epochs: 5
+  num_epochs: 2
   per_device_batch_size: 2     # full 配置加大 micro batch
   grad_accum_steps: 8          # effective batch = 2 * 8 = 16
-  learning_rate: 2.0e-4
+  learning_rate: 1.0e-4         # 与 8g-base 一致；modules_to_save 场景下 2e-4 偏大
   lr_scheduler: "cosine"
   warmup_ratio: 0.03
   optim: "paged_adamw_8bit"
@@ -49,8 +52,8 @@ training:
   logging_steps: 10
   eval_strategy: "no"
   save_strategy: "steps"
-  save_steps: 1000
-  save_total_limit: 5
+  save_steps: 250              # 与 8g 版同步加密，便于抽测找 sweet spot
+  save_total_limit: 16
   max_steps: -1
   gradient_checkpointing: true   # 12GB 显存稳妥起见保留；24GB+ 可关闭提速
   num_workers: 2

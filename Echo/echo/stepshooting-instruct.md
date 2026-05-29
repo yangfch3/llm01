@@ -17,10 +17,10 @@
 | `is_base_model` | true | (未设, false) |
 | LoRA r | 128 | 64 |
 | modules_to_save | `embed_tokens` + `lm_head` | 无 |
-| epoch | 2 | 3 |
+| epoch | 2 | 2 |
 | 训练数据 | `train_aug.jsonl` (~29K) | `train.jsonl` (19K) |
 | adapter 输出 | `checkpoints/sft-base/` | `checkpoints/sft/` |
-| 3060 训练时长 | ~4-5h | ~6h |
+| 3060 训练时长 | ~4-5h | ~4h |
 | adapter 大小 | ~600MB | ~150MB |
 
 ## 1. 数据准备
@@ -51,7 +51,11 @@ uv run python scripts/sft.py --config configs/sft-8g-instruct.yaml
 代码验证（CPU/Mac）：`--config configs/sft-tiny-instruct.yaml`
 断点续训：加 `--resume checkpoints/sft/checkpoint-N`
 
-预期 3060 训练时长约 6h。产出 adapter 到 `checkpoints/sft/final`。
+预期 3060 训练时长约 4h。产出 adapter 到 `checkpoints/sft/final`。
+
+> instruct 路线虽无 base 路线 `modules_to_save: embed_tokens` 带来的强记忆能力，
+> 但仍建议训完按 [stepshooting-base.md §5.6](stepshooting-base.md#56-选择最佳-ckpt关键步骤) 的方法
+> 抽测多个 ckpt 选 sweet spot，instruct 路线的 sweet spot 可能在 step 1500~3000 区间。
 
 ## 4. 评测 Loss（可选）
 
