@@ -87,8 +87,8 @@
 - [ ] T6.1 DPO 偏好数据构造（可从 SFT 样本手工挑选 chosen/rejected）
 - [ ] T6.2 DPO 训练脚本
 - [ ] T6.3 Echo v2（DPO 版）产出
-- [ ] T6.4 int4 量化脚本（GGUF 或 bitsandbytes）
-- [ ] T6.5 把量化后 GGUF 接入 Ollama，编写一条 `ollama run echo` 跑通的演示脚本
+- [x] T6.4 int4 量化脚本（GGUF 或 bitsandbytes）
+- [x] T6.5 把量化后 GGUF 接入 Ollama，编写一条 `ollama run echo` 跑通的演示脚本
 - [ ] T6.6 Echo final 版本发布
 - [ ] T6.7 评估是否接入 `llama-cpp-python` 程序化调用 GGUF（`uv sync --extra deploy-llamacpp`）；Ollama 路径足够时可不做
 <!-- M6 END -->

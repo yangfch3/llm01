@@ -172,10 +172,10 @@ uv run python scripts/merge.py --adapter-dir checkpoints/sft-base/checkpoint-N
 
 底座 + adapter → 完整 bf16 权重。导出 GGUF 前必须做。
 
-## 8. 导出 GGUF + 量化（Linux 机器）
+## 8. 导出 GGUF + 量化（Linux / Mac）
 
-> 当前 llama.cpp 仅在 Linux 机器上就绪，本节命令在该机器执行。
-> Win/Mac 后续打通后命令一致。merged-base → GGUF 文件的机器间同步走 scp/rsync 自行处理。
+> 当前优先在 Linux 机器上跑通；Mac 命令几乎一致（见 §8.1 末尾说明），
+> Win 后续打通。merged-base → GGUF 文件的机器间同步走 scp/rsync 自行处理。
 
 ### 8.1 一次性环境（Linux）
 
@@ -208,6 +208,9 @@ export LLAMA_CPP_PYTHON=$LLAMA_CPP_DIR/.venv-convert/bin/python
 > 为何不纳入 echo 的 pyproject.toml：requirements 含 `torch==2.11.0` 钉版本，
 > 与 echo 的 CUDA torch（cu124, 2.4/2.5）冲突；gguf/numpy/sentencepiece 等版本
 > 跟 llama.cpp 仓库走，单独 venv 隔离最干净。
+
+> Mac 等价：上述 4 步命令完全相同；cmake 默认开 Metal GPU 加速（无需 `-DGGML_CUDA=ON`），
+> 量化执行命令与 Linux 一致。GGUF 二进制平台无关，任一机器产出的文件可直接互换使用。
 
 ### 8.2 转换 + 量化
 
@@ -271,7 +274,16 @@ ollama run echo
 - Win 3060 12GB int4 ≥ 20 tok/s
 - Mac Apple Silicon Q4_K_M ≥ 15 tok/s
 
-`ollama run` 末尾会打印 `eval rate: X tokens/s`，即为生成速度。
+`ollama run echo --verbose` 末尾会打印 `eval rate: X tokens/s`，即为生成速度。
+
+**实测记录**：
+
+| 平台 | 设备 | 量化 | eval rate | 日期 |
+|---|---|---|---|---|
+| Win | RTX 3060 12GB | Q4_K_M | ~128 tok/s（3 次均值） | 2026-05-29 |
+| Mac | — | Q4_K_M | 待 M6.5 T6.5.4 补 | — |
+
+> 3060 跑出 128 tok/s 远超 20 tok/s 验收线，原因：Ollama 默认走 CUDA 加速 + 1.5B 模型 Q4_K_M 显存仅 ~1GB 完全装入 VRAM + KV cache 命中（第 2、3 次 prompt 重叠系统提示，prompt eval 几乎免费）。
 
 ## 失败案例参考
 
