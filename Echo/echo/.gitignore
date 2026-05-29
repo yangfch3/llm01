@@ -2,4 +2,3 @@
 checkpoints/
 data/
 preflight-report-*.md
-eval/results*.json

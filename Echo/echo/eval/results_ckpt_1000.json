@@ -1,0 +1,336 @@
+{
+  "ppl": {
+    "avg_loss": 1.4441,
+    "perplexity": 4.24,
+    "valid_tokens": 895768
+  },
+  "questions": {
+    "total": 50,
+    "correct": 45,
+    "accuracy": 0.9,
+    "details": [
+      {
+        "question": "中国的首都是哪里？",
+        "expected": "北京",
+        "generated": "中国首都是北京。",
+        "correct": true
+      },
+      {
+        "question": "中国最长的河流是哪一条？",
+        "expected": "长江",
+        "generated": "中国最长的河流是长江，它流经中国11个省，全长约6300公里。",
+        "correct": true
+      },
+      {
+        "question": "《红楼梦》的作者是谁？",
+        "expected": "曹雪芹",
+        "generated": "《红楼梦》的作者是曹雪芹。",
+        "correct": true
+      },
+      {
+        "question": "唐朝的开国皇帝是谁？",
+        "expected": "李渊",
+        "generated": "唐朝的开国皇帝是李渊。",
+        "correct": true
+      },
+      {
+        "question": "太阳系中离太阳最近的行星是？",
+        "expected": "水星",
+        "generated": "太阳系中离太阳最近的行星是水星。",
+        "correct": true
+      },
+      {
+        "question": "水的化学式是什么？",
+        "expected": "H2O",
+        "generated": "水的化学式是H2O。",
+        "correct": true
+      },
+      {
+        "question": "一年有多少个月？",
+        "expected": "12",
+        "generated": "一年有12个月。",
+        "correct": true
+      },
+      {
+        "question": "光的速度大约是每秒多少公里？",
+        "expected": "30万",
+        "generated": "光速大约是每秒299792458米或每秒3.0000000000000008 x 10^8米。",
+        "correct": false
+      },
+      {
+        "question": "人体最大的器官是什么？",
+        "expected": "皮肤",
+        "generated": "人体最大的器官是皮肤。",
+        "correct": true
+      },
+      {
+        "question": "成年人共有多少颗牙齿？",
+        "expected": "32",
+        "generated": "成年人通常有32颗牙齿。",
+        "correct": true
+      },
+      {
+        "question": "鲁迅的原名是什么？",
+        "expected": "周树人",
+        "generated": "鲁迅的原名是周树人。",
+        "correct": true
+      },
+      {
+        "question": "中国四大发明中除了造纸、火药、指南针，还有什么？",
+        "expected": "印刷",
+        "generated": "中国四大发明包括造纸、火药、指南针和印刷术。",
+        "correct": true
+      },
+      {
+        "question": "珠穆朗玛峰位于哪两个国家的边境？",
+        "expected": "尼泊尔",
+        "generated": "珠穆朗玛峰位于喜马拉雅山脉的马哈朗格尔山脉，位于尼泊尔和中国边境。",
+        "correct": true
+      },
+      {
+        "question": "熊猫主要吃什么？",
+        "expected": "竹",
+        "generated": "熊猫主要以竹子为食，它们是食竹动物。熊猫的消化系统特别适合消化竹子，因为它们的胃中有一种特殊的细菌，可以分解竹子中的纤维素。熊猫通常每天吃18-20磅（8-9千克）的竹子，它们会花费大部分时间在树上，用它们的牙齿和爪子撕开竹子。熊猫是独居动物，它们通常独自生活，只有在繁殖季节才会与伴侣在一起。熊猫是濒危物种，它们的数量正在下降，因此保护它们的栖息地和繁殖是至关重要的。",
+        "correct": true
+      },
+      {
+        "question": "汉语拼音中一共有多少个声调？",
+        "expected": "4",
+        "generated": "汉语拼音中一共有五个声调。",
+        "correct": false
+      },
+      {
+        "question": "What is the capital of France?",
+        "expected": "Paris",
+        "generated": "The capital of France is Paris.",
+        "correct": true
+      },
+      {
+        "question": "What is the capital of Japan?",
+        "expected": "Tokyo",
+        "generated": "The capital of Japan is Tokyo.",
+        "correct": true
+      },
+      {
+        "question": "Who wrote the play Romeo and Juliet?",
+        "expected": "Shakespeare",
+        "generated": "Romeo and Juliet is a play written by William Shakespeare.",
+        "correct": true
+      },
+      {
+        "question": "What is the largest ocean on Earth?",
+        "expected": "Pacific",
+        "generated": "The largest ocean on Earth is the Pacific Ocean, which covers an area of approximately 63,800,000 square miles (165,200,000 square kilometers).",
+        "correct": true
+      },
+      {
+        "question": "What is the chemical symbol for gold?",
+        "expected": "Au",
+        "generated": "The chemical symbol for gold is Au.",
+        "correct": true
+      },
+      {
+        "question": "How many continents are there on Earth?",
+        "expected": "7",
+        "generated": "There are seven continents on Earth: Africa, Antarctica, Asia, Australia, Europe, North America, and South America.",
+        "correct": false
+      },
+      {
+        "question": "Which planet is known as the Red Planet?",
+        "expected": "Mars",
+        "generated": "The planet known as the Red Planet is Mars.",
+        "correct": true
+      },
+      {
+        "question": "What gas do plants absorb from the air for photosynthesis?",
+        "expected": "carbon dioxide",
+        "generated": "Plants absorb carbon dioxide (CO2) from the air for photosynthesis.",
+        "correct": true
+      },
+      {
+        "question": "Who painted the Mona Lisa?",
+        "expected": "Leonardo",
+        "generated": "The Mona Lisa is a portrait painting by Leonardo da Vinci, which was created between 1503 and 1506. It is housed in the Louvre Museum in Paris, France.",
+        "correct": true
+      },
+      {
+        "question": "What is the boiling point of water in Celsius at sea level?",
+        "expected": "100",
+        "generated": "The boiling point of water in Celsius at sea level is 100 degrees.",
+        "correct": true
+      },
+      {
+        "question": "12 加 7 等于多少？",
+        "expected": "19",
+        "generated": "12 加 7 等于 19。",
+        "correct": true
+      },
+      {
+        "question": "25 减 8 等于多少？",
+        "expected": "17",
+        "generated": "25减8等于17。",
+        "correct": true
+      },
+      {
+        "question": "9 乘以 6 等于多少？",
+        "expected": "54",
+        "generated": "9乘以6等于54。",
+        "correct": true
+      },
+      {
+        "question": "48 除以 6 等于多少？",
+        "expected": "8",
+        "generated": "48除以6等于8。",
+        "correct": true
+      },
+      {
+        "question": "13 加 28 等于多少？",
+        "expected": "41",
+        "generated": "13 加上28等于41。",
+        "correct": true
+      },
+      {
+        "question": "100 减 37 等于多少？",
+        "expected": "63",
+        "generated": "100 减 37 等于 63。",
+        "correct": true
+      },
+      {
+        "question": "7 乘以 8 等于多少？",
+        "expected": "56",
+        "generated": "7 乘以 8 等于 56。",
+        "correct": true
+      },
+      {
+        "question": "What is 15 plus 26?",
+        "expected": "41",
+        "generated": "15 plus 26 equals 41.",
+        "correct": true
+      },
+      {
+        "question": "What is 50 minus 23?",
+        "expected": "27",
+        "generated": "50 minus 23 is equal to 27.",
+        "correct": true
+      },
+      {
+        "question": "What is 11 times 11?",
+        "expected": "121",
+        "generated": "11 times 11 is 121.",
+        "correct": true
+      },
+      {
+        "question": "What is 81 divided by 9?",
+        "expected": "9",
+        "generated": "81 divided by 9 is equal to 9.",
+        "correct": true
+      },
+      {
+        "question": "What is 144 divided by 12?",
+        "expected": "12",
+        "generated": "144 divided by 12 is equal to 12.",
+        "correct": true
+      },
+      {
+        "question": "What is 6 squared?",
+        "expected": "36",
+        "generated": "6 squared is 36.",
+        "correct": true
+      },
+      {
+        "question": "What is 2 to the power of 10?",
+        "expected": "1024",
+        "generated": "2 to the power of 10 is equal to 1024.",
+        "correct": true
+      },
+      {
+        "question": "What is the sum of 100, 200 and 300?",
+        "expected": "600",
+        "generated": "The sum of 100, 200, and 300 is 600.",
+        "correct": true
+      },
+      {
+        "question": "How many letter 'r' are there in the word 'strawberry'?",
+        "expected": "3",
+        "generated": "The word \"strawberry\" contains two letters \"r\".",
+        "correct": false
+      },
+      {
+        "question": "How many letter 'a' are there in the word 'banana'?",
+        "expected": "3",
+        "generated": "There are 3 letters 'a' in the word 'banana'.",
+        "correct": true
+      },
+      {
+        "question": "单词 mississippi 里有几个字母 s？",
+        "expected": "4",
+        "generated": "单词 Mississippi 有 3 个字母 s。",
+        "correct": false
+      },
+      {
+        "question": "单词 hello 一共有几个字母？",
+        "expected": "5",
+        "generated": "单词“hello”有5个字母。",
+        "correct": true
+      },
+      {
+        "question": "把单词 cat 反过来拼写是什么？",
+        "expected": "tac",
+        "generated": "反写单词“cat”是“tac”。",
+        "correct": true
+      },
+      {
+        "question": "今天是星期三，三天后是星期几？",
+        "expected": "六",
+        "generated": "今天是星期三，三天后是星期六。",
+        "correct": true
+      },
+      {
+        "question": "If today is Monday, what day will it be in 5 days?",
+        "expected": "Saturday",
+        "generated": "If today is Monday, in 5 days it will be Saturday.",
+        "correct": true
+      },
+      {
+        "question": "小明有 5 个苹果，给了小红 2 个，他还剩几个？",
+        "expected": "3",
+        "generated": "小明还剩下 3 个苹果。",
+        "correct": true
+      },
+      {
+        "question": "一个长方形的长是 6，宽是 4，面积是多少？",
+        "expected": "24",
+        "generated": "长方形的面积可以通过将长度乘以宽度来计算。因此，长方形的面积为 6 x 4 = 24 平方单位。",
+        "correct": true
+      },
+      {
+        "question": "Alice is older than Bob, and Bob is older than Carol. Who is the youngest?",
+        "expected": "Carol",
+        "generated": "Based on the information provided, it is not possible to determine who is the youngest among Alice, Bob, and Carol.",
+        "correct": true
+      }
+    ]
+  },
+  "dialogue_samples": [
+    {
+      "user": "你好，请介绍一下你自己。",
+      "echo": "好的，我是一款AI聊天机器人，可以回答你提出的问题或提供信息。我可以告诉你有关天气、新闻和许多其他主题的信息。如果你需要任何帮助，请告诉我！"
+    },
+    {
+      "user": "What is the capital of France?",
+      "echo": "The capital city of France is Paris, located in north central France on the River Seine."
+    },
+    {
+      "user": "请用简单的语言解释什么是机器学习。",
+      "echo": "机器学习是人工智能的一个分支，它允许计算机系统通过经验自动改进，而无需明确编程。它使用算法从数据中学习并识别模式，以便在未来的输入上进行预测或决策。机器学习可以应用于许多应用程序，例如图像和语音识别、自然语言处理、个性化推荐和聊天机器人等。实质上，机器学习使机器能够“自我完善”，变得更加强大，从而可以提高其性能。"
+    },
+    {
+      "user": "1+1等于几？",
+      "echo": "1 + 1 等于2。"
+    },
+    {
+      "user": "写一首关于春天的短诗。",
+      "echo": "春，一个温暖的季节，花朵绽放，阳光明媚，鸟儿歌唱。树木郁郁葱葱，大地苏醒，一片绿意盎然。野花盛开，蜜蜂忙碌，大自然在唱着欢乐的歌曲。春天来了，一切都变得美丽，让我们一起迎接这个美妙的季节！"
+    }
+  ]
+}
