@@ -3,7 +3,7 @@
 > 日期：2026-05-28
 > 阶段：M5 · echo 落地
 > 路线：base（Qwen2.5-1.5B + QLoRA + modules_to_save embed_tokens）
-> 性质：实验报告 + 机理分析。**操作 SOP 见 [`Echo/echo/stepshooting-base.md` §5.6](../../Echo/echo/stepshooting-base.md)；
+> 性质：实验报告 + 机理分析。**操作 SOP 见 `Echo/echo/stepshooting-base.md` §5.6；
 > 踩坑速查见 [`troubleshooting.md`](troubleshooting.md) 2026-05-28 条目。**
 
 ## 1. 摘要
@@ -218,7 +218,7 @@ Qwen2.5-1.5B base 实测在 **step 500（epoch 0.28）** 就已经：
 本次产出可作为 SFT / 对齐章节的实证素材：
 
 - ch10 SFT
-  - "为什么 SFT 不可替代"：[`generate_base.py`](../../Echo/echo/scripts/generate_base.py) 三组对照样本（base raw / base chatml / SFT）
+  - "为什么 SFT 不可替代"：`Echo/echo/scripts/generate_base.py` 三组对照样本（base raw / base chatml / SFT）
   - "为什么 epoch 太多会塌"：本次 ckpt-1000 vs ckpt-4000 对照
   - "为什么短模板题最先塌"：选择性塌缩现象
 - ch11 对齐 / DPO
