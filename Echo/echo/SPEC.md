@@ -230,3 +230,70 @@ T5.11 补 README.md 训练配方
 - 文件编码 UTF-8，换行 LF，末尾留空行
 - 底座模型通过 HF model id 引用，不在仓库里存权重
 - chat template 使用 Qwen2 官方格式，不自造
+
+## 13. DPO（M6 对齐阶段）
+
+SFT 后追加一轮 DPO，目标是降低 SFT mode collapse 残留 + 提升回答信息密度。
+
+### 13.1 起点与产物
+
+| 项 | 值 |
+|---|---|
+| 起点模型 | `checkpoints/merged-base/`（SFT 合并后完整 bf16 权重） |
+| 训练方式 | QLoRA + trl `DPOTrainer` |
+| 参考模型 | trl 1.4 在 PEFT + `ref_model=None` 下自动用 disable_adapter 当 ref，省一份显存 |
+| 产物 adapter | `checkpoints/dpo-base/final` |
+| 合并产物 | `checkpoints/merged-dpo/`（Echo v2） |
+
+### 13.2 数据
+
+| 项 | 值 |
+|---|---|
+| 数据源 | `wenbopan/Chinese-dpo-pairs`（中文混合偏好集，10735 条） |
+| 默认保留 source | `sharegpt` / `ultrachat` / `evol_instruct` / `openorca` / `truthy_dpo` / `false_qa` |
+| 过滤后规模 | ~8000 条（含 5% val） |
+| 输入格式 | trl chat 标准三段：`prompt` / `chosen` / `rejected`，均为 messages 数组 |
+| system prompt | 与 SFT 一致：`You are a helpful assistant.` |
+
+### 13.3 训练超参
+
+| 项 | base 主线（`dpo-8g-base.yaml`） | 备注 |
+|---|---|---|
+| 量化 | NF4 4bit + double quant | 同 SFT |
+| LoRA r / alpha | 64 / 128 | 不开 modules_to_save |
+| LoRA target | q/k/v/o + gate/up/down_proj | 同 SFT |
+| beta | 0.1 | trl 默认 |
+| loss_type | `sigmoid` | 标准 DPO |
+| max_length | 1024 | prompt + completion 总长 |
+| Effective batch | 1 × 8 grad_accum | DPO 单步 4 份 forward，比 SFT 重 |
+| LR | 5e-6 cosine, warmup 10% | **必须比 SFT 小一个数量级** |
+| Epoch | 1 | 8K 数据 1 epoch 已足，多了 KL 拉太开 |
+| save_steps | 200 | ~5 个 ckpt 便于挑 sweet spot |
+
+### 13.4 配置矩阵
+
+| 配置 | 用途 | 环境 |
+|---|---|---|
+| `dpo-8g-base.yaml` | 生产训练（默认） | Win 3060 12GB QLoRA |
+| `dpo-full-base.yaml` | 大显存 + per_device=4 | 大显存 GPU QLoRA |
+| `dpo-tiny-base.yaml` | 代码验证 ~20 步 | Mac/CPU fp32 |
+
+### 13.5 文件清单
+
+```
+configs/
+  dpo-8g-base.yaml / dpo-full-base.yaml / dpo-tiny-base.yaml
+scripts/
+  prepare_dpo_data.py  下载 + 转 trl 格式 + 过滤 + 切分
+  dpo.py               QLoRA DPO 训练入口
+  merge_dpo.py         合并 DPO adapter → Echo v2
+src/echo/data.py       追加 load_dpo_data()
+data/dpo/{train,val}.jsonl  数据产物（.gitignore）
+```
+
+### 13.6 验收口径
+
+- DPO 训练 loss 下降，`rewards/margins` 正向稳定 > 0
+- SFT 抽测的"短模板题"多样性恢复（对比 SFT ckpt-4000 塌缩）
+- 50 题准确率不退化（不低于 SFT 的 0.83）
+

@@ -1,0 +1,66 @@
+# echo DPO — base 主线 · Win RTX 3060 12GB 默认配置（QLoRA）
+# 起点：checkpoints/merged-base/（SFT 后已合并的完整 bf16 权重）
+# 产出：checkpoints/dpo-base/
+#
+# 关键决策：
+#   - 不开 modules_to_save：DPO 阶段已不需要教 ChatML / 停止行为，
+#     SFT 时把 embed_tokens 学到位即可，DPO 只调"偏好方向"
+#   - r=64 (vs SFT r=128)：DPO 是细调阶段，常规 LoRA 够用，省显存
+#   - learning_rate 5e-6：必须比 SFT (1e-4) 小一个数量级，DPO 稍大就崩
+#   - beta=0.1：trl 默认值，鼓励但不强迫偏离 ref，适配 8K 中等规模数据
+#   - num_epochs=1：8K 数据 + 5e-6 lr，1 epoch 已足够，多了易把 ref KL 拉太开
+#   - effective batch=8（per_device=1 × grad_accum=8）：DPO 单步要算 chosen+rejected
+#     两份 forward + ref 两份，显存压力 ~= SFT 的 2.5 倍，batch 不能太大
+
+model:
+  model_path: "checkpoints/merged-base"   # SFT merge 产出的完整模型
+
+quantization:
+  enabled: true
+  quant_type: "nf4"
+  compute_dtype: "bfloat16"
+  double_quant: true
+
+lora:
+  r: 64
+  alpha: 128                     # alpha = 2 * r
+  dropout: 0.05
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
+data:
+  train_file: "data/dpo/train.jsonl"
+  val_file: "data/dpo/val.jsonl"
+
+training:
+  seed: 42
+  max_length: 1024               # prompt + response 总长上限
+  beta: 0.1                      # DPO KL 惩罚权重
+  loss_type: "sigmoid"           # 标准 DPO loss
+  num_epochs: 1
+  per_device_batch_size: 1
+  grad_accum_steps: 8            # effective batch = 8
+  learning_rate: 5.0e-6          # DPO 必须比 SFT 小一个数量级
+  lr_scheduler: "cosine"
+  warmup_ratio: 0.1              # DPO 起步建议 10% warmup（比 SFT 的 3% 大）
+  optim: "paged_adamw_8bit"
+  bf16: true
+  fp16: false
+  logging_steps: 10
+  eval_strategy: "steps"
+  eval_steps: 200
+  save_strategy: "steps"
+  save_steps: 200                # 1 epoch ~ 950 步，~5 个 ckpt 便于挑 sweet spot
+  save_total_limit: 6
+  max_steps: -1
+  max_grad_norm: 1.0
+  gradient_checkpointing: true
+  num_workers: 2
+  report_to: "none"
+  output_dir: "checkpoints/dpo-base"

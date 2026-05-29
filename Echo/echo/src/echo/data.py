@@ -34,3 +34,28 @@ def format_messages_for_trl(example: dict) -> dict:
     方便后续加自定义处理逻辑。
     """
     return example
+
+
+def load_dpo_data(data_path: Path) -> Dataset:
+    """从 JSONL 文件加载 DPO 偏好数据为 HuggingFace Dataset。
+
+    每行格式（trl DPOTrainer chat 标准）：
+        {
+          "prompt":   [{"role": "system", ...}, {"role": "user", ...}],
+          "chosen":   [{"role": "assistant", "content": ...}],
+          "rejected": [{"role": "assistant", "content": ...}],
+        }
+
+    Args:
+        data_path: JSONL 文件路径。
+
+    Returns:
+        HuggingFace Dataset，含 prompt / chosen / rejected 三列。
+    """
+    records = []
+    with open(data_path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                records.append(json.loads(line))
+    return Dataset.from_list(records)

@@ -172,10 +172,103 @@ uv run python scripts/merge.py --adapter-dir checkpoints/sft-base/checkpoint-N
 
 底座 + adapter → 完整 bf16 权重。导出 GGUF 前必须做。
 
+## 7.5 DPO（M6 对齐阶段，可选）
+
+> 路线：`merged-base` → DPO QLoRA → `dpo-base` adapter → 合并产出 Echo v2 (`merged-dpo`)。
+> 完成 §1-§7 拿到 `merged-base` 后才能开始本节。设计详情见 `SPEC.md` §13。
+
+### 7.5.1 DPO 偏好数据准备
+
+```bash
+uv run python scripts/prepare_dpo_data.py
+```
+
+下载 `wenbopan/Chinese-dpo-pairs`（10735 条混合中文偏好集），过滤 flan 翻译题等
+非对话风格 source，输出到 `data/dpo/{train,val}.jsonl`（默认 ~7600 + 400 条）。
+
+可选参数：`--max-samples N`、`--keep-all-sources`、`--force`。
+
+### 7.5.2 DPO 训练
+
+```bash
+uv run python scripts/dpo.py --config configs/dpo-8g-base.yaml
+```
+
+- 起点：`checkpoints/merged-base/`（SFT merge 产物）
+- 产出：`checkpoints/dpo-base/checkpoint-* + final`
+- 3060 12GB 上 1 epoch (~950 步) 预计 4-6 小时
+
+> ref_model 处理：trl 1.4 在 PEFT + `ref_model=None` 下自动用 `disable_adapter` 当 ref，
+> 省一份显存。无需显式加载第二份模型。
+
+> 显存峰值预估比 SFT 高 ~2.5×（DPO 单步要算 chosen + rejected 共 4 份 forward）。
+> OOM 先把 `max_length` 从 1024 降到 768。
+
+代码路径验证（Mac/小机器或调试用）：
+
+```bash
+uv run python scripts/dpo.py --config configs/dpo-tiny-base.yaml
+```
+
+无量化、20 步、~5 分钟跑完，仅验证代码能跑通。
+
+### 7.5.3 DPO 训练健康指标
+
+DPO 训练日志关键字段（与 SFT 不同）：
+
+| 指标 | 健康值 | 异常信号 |
+|---|---|---|
+| `loss` | 从 0.693 (= ln 2) 缓慢下降到 0.5~0.6 | 不动 → 信号太弱；骤降 → 过拟合 |
+| `rewards/margins` | 持续正向 > 0 且缓慢上升 | 长期 ≈ 0 → 数据质量差 |
+| `rewards/accuracies` | 0.6~0.85 区间 | < 0.55 → ref 与 model 没拉开 |
+| `rewards/chosen` 与 `rewards/rejected` | chosen 上行、rejected 下行 | 都同向 → 模型偏离 ref 太远 |
+
+> 若 `rewards/margins` 在 100 步后仍 ≈ 0，先排查数据：很多 chosen/rejected 实际差异极小。
+
+### 7.5.4 选 DPO ckpt + 合并 Echo v2
+
+抽测方式与 §5.6 一致，**重点测 SFT 阶段塌缩过的短模板题**（如"写一句晚安祝福"），
+看 DPO 是否恢复多样性。
+
+```bash
+# 加载 merged-base + DPO adapter 推理（默认 dpo-base/final）
+uv run python scripts/generate.py \
+    --merged-dir checkpoints/merged-base \
+    --adapter-dir checkpoints/dpo-base/final
+```
+
+> 注意：`generate.py` 当前默认 `--adapter-dir checkpoints/sft-base/final`，
+> 测 DPO 必须显式传 `--adapter-dir checkpoints/dpo-base/...`。
+
+确定最佳 ckpt 后合并（merged-base + DPO adapter → Echo v2）：
+
+```bash
+# 默认：dpo-base/final → merged-dpo/
+uv run python scripts/merge_dpo.py
+
+# 指定中间 ckpt
+uv run python scripts/merge_dpo.py --adapter-dir checkpoints/dpo-base/checkpoint-N
+```
+
+`checkpoints/merged-dpo/` 即 **Echo v2** 完整 bf16 权重。后续 §8/§9 部署链路把
+`merged-base` 替换为 `merged-dpo` 即可。
+
 ## 8. 导出 GGUF + 量化（Linux / Mac）
 
 > 当前优先在 Linux 机器上跑通；Mac 命令几乎一致（见 §8.1 末尾说明），
 > Win 后续打通。merged-base → GGUF 文件的机器间同步走 scp/rsync 自行处理。
+>
+> **v1 vs v2**：下方默认基于 `merged-base` 走 v1（仅 SFT）部署。完成 §7.5 后
+> 走 v2 部署：
+>
+> ```bash
+> uv run python scripts/export_gguf.py \
+>     --merged-dir checkpoints/merged-dpo \
+>     --output-dir checkpoints/gguf-dpo
+> ```
+>
+> §9 Ollama 部署同理：`Modelfile` 里 `FROM ./checkpoints/gguf-dpo/echo-Q4_K_M.gguf`，
+> `ollama create` 起一个新模型名（如 `echo-v2`）与 v1 共存。
 
 ### 8.1 一次性环境（Linux）
 

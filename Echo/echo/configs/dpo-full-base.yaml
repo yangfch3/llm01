@@ -1,0 +1,56 @@
+# echo DPO — base 主线 · 大显存 GPU 配置（QLoRA）
+# 与 dpo-8g-base.yaml 共享代码，仅放大 batch + 关 grad_ckpt 提速。
+# 适用：A100 / H100 / 4090 24GB+
+
+model:
+  model_path: "checkpoints/merged-base"
+
+quantization:
+  enabled: true
+  quant_type: "nf4"
+  compute_dtype: "bfloat16"
+  double_quant: true
+
+lora:
+  r: 64
+  alpha: 128
+  dropout: 0.05
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
+data:
+  train_file: "data/dpo/train.jsonl"
+  val_file: "data/dpo/val.jsonl"
+
+training:
+  seed: 42
+  max_length: 1024
+  beta: 0.1
+  loss_type: "sigmoid"
+  num_epochs: 1
+  per_device_batch_size: 4         # 大显存放大
+  grad_accum_steps: 2              # effective batch = 8（与 8g 配置等效）
+  learning_rate: 5.0e-6
+  lr_scheduler: "cosine"
+  warmup_ratio: 0.1
+  optim: "paged_adamw_8bit"
+  bf16: true
+  fp16: false
+  logging_steps: 10
+  eval_strategy: "steps"
+  eval_steps: 200
+  save_strategy: "steps"
+  save_steps: 200
+  save_total_limit: 6
+  max_steps: -1
+  max_grad_norm: 1.0
+  gradient_checkpointing: false    # 大显存关闭加速
+  num_workers: 4
+  report_to: "none"
+  output_dir: "checkpoints/dpo-base"
