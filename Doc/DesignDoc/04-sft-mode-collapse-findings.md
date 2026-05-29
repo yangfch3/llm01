@@ -1,9 +1,13 @@
 # Echo SFT mode collapse 实验发现
 
 > 日期：2026-05-28
+>
 > 阶段：M5 · echo 落地
+>
 > 路线：base（Qwen2.5-1.5B + QLoRA + modules_to_save embed_tokens）
+>
 > 性质：实验报告 + 机理分析。**操作 SOP 见 `Echo/echo/stepshooting-base.md` §5.6；
+> 
 > 踩坑速查见 [`troubleshooting.md`](troubleshooting.md) 2026-05-28 条目。**
 
 ## 1. 摘要

@@ -1,7 +1,6 @@
 # 依赖兼容性与部署选型说明
 
-> 本文记录本项目对 Python 3.12 + 双平台（Win 3060 12GB / Mac Apple Silicon）下的依赖兼容性评估，
-> 以及由此推导出的部署路线选型。M0 选定依赖版本、M5/M6 部署阶段需对照本文。
+> 本文记录本项目对 Python 3.12 + 双平台（Win 3060 12GB / Mac Apple Silicon）下的依赖兼容性评估，以及由此推导出的部署路线选型。M0 选定依赖版本、M5/M6 部署阶段需对照本文。
 >
 > **决策性文档，改动频率低**。具体踩坑细节迁到 [`troubleshooting.md`](troubleshooting.md)。
 

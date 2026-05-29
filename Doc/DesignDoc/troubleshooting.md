@@ -1,6 +1,7 @@
 # 踩坑记录
 
 > 跨平台开发活文档，长期追加。
+>
 > 主索引文档（决策性内容）见 [`02-deps-compatibility.md`](02-deps-compatibility.md)。
 
 ## 格式约定
