@@ -170,8 +170,8 @@ Hello! How can I help you today?
 本地预览见上方"文档站"小节。
 
 **Q: 想直接拿 echo 模型跑对话，不想训练，怎么办？**
-量化产物（GGUF）发布到 HuggingFace Hub（路径见 `Echo/echo/README.md`），
-`ollama create echo-v2 -f Modelfile.v2 && ollama run echo-v2` 一行搞定。
+当前权重未发布到 HuggingFace Hub，需自行训练或合并产出 GGUF 后通过 Ollama 部署。
+完整流程见 [`Echo/echo/README.md`](Echo/echo/README.md)。
 
 ## License
 
