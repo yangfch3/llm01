@@ -4,11 +4,11 @@
 
 1. 用 **uv** 管理 Python 项目（环境、依赖、运行）
 2. 理解 PyTorch 在 **CUDA / MPS / CPU** 三档设备的选择策略，能让代码 "一份脚本两端跑"
-3. 掌握 **VSCode 调试 + Jupyter** 两条最小工作流，足以支撑后续章节练习
+3. 掌握 **VSCode 调试** 最小工作流，足以支撑后续章节练习
 
 ## 前置依赖
 
-- 已读 `README.md` 完成 `uv sync`
+- 已读 [`README.md`](https://github.com/yangfch3/llm01) 完成 `uv sync`
 - 已跑过 `python scripts/doctor.py`，至少看到 `[ OK ] 设备 smoke test 通过`
 
 ## 1. uv 是什么
@@ -19,14 +19,16 @@
 
 | 场景 | 命令 |
 |---|---|
-| 同步当前项目所有依赖 | `uv sync --extra dev --extra courseware --extra echo-mini --extra train-cuda`（Win） |
+| 同步当前项目所有依赖 | `uv sync --extra dev --extra courseware --extra echo-mini --extra echo --extra train-cuda`（Win） |
 | 运行脚本（自动用项目 venv） | `uv run python xxx.py` |
 | 进入交互式 Python | `uv run python` |
 | 临时跑一个工具（不污染项目） | `uvx ruff check .` |
 
 `uv sync` 会读 `pyproject.toml` + `uv.lock`，确保锁文件一致。**改了依赖记得 commit `uv.lock`**。
 
-## 2. 设备抽象：为什么不能写死 `cuda`
+## 2. 设备抽象
+
+为什么不能写死为 `torch.device("cuda")` ?
 
 Win 上 `torch.device("cuda")`，Mac 上要写 `torch.device("mps")`，CI 或纯 CPU 机器要写 `torch.device("cpu")`。三处都硬编码 = 一份代码三套分支。
 
@@ -35,8 +37,8 @@ Win 上 `torch.device("cuda")`，Mac 上要写 `torch.device("mps")`，CI 或纯
 ```python
 from Echo.shared.device import get_device
 
-device = get_device()           # 自动 cuda → mps → cpu
-device = get_device(prefer="cpu")  # 显式指定（不可用时降级）
+device = get_device()               # 自动 cuda → mps → cpu
+device = get_device(prefer="cpu")   # 显式指定偏好（不可用时降级）
 ```
 
 **铁律**：Playground / Echo 业务代码**禁止**出现字符串 `"cuda"` `"mps"` `"cpu"`。
@@ -57,21 +59,7 @@ device = get_device(prefer="cpu")  # 显式指定（不可用时降级）
 
 无需手动 `pip install torch`，`uv sync` 会按当前平台拉对的 wheel。
 
-## 4. Jupyter 最小工作流
-
-仓库已装 `jupyter` + `ipykernel`（在 `courseware` 组）。两种用法：
-
-```bash
-# 方式 A：浏览器版
-uv run jupyter lab
-
-# 方式 B：VSCode 内置 Notebook（推荐）
-# 直接新建 .ipynb，右上角选 kernel = 项目 .venv 即可
-```
-
-**本仓库练习以 `.py` 脚本为主**，notebook 仅做临时探索；不要把 `.ipynb` 提交进 `Playground/` 主路径，避免 diff 噪音。
-
-## 5. VSCode 调试最小工作流
+## 4. VSCode 调试最小工作流
 
 `.vscode/launch.json` 一份最小配置（按需自建，不入仓库）：
 
@@ -98,7 +86,13 @@ uv run jupyter lab
 - 选解释器：`Ctrl+Shift+P` → `Python: Select Interpreter` → `.venv/Scripts/python.exe`（Win）/ `.venv/bin/python`（Mac）
 - 断点：行号左侧点一下 → F5 启动 → F10 单步过、F11 单步入
 
-## 6. 练习
+### 可选：Jupyter Notebook
+
+Jupyter 是交互式 Notebook 环境，可逐 cell 执行 Python 并即时看到结果/图表，适合数据探索与可视化调试。仓库已装 `jupyter` + `ipykernel`（`courseware` 组），VSCode 直接新建 `.ipynb`、右上角选 kernel = 项目 `.venv` 即用；浏览器版 `uv run jupyter lab`。
+
+> 本仓库练习以 `.py` 脚本为主，notebook 仅做临时探索；不要把 `.ipynb` 提交进 `Playground/` 主路径，避免 diff 噪音。
+
+## 5. 练习
 
 跑 `Playground/ch01-env-tools/` 下三个脚本，逐个理解：
 

@@ -194,10 +194,18 @@ logits = model(x)                                # 直接调 model() 等价于 m
 3. **`train() / eval()` 切模式**：影响 Dropout、BN（BtachNorm，批归一化） 等 "训推不一致" 算子（详见 ch04）
 4. **`state_dict()` 标准持久化**：保存/加载权重的 lingua franca
 
+> **关于 `weight.shape` 是 `(out, in)` 而不是 `(in, out)`**：
+>
+> ch02 §1.3 把 Linear 层概念上等价于 "右乘 $(in, out)$ 权重矩阵"——输入 $(N, in)$ × 权重 $(in, out)$ → 输出 $(N, out)$。
+>
+> 但 PyTorch 实际把权重**存为 $(out, in)$**，前向算的是 $y = x W^\top + b$。两种写法乘出来结果一样，存储约定选 $(out, in)$ 是为了行优先访存友好。
+>
+> 所以下面 `print(linear.weight.shape)` 看到 `(128, 784)`、`(10, 128)` 不要慌——和概念形状互为转置。
+
 ```python
 for name, p in model.named_parameters():
     print(name, p.shape, p.requires_grad)
-# fc1.weight torch.Size([128, 784]) True   ← 注意 (out, in)，ch02 提过的转置约定
+# fc1.weight torch.Size([128, 784]) True   ← (out, in)，见上方说明
 # fc1.bias   torch.Size([128]) True
 # fc2.weight torch.Size([10, 128]) True
 # fc2.bias   torch.Size([10]) True
@@ -246,7 +254,7 @@ model2.load_state_dict(torch.load("ckpt.pt"))    # 灌权重
 <details markdown="1">
 <summary>答案速查</summary>
 
-1. `(128, 784)`，即 `(out, in)`。PyTorch 内部算的是 $y = x W^\top + b$，行优先访存友好。ch02 已埋过这个伏笔
+1. `(128, 784)`，即 `(out, in)`。PyTorch 内部算的是 $y = x W^\top + b$，行优先访存友好。详见 §3.1 的说明块
 
 2. `nn.CrossEntropyLoss` 内部已经合并了 `log_softmax + NLL`，外面再 softmax 等于做两遍且数值更差。ch02 §3.5 详述
 

@@ -215,7 +215,7 @@ def check_platform_extras(plat: str) -> None:
         else:
             print(f"{WARN} bitsandbytes 未安装或 import 失败。QLoRA 训练需要：")
             print(
-                "       uv sync --extra dev --extra courseware --extra echo-mini --extra train-cuda"
+                "       uv sync --extra dev --extra courseware --extra echo-mini --extra echo --extra train-cuda"
             )
     elif plat == "mac":
         # train-mps 暂无强制依赖
@@ -259,13 +259,13 @@ def print_recommendation(plat: str) -> None:
     header("当前平台推荐入口")
     if plat == "win":
         print(
-            "依赖安装：uv sync --extra dev --extra courseware --extra echo-mini --extra train-cuda"
+            "依赖安装：uv sync --extra dev --extra courseware --extra echo-mini --extra echo --extra train-cuda"
         )
         print("训练脚本：使用 config-full.yaml（生产配置）")
         print("（M6 部署阶段需要 llama-cpp-python 时再加 --extra deploy-llamacpp）")
     elif plat == "mac":
         print(
-            "依赖安装：uv sync --extra dev --extra courseware --extra echo-mini --extra train-mps"
+            "依赖安装：uv sync --extra dev --extra courseware --extra echo-mini --extra echo --extra train-mps"
         )
         print("训练脚本：使用 config-tiny.yaml（仅验证代码正确性）")
         print("（M6 部署阶段需要 llama-cpp-python 时再加 --extra deploy-llamacpp）")
