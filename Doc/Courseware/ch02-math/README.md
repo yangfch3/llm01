@@ -21,16 +21,13 @@
 
 ### 1.1 形状是第一公民
 
-**tensor（张量）= 多维数组**，是 PyTorch 里所有数据的统一形式。维度数（叫 "阶 / rank"）从低到高：
+本节用最朴素的**标量、向量、矩阵**来讲，配套练习用 NumPy `ndarray` 多维数组演示。
 
 - 0 维：标量（一个数），如 `loss = 0.83`
-- 1 维：向量（一行数），如词向量 `[0.1, -0.2, 0.5, ...]`
-- 2 维：矩阵（行 × 列），如一批样本 `(batch, dim)`
-- 3 维及以上：高维 tensor，如一批序列 `(batch, seq_len, dim)`、一批图像 `(batch, channel, H, W)`
+- 1 维数组 - shape(x, )：向量（一行数），如词向量 `[0.1, -0.2, 0.5, ...]`
+- 2 维数组 - shape(x, y)：矩阵（x 行 × y 列），如一批样本 `(batch, dim)`
 
-向量和矩阵是 tensor 的特例。LLM 里的中间结果几乎都是 3D/4D tensor，所以 **"形状" 会成为你 debug 时最常看的东西**。
-
-写每一行 tensor 操作前，先在脑里/注释里写出 shape：
+向量与矩阵的运算中，shape 需要满足一定的数学合法性，养成先在脑里/注释里写出 shape 的习惯：
 
 ```python
 # x: (batch=2, dim_in=3)
@@ -38,13 +35,16 @@
 # y = x @ w  -> (batch=2, dim_out=4)
 ```
 
-形状对了，语义大概率对；形状错了 PyTorch 立刻报：
+形状对了，语义大概率对；形状错了立刻报错，例如 NumPy 下的：
 
 ```
-RuntimeError: mat1 and mat2 shapes cannot be multiplied (2x3 and 4x3)
+ValueError: matmul: Input operand 1 has a mismatch in its core dimension 0,
+            with gufunc signature (n?,k),(k,m?)->(n?,m?) (size 4 is different from 3)
 ```
 
-**这是初学最高频的报错，没有之一**。养成习惯：写 tensor 操作时**先注释 shape**，写完代码再核对一遍。
+**这是初学最高频的报错，没有之一**。养成习惯：写向量/矩阵（以及 ch03 会讲到的 tensor）操作时**先注释 shape**，写完代码再核对一遍。
+
+> **tensor**: 可以先简单理解为 PyTorch 框架对多维数组更高级的包装 + 额外封装了利于模型训练的信息存储。
 
 ### 1.2 点积的两种理解
 

@@ -19,7 +19,16 @@
 
 ## 1. Tensor：带梯度的多维数组
 
-`torch.Tensor` 概念上 = `np.ndarray` + 三件附加品：
+**tensor（张量）= 带梯度等信息的多维数组**，是 PyTorch 里所有数据的统一形式。维度数（叫 "阶 / rank"）从低到高：
+
+- 0 维：标量（一个数），如 `loss = 0.83`
+- 1 维：向量（一行数），如词向量 `[0.1, -0.2, 0.5, ...]`
+- 2 维：矩阵（行 × 列），如一批样本 `(batch, dim)`
+- 3 维及以上：高维 tensor，如一批序列 `(batch, seq_len, dim)`、一批图像 `(batch, channel, H, W)`
+
+LLM 里的中间结果几乎都是 3D/4D tensor，所以 ch02 已经学过的 **"形状"** 会成为你 debug 时最常看的东西。
+
+`torch.Tensor` 概念简单理解：NumPy `.ndarray` + 下表三件附加品
 
 | 属性 | 含义 | NumPy 有吗 |
 |---|---|---|
@@ -28,6 +37,12 @@
 | `requires_grad` | 是否参与 autograd 计算图 | ✗ |
 
 ### 1.1 创建与设备
+
+tensor 必须绑一个设备：CPU tensor 数据在主存，GPU tensor 数据在显存（独立物理芯片）。算子（矩阵乘等）是**设备特定 kernel**：CUDA kernel 只读显存、CPU kernel 只读主存，没法也不应该同时摸两块物理内存的数据。
+
+不同 device 类型的 tensor 其实可以使用 `.to(device)` 互相转换，转换后到同一硬件类型上即可进行算子操作。不在同一硬件类型上进行运算 PyTorch 会抛出 `Expected all tensors to be on the same device` 异常。
+
+所以建 tensor 时就得想清楚去哪。`get_device()` 在 ch01 已统一出口（cuda → mps → cpu），业务代码只认它返回的 `device`，不轻易写死 `"cuda"`/`"cpu"`/`"mps"`。
 
 ```python
 import torch
@@ -46,34 +61,72 @@ x = x.float()                                    # 等价转换；.long() / .to(
 
 **铁律**：业务代码**禁止**写 `.cuda()` / `.to("cuda")`。一律 `.to(device)`，`device` 来自 `get_device()`。
 
-### 1.2 形状操作三连
+### 1.2 shape 与 stride
 
-ch02 反复强调"形状是第一公民"。PyTorch 提供三个高频形状算子：
+ch02 反复强调 "形状是第一公民"，**shape** 是逻辑视图层面的概念，而 tensor 在内存中其实是一维连续数组，需要一个叫 **stride** 的步长信息告知 PyTorch 怎么从逻辑坐标 `(i, j, k)` 算出一维数组中对应的下标。
+
+```
+逻辑视图：
+[[ 0,  1,  2,  3],
+ [ 4,  5,  6,  7],
+ [ 8,  9, 10, 11]]
+
+内存里：[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]   ← 一维连续
+
+stride = (4, 1)
+          ↑  ↑
+          │  └─ 列方向走一步，内存跳 1 个元素（next col = 下一个）
+          └──── 行方向走一步，内存跳 4 个元素（next row = 跳过一整行）
+```
+
+不难想到：不同长度的一维数组 + 不同的 stride 可以灵活组合为不同的 shape。
+
+PyTorch 形状算子按职责分三类 —— 变形、换轴、增删维，每类挑一个常用的就够日常 debug：
 
 ```python
 x = torch.arange(12)               # shape (12,)
+
+# 变形：元素总数不变，重排成新 shape
 x.view(3, 4)                       # (3, 4)，要求内存连续；不连续时报错
 x.reshape(3, 4)                    # 同上但不连续会自动 copy；更稳但偶有性能损失
-x.permute(1, 0)                    # 维度重排，不改数据只改 stride
-x.transpose(0, 1)                  # 交换两个维度，permute 的两元特例
+
+# 换轴：不改数据只改 stride，维度重新排列
+x2 = torch.zeros(2, 3, 4)
+x2.permute(2, 0, 1)                # (2,3,4) → (4,2,3)，任意维度重排
+x2.transpose(0, 1)                 # 交换两个维度，permute 的两元特例
+
+# 增删维：长度为 1 的维度加/去
 x.unsqueeze(0)                     # 加一维：(N,) → (1, N)
-x.squeeze(0)                       # 去一维：(1, N, 1) → (N, 1)
+torch.zeros(1, 5, 1).squeeze()     # 去掉所有长度 1 的维：(1,5,1) → (5,)
 ```
 
 `view` vs `reshape` 是初学常见困惑：**优先 `view`，遇到 stride 报错再换 `reshape`**。
 
-### 1.3 与 NumPy 的桥
+### 1.3 PyTorch 与 NumPy 的桥
+
+实战中常需要 numpy ↔ tensor 互转：matplotlib 可视化、sklearn metric、读写 `.npy`、对照 ch02 numpy 实现 debug。
+
+NumPy 数组永远在 CPU 主存，而 PyTorch 的 tensor：
+
+- 可能在 CPU 主存
+- 也可能在 GPU 显存
+- `requires_grad=True` 时还挂在 autograd 计算图上
+
+对都在 CPU 的数据，下面两个接口零拷贝（共享同一块内存，改一边另一边跟着变）：
 
 ```python
 t = torch.tensor([1.0, 2.0, 3.0])
-a = t.numpy()                      # CPU 上零拷贝；GPU 上必须先 .cpu()
-t2 = torch.from_numpy(a)           # 同样零拷贝；改 a 会改 t2
+a = t.numpy()                      # tensor → numpy，CPU 上零拷贝
+t2 = torch.from_numpy(a)           # numpy → tensor，同样零拷贝；改 a 会改 t2
 ```
 
-GPU tensor 转 numpy 必须 `t.cpu().numpy()`，且如果 `t.requires_grad=True` 还要 `.detach()`：
+但如果 `t` 的 `requires_grad=True`，零拷贝拿到的 `a` 一旦做 in-place 写（如 `a[0] = 999`、`a += 1`），就会绕过 autograd 直接改掉计算图里记录的输入数据，导致后续 `backward()` 静默算错梯度。所以 PyTorch 直接拦截，要求先 `.detach()` 切断计算图再 `.numpy()`。
+
+加上训练/推理时 tensor 经常在 GPU 上（numpy 读不到显存，必须先 `.cpu()`），实战里默认用兼容所有情况的三连写法：
 
 ```python
-arr = t.detach().cpu().numpy()     # 三连：脱离计算图 → 搬回 CPU → 转 numpy
+# 三连：脱离计算图 → 搬回 CPU → 转 numpy
+arr = t.detach().cpu().numpy()
 ```
 
 ### 自检
@@ -92,55 +145,67 @@ arr = t.detach().cpu().numpy()     # 三连：脱离计算图 → 搬回 CPU →
 
 ---
 
-## 2. autograd：把 ch02 的链式法则交给框架
+## 2. autograd：链式法则交给框架
 
-ch02 我们手算了 $\partial L / \partial w_1 = \partial L / \partial h \cdot x$。PyTorch 把这事**自动化**：你写 forward，它在背后画一张计算图，`loss.backward()` 沿图反向把梯度填到每个 leaf tensor 的 `.grad` 上。
+ch02 我们手算了 $\partial L / \partial w_1 = \partial L / \partial h \cdot x$。PyTorch 把这事**自动化**：你写 forward，它在背后画一张**计算图**（DAG），`loss.backward()` 沿图反向把梯度算出来。
+
+计算图里的张量分两类，搞清楚区别 autograd 才不会踩坑：
+
+- **leaf tensor**（叶子）：用户直接创建的张量，如 `w = torch.tensor(0.5, requires_grad=True)`。**模型权重都是 leaf**。反向后梯度填到 `w.grad`，优化器读这里更新参数。
+- **中间张量**（非 leaf）：由运算产生的张量，如 `y = w * x`、`loss = (y-t)**2`。它们是反向链式法则的过路节点，PyTorch 把它们钩在图上、**需等 backward 用完才释放**，默认不保留 `.grad`。
+
+一句话：leaf 是你关心的 "参数端点"，中间张量是计算的 "过路节点"。
 
 ### 2.1 最小可运行例子
 
 ```python
-w = torch.tensor(0.5, requires_grad=True)        # 标记"要算梯度"
-x = torch.tensor(2.0)                            # 普通 tensor，不参与 autograd
+w = torch.tensor(0.5, requires_grad=True)        # leaf，标记"要算梯度"
+x = torch.tensor(2.0)                            # leaf，但 requires_grad=False，不参与 autograd
 y_true = torch.tensor(3.0)
 
-y = w * x                                         # forward：建图节点 1，y = 0.5·2 = 1
-loss = (y - y_true) ** 2                          # forward：建图节点 2，loss = (1-3)² = 4
+y = w * x                                         # 中间张量，y = 0.5·2 = 1
+loss = (y - y_true) ** 2                          # 中间张量，loss = (1-3)² = 4
 
 loss.backward()                                   # 沿图反向，填 w.grad
 print(w.grad)                                     # tensor(-8.) ← dL/dw = 2(y-y_true)·x = 2·(1-3)·2
 ```
 
-> 注：ch02 写的是 $(y-t)^2/2$，那个 $1/2$ 是为了**手推梯度时**抵消平方求导出来的 2，让结果干净（$\partial L/\partial y = y-t$）。ch03 起交给 autograd 自动求导，多不多那个系数都一样能反传，去掉反而让 loss 数值（4）和梯度链路（$-4 \to -8$）更直观，故本章不再带 $1/2$。
+**对照 ch02**：
 
-**对照 ch02**：你不再手写 `dw = (y-t) * x * 2`，PyTorch 自动算出来。代价是它要在 forward 时**保留中间张量**做反向用—— **所以训练比纯前向（推理）显存占用大几倍**。
+- 去掉了 ch02 方便直观手算求导的 MSE 系数 $1/2$，现在起交给 autograd 自动求导
+- 你不再手写 `dw = (y-t) * x * 2`，PyTorch 自动算出来。代价是只要 `requires_grad=True` 链路上的运算，PyTorch 就要在 forward 时把每个算子的输入张量**钩在计算图上**等 backward 用——**所以训练比纯前向（推理）显存占用大几倍**。
 
-### 2.2 三个最易踩的坑
+### 2.2 三个需牢记的点
 
-**坑 1：梯度会累加**
+**梯度会累加**
 
 ```python
-loss.backward()                # w.grad 被填入梯度值
-loss2.backward()               # w.grad += 新梯度，**不是覆盖**
+loss1.backward()
+print(w.grad)                  # tensor(-8.)
+loss2.backward()               # 不是覆盖，而是 w.grad += 新梯度
+print(w.grad)                  # tensor(-16.)（假设新梯度也是 -8）
 ```
 
-PyTorch 设计成累加是为了支持 grad accumulation（小显存模拟大 batch）。代价是**普通训练每步必须 `optimizer.zero_grad()` 清零**，否则梯度爆炸。
+所以普通训练每步必须 `optimizer.zero_grad()` 清零，否则梯度越积越大、loss 直接飞掉。
 
-**坑 2：只能对 leaf tensor 拿 `.grad`**
+> 为啥设计成累加而不是覆盖？为了支持 **grad accumulation**：显存装不下大 batch 时，把一个大 batch 拆成 N 个小 batch，每个小 batch `backward()` 后**不清零**，攒够 N 步再 `step()`，等价于用大 batch 训练。这是大模型训练的常用技巧，ch04 会用到。
 
-> **leaf tensor**（叶子张量）：直接 `torch.tensor(...)` 创建的、不是由其他 tensor 运算产生的 tensor。模型权重都是 leaf；前向中间结果不是。
+**只能对 leaf tensor 拿 `.grad`**
 
 ```python
 w = torch.tensor(0.5, requires_grad=True)        # leaf
-y = w * 2                                         # 非 leaf（由运算产生）
+y = w * 2                                         # 中间张量
 loss = y ** 2
 loss.backward()
 print(w.grad)                                     # ✓ 有值
 print(y.grad)                                     # ✗ None + warning
 ```
 
-中间结果想拿梯度要 `y.retain_grad()`。但 99% 场景你只关心权重梯度，不需要。
+中间结果想拿梯度要 `y.retain_grad()`。但 99% 场景你只关心权重梯度（leaf tensor 梯度），不需要。
 
-**坑 3：推理时关 autograd**
+**推理时关 autograd**
+
+训练时需 forward 和 backward，但推理时权重已固定，只需 forward 即可。
 
 ```python
 with torch.no_grad():                            # 上下文内不建图，省显存 + 提速
@@ -165,7 +230,7 @@ with torch.no_grad():                            # 上下文内不建图，省�
 
 ---
 
-## 3. nn.Module：参数管理 + forward 模板
+## 3. nn.Module：模块化封装
 
 ch02 我们用一个 dict 装 `W1/b1/W2/b2`。PyTorch 把这件事标准化成 `nn.Module`：
 
@@ -187,20 +252,9 @@ model = MLP(784, 128, 10).to(device)
 logits = model(x)                                # 直接调 model() 等价于 model.forward(x)
 ```
 
-### 3.1 nn.Module 替你做了什么
+### 3.1 关于 weight.shape
 
-1. **参数自动注册**：所有 `nn.Linear` / `nn.Conv2d` 之类的 submodule，它们的 `weight` / `bias` 自动出现在 `model.parameters()` 里
-2. **`.to(device)` 一键搬全家**：所有子参数和 buffer 都跟着搬
-3. **`train() / eval()` 切模式**：影响 Dropout、BN（BtachNorm，批归一化） 等 "训推不一致" 算子（详见 ch04）
-4. **`state_dict()` 标准持久化**：保存/加载权重的 lingua franca
-
-> **关于 `weight.shape` 是 `(out, in)` 而不是 `(in, out)`**：
->
-> ch02 §1.3 把 Linear 层概念上等价于 "右乘 $(in, out)$ 权重矩阵"——输入 $(N, in)$ × 权重 $(in, out)$ → 输出 $(N, out)$。
->
-> 但 PyTorch 实际把权重**存为 $(out, in)$**，前向算的是 $y = x W^\top + b$。两种写法乘出来结果一样，存储约定选 $(out, in)$ 是为了行优先访存友好。
->
-> 所以下面 `print(linear.weight.shape)` 看到 `(128, 784)`、`(10, 128)` 不要慌——和概念形状互为转置。
+对于上方的示例 MLP，我们如果执行下方的调试代码，会看到如注释的 log：
 
 ```python
 for name, p in model.named_parameters():
@@ -211,7 +265,21 @@ for name, p in model.named_parameters():
 # fc2.bias   torch.Size([10]) True
 ```
 
-### 3.2 Sequential：堆叠的语法糖
+观察到：`weight.shape` 是 `(out, in)` 而不是 `(in, out)`**，为什么呢？
+
+ch02 §1.3 把 Linear 层概念上等价于 "右乘 $(in, out)$ 权重矩阵"——输入 $(N, in)$ × 权重 $(in, out)$ → 输出 $(N, out)$。
+
+但 PyTorch 实际把权重**存为 $(out, in)$**，前向算的是 $y = x W^\top + b$。两种写法乘出来结果一样，存储约定选 $(out, in)$ 是为了**行优先**访存友好。
+
+### 3.2 nn.Module 替你做了什么
+
+1. **参数自动注册**：所有 `nn.Linear` / `nn.Conv2d` 之类的 submodule，它们的 `weight` / `bias` 自动出现在 `model.parameters()` 里
+2. **`.to(device)` 一键搬全家**：所有子参数和 buffer 都跟着搬
+3. **`train() / eval()` 切模式**：影响 Dropout、BN（BtachNorm，批归一化） 等 "训推不一致" 算子（详见 ch04）
+4. **`state_dict()` 标准持久化**：保存/加载权重
+
+
+### 3.3 Sequential：堆叠的语法糖
 
 简单串联结构可以省掉自定义类：
 
@@ -223,11 +291,18 @@ model = nn.Sequential(
 )
 ```
 
-**何时用 Sequential，何时写自定义类**：分支 / 残差 / 多输入 → 自定义类；纯线性串联 → Sequential。LLM 里 Transformer block 一定是自定义类（残差 + 注意力 + FFN 多路）。
+**何时用 Sequential，何时写自定义类**：
+
+- 分支 / 残差 / 多输入 → 自定义类
+- 纯线性串联 → Sequential
+
+LLM 里 Transformer block 一定是自定义类（残差 + 注意力 + FFN 多路）。
 
 > **顺带一提**：loss 函数也是 `nn.Module`，常用的有 `nn.CrossEntropyLoss`（分类）、`nn.MSELoss`（回归），用法 `loss = loss_fn(pred, target)`。§5 训练循环就用它。
 
-### 3.3 保存与加载
+### 3.4 保存与加载
+
+模型训完总要存盘 —— 下次接着用、发布给别人、部署到生产，中途也可能要定期存盘。PyTorch 的标准做法是**只存权重**（一个 `name → tensor` 的字典，叫 **state_dict**），不存代码：
 
 ```python
 torch.save(model.state_dict(), "ckpt.pt")        # 只存权重 dict（推荐）
@@ -236,13 +311,24 @@ model2 = MLP(784, 128, 10)                       # 重建结构
 model2.load_state_dict(torch.load("ckpt.pt"))    # 灌权重
 ```
 
-**禁止** `torch.save(model, ...)`：会序列化整个类定义，跨版本/跨机器加载常出错。
+**禁止** `torch.save(model, ...)`：会用 pickle 把"类的导入路径"一起记下，加载时必须能 import 到同名同路径的类，模块改名或重构就加载失败，还和 PyTorch 版本耦合。
 
-**state_dict 的三种用法**（本章只演示第 1 种，后两种留到 M5 部署章）：
+**两种典型场景**（本章只演示第 1 种，第 2 种续训留到训练章）：
 
-- 训练中途存档：连 `optimizer.state_dict()` 一起存，崩了能续训
-- 最终权重发布：只存 `model.state_dict()`，对应 HuggingFace 上的 `pytorch_model.bin` / `model.safetensors`
-- 跨环境部署：再转 ONNX / TorchScript / GGUF，目标是脱离 PyTorch 运行
+1. **最终权重发布**：只存 `model.state_dict()`，对应 HuggingFace 上的 `model.safetensors`（主流，安全）或老格式 `pytorch_model.bin`（pickle，逐步淘汰）。
+2. **训练断点续训**：长训练任务定期存档是常态。光存 model 不够，Adam 的 momentum / variance、step 计数、scheduler 进度都得一起存，否则恢复后 lr / 更新方向都乱：
+
+   ```python
+   torch.save({
+       "epoch": epoch,
+       "step": global_step,
+       "model": model.state_dict(),
+       "optimizer": optimizer.state_dict(),
+       "scheduler": scheduler.state_dict(),
+   }, "ckpt.pt")
+   ```
+
+> **关于跨环境部署**（ONNX / TorchScript / GGUF）：那是脱离 PyTorch 运行的"格式转换"，不是 state_dict 的另一种用法，目标完全不同，留到 M5 部署章再讲。
 
 > 配套演示见 `Playground/ch03-pytorch/03_nn_module.py` 末尾：训完模型 → 存权重 → 重建空壳 → 加载 → 断言输出一致。
 
@@ -262,7 +348,7 @@ model2.load_state_dict(torch.load("ckpt.pt"))    # 灌权重
 
 ---
 
-## 4. Dataset 与 DataLoader：把数据喂进模型
+## 4. Dataset 与 DataLoader
 
 ### 4.1 为什么需要 batching
 
@@ -305,7 +391,7 @@ for batch_x, batch_y in loader:                  # 每次拿 (64, ...) 的 batch
     ...
 ```
 
-### 4.3 Windows 的 `num_workers` 坑
+### 4.3 Win 的 `num_workers` 坑
 
 Win 上 `num_workers > 0` + 没用 `if __name__ == "__main__":` 守卫 → multiprocessing 会**无限递归 fork**。两条规避：
 
