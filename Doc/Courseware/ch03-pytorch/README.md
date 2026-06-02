@@ -1,6 +1,6 @@
 # ch03 · PyTorch 入门
 
-> ch02 用 NumPy 把"前向 + 反向 + 优化"硬撕了一遍。本章把同一件事**搬到 PyTorch**，看 framework 替我们省了什么、带来了什么新约定。
+> ch02 用 NumPy 把 "前向 + 反向 + 优化" 硬撕了一遍，理解了 MLP。本章把同一件事**搬到 PyTorch**把 MLP 实现一遍，看 framework 替我们省了什么、带来了什么新约定。
 > 
 > 主线：Tensor → autograd → nn.Module → DataLoader → 训练循环 → MNIST（Modified National Institute of Standards and Technology database，手写数字数据集，深度学习入门标配）综合实战。
 

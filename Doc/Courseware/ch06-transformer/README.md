@@ -3,6 +3,8 @@
 > ch05 把 "心脏"（attention）拆开看了。本章把整副 "骨架" 装起来：位置编码 + 残差 + LayerNorm + FFN + lm_head，凑出一个能跑能训的 Decoder-only Transformer。
 > 
 > **这是 echo-mini 的原型**——本章 `MiniGPT` 类放大 10 倍换上 BPE（Byte-Pair Encoding，字节对编码）分词器，就是 M4 要做的事。
+>
+> Reading 部分有《图解 Transformer》可扩展阅读。
 
 ## 学习目标
 
@@ -20,9 +22,11 @@
 
 ## 1. 全景图
 
-原始 Transformer 有 Encoder 和 Decoder 两部分。名字来自信息论隐喻：**Encoder 把输入"编码"成紧凑的内部表示（理解），Decoder 从表示"解码"出目标序列（生成）**。具体说：Encoder 双向（每个 token 能看左右所有 token）看完整个输入生成上下文向量，Decoder 拿着这些向量单向（每个 token 只能看它左边已有的 token）逐 token 生成输出。
+原始 Transformer 有 Encoder 和 Decoder 两部分。名字来自信息论隐喻：**Encoder 把输入"编码"成紧凑的内部表示（理解），Decoder 从表示"解码"出目标序列（生成）**。
 
-现代 LLM 几乎全是 **Decoder-only**——只保留 Decoder（自回归生成）堆叠，把"理解"和"生成"合并到同一个续写过程中完成。原因：
+具体来说：Encoder 双向（每个 token 能看左右所有 token）看完整个输入生成上下文向量，Decoder 拿着这些向量单向（每个 token 只能看它左边已有的 token）逐 token 生成输出。
+
+现代 LLM 几乎全是 **Decoder-only**，只保留 Decoder（自回归生成）堆叠，把 "理解" 和 "生成" 合并到同一个续写过程中完成。原因：
 
 1. **范式统一**：把输入和输出都当作 token 序列的续写，问答/翻译/写代码用同一种 next-token-prediction（给定前文预测下一个 token）解决，不需要区分"编码端"和"解码端"。
 2. **架构简单**：砍掉 Encoder 和 cross-attention（Decoder 用来读取 Encoder 输出的注意力），只保留 causal self-attention + FFN，训练目标一个 loss 打天下。

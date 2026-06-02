@@ -62,7 +62,7 @@ b = [4, 5, 6]
 a · b = 1·4 + 2·5 + 3·6 = 4 + 10 + 18 = 32
 ```
 
-**几何视角**：$\|a\|\|b\|\cos\theta$，衡量"方向有多像"。
+**几何视角**：$\|a\|\|b\|\cos\theta$，衡量 "方向有多像"。
 
 - 完全同向 $\theta = 0$ → $\cos\theta = 1$ → 点积最大
 - 垂直 $\theta = 90°$ → $\cos\theta = 0$ → 点积为 0
@@ -329,7 +329,7 @@ MLP 与**神经网络（Neural Network, NN）**的关系：神经网络是一个
 
 Transformer 内部每个 block 都嵌了一个 MLP 子层（FFN，Feed-Forward Network，见后续章节），他们的关系是：`LLM -> Transformer -> MLP 部件`
 
-所以接下来（包括 ch03 ch04）还会对 MLP 进行扩展和补充，把 MLP 吃透，后面学 Transformer 时才不会在最基础、最核心的地方卡住。
+ch03 会用 PyTorch 把 MLP 实现一遍，ch04 则以 MLP 为最简载体，讲解适用于所有神经网络的通用训练技术（初始化、优化器、学习率调度、归一化等）。把 MLP 这个最朴素的结构吃透，后面学 Transformer 时才不会在最基础、最核心的地方卡住。
 
 ### 2.6 数值梯度：调试的救命稻草
 
