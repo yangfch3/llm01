@@ -104,7 +104,7 @@ int4:  16 个离散级别（-8 到 7）
 
 > 另有一类做法是直接以指定精度（如 fp8）训练（如 DeepSeek-V3 低精 fp8 版），权重天生低精度，不经过 PTQ 步骤。此类属前沿大厂方案，本课程不涉及。
 
-### 2.2 GGUF + llama.cpp：跨平台事实标准
+### 2.2 GGUF + llama.cpp
 
 **llama.cpp**（ggerganov 开源）是用 C++ 写的纯 CPU/GPU 通用推理引擎。**GGUF** 是它的模型存储格式，特点：
 

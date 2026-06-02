@@ -151,7 +151,7 @@ th e
 普通 BPE 以**字符**为最小单元。处理英文时字符就是 ASCII 码（256 个），干净；处理中文时每个汉字是一个独立"字符"（基础集 ~6000 常用 + 2 万生僻），起步词表就几万，浪费严重。
 更糟的是遇到训练时没见过的 emoji / 古文字 → 整个落入 `<unk>` → OOV。
 
-### 4.2 Byte-level BPE（GPT-2 起的标配）
+### 4.2 Byte-level BPE
 
 > 关键 trick：**最小单元不是字符，是 byte**。
 
@@ -172,7 +172,9 @@ UTF-8 编码下任意字符都能拆成 1–4 个 byte，byte 总共只有 256 �
 
 代价：高频中文字符会被拆成 ≈3 个 byte，序列略长 —— 但 BPE 训练里这些 byte 组合会迅速被合并成单 token，最终序列长度可接受。
 
-### 4.3 训中文 / 中英混合分词器的实务
+BPE 已成为 GPT-2 起的标配。
+
+### 4.3 中英混合分词的最佳实践
 
 - **必用 byte-level BPE**：HF（HuggingFace，开源大模型社区与工具集）`tokenizers` 里 `ByteLevelBPETokenizer` 或 `BPE(..., byte_fallback=True)`
 - 词表 ~16k–32k 适合 echo-mini 这个量级；大模型常 32k–128k

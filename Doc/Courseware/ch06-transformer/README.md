@@ -227,7 +227,7 @@ F.gelu(x)              # 直接用，PyTorch 原生
 
 ---
 
-## 6. Embedding 与 lm_head 共享（weight tying）
+## 6. Emb 与 lm_head 共享 weight
 
 lm_head（Language Model Head）是模型最后一层 `Linear(d → V)`，负责把每个位置的 d 维隐状态映射到词表大小 V 维的 logits，再经 softmax 得到下一个 token 的概率分布。
 
