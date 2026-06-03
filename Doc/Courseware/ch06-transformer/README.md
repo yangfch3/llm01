@@ -41,8 +41,8 @@ input_ids: (B, n)      ← B 条长度为 n 的 token id 序列（B = batch size
 x: (B, n, d)
    ↓
 ┌─────────────── Block × N ───────────────┐
-│  x → LN → MHA(causal) → +x  (残差 1)   │
-│  x → LN → FFN         → +x  (残差 2)   │
+│  x → LN → MHA(causal) → +x  (残差 1)    │
+│  x → LN → FFN         → +x  (残差 2)    │
 └─────────────────────────────────────────┘
    ↓
 final LN
@@ -150,7 +150,7 @@ Post-LN（LN 在主干上，主干被 LN 打断）：
 
 Pre-LN（LN 在分支里，主干是纯加法）：
 主干：x ─────────── +x ─────────── +x
-                  ↑               ↑
+                    ↑               ↑
 分支： x → LN → MHA ┘  x → LN → FFN ┘
 ```
 

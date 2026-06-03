@@ -129,8 +129,8 @@ int4:  16 个离散级别（-8 到 7）
 ```
         llama.cpp (C++ 引擎，跑 GGUF)
                 │
-   ┌─────────────┼────────────┐
-   ▼            ▼           ▼
+   ┌────────────┼────────────┐
+   ▼            ▼            ▼
 llama-cpp     Ollama      LM Studio
 -python      (CLI/服务)    (桌面 GUI)
 (Python 绑定)
