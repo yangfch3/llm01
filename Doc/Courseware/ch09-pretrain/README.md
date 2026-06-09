@@ -152,7 +152,37 @@ chunks: flat[0:1024], flat[1024:2048], flat[2048:3072], ...   # 此例 block_siz
 
 ## 3. 省显存三件套
 
-各数值数据类型及其特征：
+### 3.1 预训练显存的来源
+
+省显存之前先搞清楚：显存到底被谁吃了。看清各块占多少、用什么精度存，才好看出后面每个优化各省了什么。
+
+#### 四个占用主体
+
+预训练时 GPU 显存被四件事吃掉：
+
+| 主体 | 是什么 | 占用规模 |
+|------|--------|---------|
+| **权重 weights** | 模型参数本身，总数记作 N | ∝ N |
+| **梯度 gradients** | 每个权重对应的 ∂Loss/∂W，形状与权重相同 | ∝ N |
+| **优化器状态 optimizer** | Adam 为每个参数额外存的动量 | ∝ N（最大头） |
+| **激活 activations** | 帮助反向用的中间张量 | ∝ B × L |
+
+前三者与参数量 N 成正比，是**静态**的（模型一定就定了）；激活随 batch B × 序列长度 L 增长，是**动态**的，大 batch / 长序列下往往是最大头。
+
+逐个拆解：
+
+- **权重**：模型参数本身（W^Q/W^K/W^V/W^O、FFN、embedding、LN 等）
+- **梯度**：loss 对每个参数的偏导 ∂Loss/∂W，告诉优化器 "往哪调、调多少"。每个权重一份，所以与权重等大。
+- **优化器状态**：Adam 额外为每个参数维护一阶动量 m（梯度滑动平均）+ 二阶动量 v（梯度平方滑动平均），用来自适应调步长。两个状态 → **2 倍权重大小**，是静态项里最大的一块。
+- **激活**：前向中间结果（Q/K/V、attention score、FFN 中间层等）、反向要用的张量。它不与 N 直接挂钩，而是随 batch × 序列长度 × 层数 膨胀，这也是为什么三件套里有两个（AMP、checkpointing）专门治它。
+
+> 回忆 ch04：梯度、动量这些概念在优化器一章讲过，这里只关心它们各占多少显存。
+>
+> 回忆 ch06：FNN 中间层做升维操作，对每个位置独立做非线性变换，把汇聚来的信息进一步提炼、组合成更抽象的特征。需要记录，反向时要用。
+
+#### 精度的差异
+
+显存 = 张量个数 × 每个数的字节数。前面只数了"个数"（N、B×L），字节数取决于用什么数值类型：
 
 | 格式 | 全称 | 字节/数 | 精度 | 典型用途 |
 |------|------|---------|------|---------|
@@ -163,9 +193,11 @@ chunks: flat[0:1024], flat[1024:2048], flat[2048:3072], ...   # 此例 block_siz
 | int8 | 8 位整数 | 1 | 256 个离散值 | 推理量化（weights-only 或 weight+activation） |
 | int4 | 4 位整数 | 0.5 | 16 个离散值 | 极限推理量化（GPTQ/AWQ 等） |
 
-PyTorch 默认所有参数、梯度、优化器状态都用 fp32（单精度浮点，每个数占 4 字节）。先算这个 "最朴素" 的基线占用，才好看出后面每个优化各省了什么。
+关键对比：**fp32→fp16/bf16 字节砍半**，显存直接减半；bf16 与 fp16 同样 2 字节，但 bf16 指数位与 fp32 一样宽，几乎不溢出（3.2 细说）。AMP 省显存的本质，就是把一部分张量从 4 字节换成 2 字节。
 
-设：模型 N 参数，batch B，序列长度 L，激活 A。**纯 fp32 基线**的显存占用大致：
+#### 纯 fp32 基线怎么算
+
+PyTorch 默认权重、梯度、优化器状态全用 fp32（每数 4 字节）。设模型 N 参数、batch B、序列长度 L，最朴素基线：
 
 ```
 weights:       N * 4B   (fp32)
@@ -173,24 +205,22 @@ gradients:     N * 4B   (fp32)
 optimizer:     N * 8B   (Adam: m, v 两个状态 × 4B)
 activations:   B * L * d * num_layers * (常数)
 ————————————————————————————————————————
-                ~16N + activations
+                ~12N + x (activations)
 ```
 
-> - **N**: W^Q/W^K/W^V/W^O、FFN、embedding、LN 等，N 即它们的总个数
-> - **weights**：权重，也就是 N
-> - **gradients**：每个 weight 对应的 ∂Loss/∂W，形状相同
-> - **optimizer**：Adam 额外为每个参数存一阶动量 m + 二阶动量 v，共 2 倍 weight 大小
-> - **activations**：前向中间结果（Q/K/V、attention score、FFN 中间层等），反向算梯度时需要复用
+代入 7B：静态项 12 × 7B + x = 84GB + x，光优化器状态就 56GB，x 更是一个巨大的可变量。
 
-7B 模型光优化器状态就 56GB。一般消费级显卡（如 RTX 3060 12GB）别想直接训。三件套各治一块：
+那有没有什么手段能够将训练所需的显存降下来呢？
 
-| 手段 | 主要省什么 |
-|------|-----------|
-| AMP（Automatic Mixed Precision） | 主要用于 activations 减半 + 矩阵乘吞吐翻倍 |
-| gradient accumulation（梯度累积） | 等效大 batch，不多占显存 |
-| Gradient checkpointing | 用时间换 activations 显存 |
+#### 三件套各治一块
 
-### 3.1 自动混合精度（AMP）
+| 手段 | 主要省什么 | 治哪块 |
+|------|-----------|--------|
+| AMP（Automatic Mixed Precision） | 张量换 2 字节 → activations 减半 + 矩阵乘吞吐翻倍 | 激活 + 速度 |
+| gradient accumulation（梯度累积） | 等效大 batch，不多占显存 | 激活（峰值） |
+| Gradient checkpointing | 用时间换 activations 显存 | 激活 |
+
+### 3.2 自动混合精度（AMP）
 
 用 fp16/bf16 算前向反向，关键状态留 fp32。weights+grads 显存减半，但需保留一份 fp32 master weights，换取矩阵乘吞吐 ~2x。
 
@@ -245,7 +275,7 @@ for x, y in loader:
       scaler.update()
   ```
 
-### 3.2 梯度累积（gradient accumulation）
+### 3.3 梯度累积（gradient accumulation）
 
 显存装不下大 batch？拆成多个 micro-batch 累加梯度，再一次更新。化整为零（是否有面试被问到的 "2GB 内存处理 10GB 文件" 即视感），等价大 batch。
 
@@ -267,7 +297,7 @@ for i, (x, y) in enumerate(loader):
 
 > 若需与 fp16 + scaler（见上方的 "如果你只能用 fp16"）的 AMP 结合：把 `loss.backward()` 换成 `scaler.scale(loss).backward()`，更新时 `scaler.step(optimizer); scaler.update()`，scaler 与累积过程兼容。
 
-### 3.3 Gradient checkpointing
+### 3.4 Gradient checkpointing
 
 训练时反向传播算梯度时需要前向的中间结果（activations）。默认行为是前向时**全部存着** —— 快但费显存。
 
@@ -293,7 +323,7 @@ model.gradient_checkpointing_enable()
 
 > 对应本项目：echo-mini 从零建模，用 `ckpt.checkpoint()` 原始写法；echo 微调 HF 开源底座，用 `gradient_checkpointing_enable()`。
 
-### 3.4 三件套联合战力（直觉数字）
+### 3.5 三件套联合战力（直觉数字）
 
 | 配置 | 显存 | 速度 |
 |---|---|---|
