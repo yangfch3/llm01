@@ -2,37 +2,6 @@
 
 原文：[The Illustrated Word2vec](https://jalammar.github.io/illustrated-word2vec/)
 
-<!-- TOC -->
-<details open>
-<summary><strong>目录</strong></summary>
-<ul>
-  <li><a href="#性格嵌入你是个什么样的人">性格嵌入：你是个什么样的人？</a></li>
-  <li><a href="#词嵌入">词嵌入</a>
-    <ul>
-      <li><a href="#类比">类比</a></li>
-    </ul>
-  </li>
-  <li><a href="#语言建模">语言建模</a></li>
-  <li><a href="#语言模型训练">语言模型训练</a>
-    <ul>
-      <li><a href="#同时看两个方向">同时看两个方向</a></li>
-    </ul>
-  </li>
-  <li><a href="#skipgram">Skipgram</a>
-    <ul>
-      <li><a href="#重新审视训练过程">重新审视训练过程</a></li>
-    </ul>
-  </li>
-  <li><a href="#负采样">负采样</a></li>
-  <li><a href="#带负采样的-skipgramsgns">带负采样的 Skipgram（SGNS）</a></li>
-  <li><a href="#word2vec-训练过程">Word2vec 训练过程</a></li>
-  <li><a href="#窗口大小与负样本数量">窗口大小与负样本数量</a></li>
-  <li><a href="#结论">结论</a></li>
-  <li><a href="#参考资料与延伸阅读">参考资料与延伸阅读</a></li>
-</ul>
-</details>
-<!-- /TOC -->
-
 <div class="img-div-any-width" markdown="0">
   <image src="../images/word2vec/word2vec.png"/>
   <br />
