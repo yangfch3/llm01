@@ -2,6 +2,37 @@
 
 原文：[The Illustrated Word2vec](https://jalammar.github.io/illustrated-word2vec/)
 
+<!-- TOC -->
+<details open>
+<summary><strong>目录</strong></summary>
+<ul>
+  <li><a href="#性格嵌入你是个什么样的人">性格嵌入：你是个什么样的人？</a></li>
+  <li><a href="#词嵌入">词嵌入</a>
+    <ul>
+      <li><a href="#类比">类比</a></li>
+    </ul>
+  </li>
+  <li><a href="#语言建模">语言建模</a></li>
+  <li><a href="#语言模型训练">语言模型训练</a>
+    <ul>
+      <li><a href="#同时看两个方向">同时看两个方向</a></li>
+    </ul>
+  </li>
+  <li><a href="#skipgram">Skipgram</a>
+    <ul>
+      <li><a href="#重新审视训练过程">重新审视训练过程</a></li>
+    </ul>
+  </li>
+  <li><a href="#负采样">负采样</a></li>
+  <li><a href="#带负采样的-skipgramsgns">带负采样的 Skipgram（SGNS）</a></li>
+  <li><a href="#word2vec-训练过程">Word2vec 训练过程</a></li>
+  <li><a href="#窗口大小与负样本数量">窗口大小与负样本数量</a></li>
+  <li><a href="#结论">结论</a></li>
+  <li><a href="#参考资料与延伸阅读">参考资料与延伸阅读</a></li>
+</ul>
+</details>
+<!-- /TOC -->
+
 <div class="img-div-any-width" markdown="0">
   <image src="../images/word2vec/word2vec.png"/>
   <br />
@@ -34,7 +65,7 @@ Word2vec 是一种高效创建词嵌入的方法，自 2013 年以来就一直�
 
 <!--more-->
 
-# Personality Embeddings: What are you like?
+## 性格嵌入：你是个什么样的人？
 <blockquote class='subtle'>
 “I give you the desert chameleon, whose ability to blend itself into the background tells you all you need to know about the roots of ecology and the foundations of a personal identity” ~Children of Dune
 </blockquote>
@@ -116,7 +147,7 @@ Word2vec 是一种高效创建词嵌入的方法，自 2013 年以来就一直�
 </div>
 
 
-# Word Embeddings
+## 词嵌入
 
 <blockquote class='subtle'>
 “The gift of words is the gift of deception and illusion” ~Children of Dune
@@ -177,7 +208,7 @@ Word2vec 是一种高效创建词嵌入的方法，自 2013 年以来就一直�
 4. 除了最后一个单词，其余都是表示人的单词。我加入了一个物体（water）来展示不同类别之间的差异。比如你可以看到那条蓝色的列一路向下，在 "water" 的嵌入之前就停止了。
 5. 有些地方明显地显示出 "king" 和 "queen" 彼此相似、又区别于其他所有单词。这些会不会在编码某种模糊的"皇室"概念？
 
-## Analogies
+### 类比
 
 <blockquote class='subtle'>
 "Words can carry any burden we wish. All that's required is agreement and a tradition upon which to build." ~God Emperor of Dune
@@ -201,7 +232,7 @@ Word2vec 是一种高效创建词嵌入的方法，自 2013 年以来就一直�
 
 现在我们已经看过了训练好的词嵌入，让我们进一步了解训练过程。但在我们讲到 word2vec 之前，需要先看看词嵌入在概念上的"父辈"：神经语言模型（neural language model）。
 
-# Language Modeling
+## 语言建模
 
 <blockquote class='subtle'>
   “The prophet is not diverted by illusions of past, present and future. <strong>The fixity of language determines such linear distinctions.</strong> Prophets hold a key to the lock in a language. <br /> <br />
@@ -271,7 +302,7 @@ Word2vec 是一种高效创建词嵌入的方法，自 2013 年以来就一直�
 现在让我们转向训练过程，更多地了解这个嵌入矩阵是如何形成的。
 
 
-# Language Model Training
+## 语言模型训练
 
 <blockquote class='subtle'>
 “A process cannot be understood by stopping it. Understanding must move with the flow of the process, must join it and flow with it.” ~Dune
@@ -344,7 +375,7 @@ Word2vec 是一种高效创建词嵌入的方法，自 2013 年以来就一直�
 
 实际上，模型往往是在我们滑动窗口的同时进行训练的。但我觉得在逻辑上把"数据集生成"阶段和训练阶段分开会更清晰。除了基于神经网络的语言建模方法之外，一种叫做 N-grams 的技术也曾被普遍用于训练语言模型（见：[Speech and Language Processing](http://web.stanford.edu/~jurafsky/slp3/) 第 3 章）。要了解从 N-grams 到神经模型的这种转变如何体现在真实产品上，[这里有一篇 2015 年来自 Swiftkey 的博客文章](https://blog.swiftkey.com/neural-networks-a-meaningful-leap-for-mobile-typing/)（Swiftkey 是我最喜欢的 Android 键盘），介绍了他们的神经语言模型，并将其与之前的 N-gram 模型作了比较。我喜欢这个例子，因为它向你展示了嵌入的算法性质如何能用营销话术来描述。
 
-## Look both ways
+### 同时看两个方向
 
 <blockquote class='subtle'>
 "Paradox is a pointer telling you to look beyond it. If paradoxes bother you, that betrays your deep desire for absolutes. The relativist treats a paradox merely as interesting, perhaps amusing or even, dreadful thought, educational." ~God Emperor of Dune
@@ -368,7 +399,7 @@ Word2vec 是一种高效创建词嵌入的方法，自 2013 年以来就一直�
 这彻底改变了应该填进空白处的内容。现在 ```red``` 这个词最有可能填入空白。我们从中学到的是：一个特定单词前面和后面的单词都携带着信息价值。事实证明，同时考虑两个方向（我们正在猜测的单词左侧和右侧的单词）能带来更好的词嵌入。让我们看看如何调整训练模型的方式来兼顾这一点。
 
 
-# Skipgram
+## Skipgram
 
 <blockquote class='subtle'>
   “Intelligence takes chance with limited data in an arena where mistakes are not only possible but also necessary.” ~Chapterhouse: Dune
@@ -459,7 +490,7 @@ Word2vec 是一种高效创建词嵌入的方法，自 2013 年以来就一直�
 </div>
 
 
-## Revisiting the training process
+### 重新审视训练过程
 
 <blockquote class="subtle">
   "Muad'Dib learned rapidly because his first training was in how to learn. And the first lesson of all was the basic trust that he could learn. It's shocking to find how many people do not believe they can learn, and how many more believe learning to be difficult." ~Dune
@@ -524,7 +555,7 @@ Word2vec 是一种高效创建词嵌入的方法，自 2013 年以来就一直�
 
 虽然这加深了我们对这个过程的理解，但这仍然不是 word2vec 实际的训练方式。我们还缺了几个关键的思想。
 
-# Negative Sampling
+## 负采样
 
 <blockquote class='subtle'>
 “To attempt an understanding of Muad'Dib without understanding his mortal enemies, the Harkonnens, is to attempt seeing Truth without knowing Falsehood. It is the attempt to see the Light without knowing Darkness. It cannot be.” ~Dune
@@ -606,7 +637,7 @@ Word2vec 是一种高效创建词嵌入的方法，自 2013 年以来就一直�
 
 这个思想的灵感来自 [Noise-contrastive estimation](http://proceedings.mlr.press/v9/gutmann10a/gutmann10a.pdf)（噪声对比估计）[pdf]。我们把真实信号（相邻单词的正样本）与噪声（随机选取的、不相邻的单词）作对比。这带来了计算效率和统计效率之间一种很好的权衡。
 
-# Skipgram with Negative Sampling (SGNS)
+## 带负采样的 Skipgram（SGNS）
 
 我们现在已经讲解了 word2vec 中的两个核心思想：作为一对，它们合称为带负采样的 skipgram（skipgram with negative sampling）。
 
@@ -617,7 +648,7 @@ Word2vec 是一种高效创建词嵌入的方法，自 2013 年以来就一直�
 
 
 
-# Word2vec Training Process
+## Word2vec 训练过程
 
 <blockquote class="subtle">
 "The machine cannot anticipate every problem of importance to humans. It is the difference between serial bits and an unbroken continuum. We have the one; machines are confined to the other." ~God Emperor of Dune
@@ -694,7 +725,7 @@ Word2vec 是一种高效创建词嵌入的方法，自 2013 年以来就一直�
 
 随着我们把整个数据集循环若干遍，这些嵌入会持续得到改善。然后我们就可以停止训练过程，丢弃 <code class="plain_code mdc-text-purple-500">Context</code> 矩阵，把 <code class="plain_code mdc-text-green-500">Embeddings</code> 矩阵用作我们为下一个任务准备的预训练嵌入。
 
-# Window Size and Number of Negative Samples
+## 窗口大小与负样本数量
 word2vec 训练过程中有两个关键的超参数，分别是窗口大小（window size）和负样本数量（number of negative samples）。
 
 <div class="img-div" markdown="0">
@@ -712,7 +743,7 @@ word2vec 训练过程中有两个关键的超参数，分别是窗口大小（wi
 
 负样本的数量是训练过程的另一个因素。原始论文给出的建议是 5-20 是一个不错的负样本数量。它还指出，当你有足够大的数据集时，2-5 似乎就够了。Gensim 的默认值是 5 个负样本。
 
-# Conclusion
+## 结论
 
 <blockquote class="subtle">
 “If it falls outside your yardsticks, then you are engaged with intelligence, not with automation”  ~God Emperor of Dune
@@ -720,7 +751,7 @@ word2vec 训练过程中有两个关键的超参数，分别是窗口大小（wi
 
 我希望你现在对词嵌入和 word2vec 算法有了一种感觉。我也希望，现在当你读到一篇提及"skip gram with negative sampling"（SGNS）的论文时（就像本文开头那些推荐系统论文），你对这些概念会有更好的理解。一如既往，欢迎任何反馈 <a href="https://twitter.com/JayAlammar">@JayAlammar</a>。
 
-# References & Further Readings
+## 参考资料与延伸阅读
 * [Distributed Representations of Words and Phrases and their Compositionality](https://papers.nips.cc/paper/5021-distributed-representations-of-words-and-phrases-and-their-compositionality.pdf) [pdf]
 * [Efficient Estimation of Word Representations in Vector Space](https://arxiv.org/pdf/1301.3781.pdf) [pdf]
 * [A Neural Probabilistic Language Model](http://www.jmlr.org/papers/volume3/bengio03a/bengio03a.pdf) [pdf]
