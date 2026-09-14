@@ -307,7 +307,7 @@ class LoRALinear(nn.Module):
         self.original = original
         self.original.weight.requires_grad_(False)  # 冻结 W
         out_dim, in_dim = original.weight.shape
-        self.A = nn.Parameter(torch.randn(r, in_dim) * 0.01)
+        self.A = nn.Parameter(torch.randn(r, in_dim) * 0.01)  # 非零小尺度初始化，控制 Ax 的初始量级
         self.B = nn.Parameter(torch.zeros(out_dim, r))
         self.scale = alpha / r
 
@@ -321,6 +321,7 @@ class LoRALinear(nn.Module):
 
 - 微调过程中权重的 "变化量" `ΔW` 在低秩子空间（8~64）里就够表达 —— 大模型参数高度冗余
 - B 初始化为 0 → 训练开始时旁路输出 = 0 → 等价于完全用原模型
+- A 用非零随机小尺度初始化：`torch.randn` 采样标准正态分布，乘 `0.01` 后均值仍为 0、标准差变为 `0.01`、方差变为 `1e-4`，用来控制 `A` 和 `Ax` 的初始量级，进而调节 B 在早期获得的梯度，让旁路更平滑地启动。它和 B=0 都服务于稳定初始化，但作用不同：初始旁路输出严格为 0 仍由 B 全零保证；A 不能取 0，否则 `∂L/∂B` 中的 `Ax` 也为 0，B 就学不动
 - 训练只更新 B、A，待训参数量从 `out×in` 降到 `r×(in+out)`
 
 旁路中的 **`α/r` 是干嘛的**：经验上调大 r 会推大旁路输出尺度，`α/r` 缩放让你 **调 r 时不必重调 lr**。约定 α 与初始 r 一起定（如 α=16, r=8 → scale=2），后续只动 r、α 不动。这是 LoRA 论文的工程经验，不是数学必然——固定 α 后 `α/r` 充当统一的学习率缩放因子，使不同 r 下的有效更新幅度保持一致。
